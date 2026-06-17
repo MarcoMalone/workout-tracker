@@ -37,3 +37,26 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .input { background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-size: 16px; padding: 12px; width: 100%; }
 .input:focus { outline: none; border-color: var(--accent); }
 .section-title { font-size: 13px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+
+/* Log tab */
+.log-home-header { padding: 24px 0 20px; }
+.log-date { font-size: 22px; font-weight: 700; }
+.log-subtitle { color: var(--text-2); margin-top: 4px; }
+.log-start-btn { margin-bottom: 24px; }
+.template-section { margin-top: 8px; }
+.template-card { display: flex; align-items: center; justify-content: space-between; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; margin-bottom: 8px; cursor: pointer; min-height: 48px; }
+.template-card:active { opacity: 0.75; }
+.template-name { font-size: 17px; font-weight: 600; color: var(--text); }
+.template-tag { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; }
+.tag-arms { background: #2A1F4A; color: #B09FE0; }
+.tag-legs { background: #1A3030; color: #6ECFB0; }
+.tag-core { background: #3A2510; color: #F0A060; }
+
+/* Modal */
+.modal-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 24px 16px calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 80vh; overflow-y: auto; }
+.modal-title { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
+.checklist { margin-bottom: 20px; }
+.checklist-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.toggle-btn { min-width: 40px; min-height: 40px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-hi); color: var(--text-3); font-weight: 700; cursor: pointer; }
+.toggle-btn.checked { background: var(--success); color: #000; border-color: var(--success); }
+.checklist-item { flex: 1; font-size: 15px; color: var(--text-2); }
