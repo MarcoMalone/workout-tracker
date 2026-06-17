@@ -60,3 +60,34 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .toggle-btn { min-width: 40px; min-height: 40px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-hi); color: var(--text-3); font-weight: 700; cursor: pointer; }
 .toggle-btn.checked { background: var(--success); color: #000; border-color: var(--success); }
 .checklist-item { flex: 1; font-size: 15px; color: var(--text-2); }
+
+/* Active session */
+:root { --accent-dim: rgba(243,166,78,0.4); }
+.session-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 16px; }
+.session-name { font-size: 20px; font-weight: 700; }
+.session-finish-btn { min-height: 40px; }
+.exercise-card { margin-bottom: 12px; padding: 14px; }
+.ex-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.ex-name { font-size: 17px; font-weight: 600; }
+.ex-note-btn { background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px; }
+.ex-prev { font-size: 13px; color: var(--text-3); margin-bottom: 10px; }
+.set-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.set-row.drop-set { padding-left: 16px; border-left: 2px solid var(--accent-dim); }
+.set-row.set-done { opacity: 0.5; }
+.set-num { font-size: 13px; color: var(--text-3); min-width: 42px; }
+.set-input { background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-size: 17px; font-weight: 600; text-align: center; padding: 8px; width: 70px; min-height: 44px; }
+.set-input:focus { outline: none; border-color: var(--accent); }
+.w-input { width: 70px; }
+.r-input { width: 56px; }
+.set-unit, .set-sep { font-size: 13px; color: var(--text-3); }
+.set-check { min-width: 40px; min-height: 40px; border-radius: var(--r-sm); background: var(--surface-hi); border: 1px solid var(--border); color: var(--text-3); font-size: 16px; cursor: pointer; }
+.set-check.done { background: var(--success); border-color: var(--success); color: #000; }
+.ex-actions { display: flex; gap: 8px; margin-top: 10px; }
+.ex-actions .btn { flex: 1; min-height: 40px; font-size: 14px; }
+.drop-set { border-left: 2px solid var(--accent-dim); }
+.rating-row { margin: 16px 0 12px; }
+.stars { display: flex; gap: 8px; margin-top: 8px; }
+.star-btn { background: none; border: none; font-size: 28px; color: var(--text-3); cursor: pointer; padding: 4px; }
+.star-btn.filled { color: var(--accent); }
+.session-notes-input { margin-top: 12px; }
+.set-side { background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-size: 15px; padding: 8px; min-height: 44px; }
