@@ -3,6 +3,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    alias: { 'https://esm.sh/idb@8': 'idb' }
+    alias: [
+      { find: 'https://esm.sh/idb@8', replacement: 'idb' },
+      { find: /.*\/vendor\/anthropic-sdk\.js$/, replacement: '@anthropic-ai/sdk' }
+    ]
   }
 });
