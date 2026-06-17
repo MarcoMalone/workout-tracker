@@ -4,7 +4,8 @@ const PRECACHE = [
   '/ui-log.js', '/ui-history.js', '/ui-progress.js',
   '/ui-coach.js', '/ui-settings.js', '/claude-api.js',
   '/onboarding.js', '/seed-data.js', '/manifest.json',
-  '/icons/icon-192.png', '/icons/icon-512.png'
+  '/icons/icon-192.png', '/icons/icon-512.png',
+  'https://esm.sh/idb@8'
 ];
 
 self.addEventListener('install', e => {
