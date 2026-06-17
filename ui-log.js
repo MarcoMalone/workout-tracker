@@ -1,6 +1,8 @@
 import { getTemplates, getTemplate, getExercise, getLastSessionForExercise, saveSession, getSetting, addRunLog } from './db.js';
 import { switchTab } from './app.js';
 
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 export let activeSession = null;
 
 export async function renderLogTab(el) {
@@ -27,7 +29,7 @@ export async function renderLogTab(el) {
   for (const tpl of templates) {
     const btn = document.createElement('button');
     btn.className = 'template-card';
-    btn.innerHTML = `<span class="template-name">${tpl.name}</span><span class="template-tag tag-${tpl.bodyPartGroup}">${tpl.bodyPartGroup}</span>`;
+    btn.innerHTML = `<span class="template-name">${esc(tpl.name)}</span><span class="template-tag tag-${esc(tpl.bodyPartGroup)}">${esc(tpl.bodyPartGroup)}</span>`;
     btn.addEventListener('click', () => showPreChecklist(el, tpl));
     list.appendChild(btn);
   }
@@ -44,7 +46,7 @@ async function renderActiveSession(el) {
   el.innerHTML = `
     <div class="screen session-screen">
       <div class="session-header">
-        <span class="session-name">${activeSession.templateName}</span>
+        <span class="session-name">${esc(activeSession.templateName)}</span>
         <button class="btn btn-ghost session-finish-btn" id="finish-btn">Finish</button>
       </div>
       <div id="exercise-cards"></div>
@@ -69,14 +71,14 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx) {
   const prevText = prev
     ? prev.sets.map(s => s.seconds != null ? `${s.seconds}s` : `${s.weight}×${s.reps}`).join(', ')
     : 'No previous data';
-  const machineLabel = exDef.machineId ? ` (${exDef.machineId})` : '';
+  const machineLabel = exDef.machineId ? ` (${esc(exDef.machineId)})` : '';
 
   card.innerHTML = `
     <div class="ex-header">
-      <span class="ex-name">${exDef.name}${machineLabel}</span>
+      <span class="ex-name">${esc(exDef.name)}${machineLabel}</span>
       <button class="ex-note-btn" title="Add note">📝</button>
     </div>
-    <div class="ex-prev">Previous: ${prevText}</div>
+    <div class="ex-prev">Previous: ${esc(prevText)}</div>
     <div class="ex-sets" id="sets-${exIdx}"></div>
     <div class="ex-note-row hidden" id="note-${exIdx}">
       <textarea class="input ex-note-input" placeholder="Note for this exercise..." rows="2"></textarea>
@@ -167,7 +169,7 @@ async function showPreChecklist(el, template) {
     <div class="modal-sheet">
       <h2 class="modal-title">Pre-Workout Check</h2>
       <div class="checklist" id="pre-checklist"></div>
-      <button class="btn btn-primary btn-full" id="start-session-btn">Start ${template.name}</button>
+      <button class="btn btn-primary btn-full" id="start-session-btn">Start ${esc(template.name)}</button>
     </div>
   `;
   const list = overlay.querySelector('#pre-checklist');

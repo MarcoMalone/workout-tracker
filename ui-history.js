@@ -1,5 +1,7 @@
 import { getAllSessions, getRunLogs } from './db.js';
 
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 export async function renderHistoryTab(el) {
   const [sessions, runs] = await Promise.all([getAllSessions(), getRunLogs()]);
   const all = [
@@ -33,7 +35,7 @@ export async function renderHistoryTab(el) {
             ? `${item.distanceMiles} mi · ${Math.round(item.durationMinutes)} min`
             : `${totalVolume(item)} lbs total`;
           return `<div class="history-row" data-id="${item.id}" data-type="${item._type}">
-            <div><span class="history-name">${item._type === 'run' ? '🏃 Run' : item.templateName}</span></div>
+            <div><span class="history-name">${item._type === 'run' ? '🏃 Run' : esc(item.templateName)}</span></div>
             <div class="history-meta"><span class="history-date">${item.date}</span><span class="history-vol">${meta}</span></div>
           </div>`;
         }).join('');
@@ -65,17 +67,17 @@ function showDetail(el, item, type) {
     <div class="screen">
       <div class="detail-header">
         <button class="btn btn-ghost" id="back-btn">← Back</button>
-        <h2>${item.templateName}</h2>
+        <h2>${esc(item.templateName)}</h2>
         <span class="history-date">${item.date}</span>
       </div>
-      ${item.sessionNotes ? `<div class="detail-notes">${item.sessionNotes}</div>` : ''}
+      ${item.sessionNotes ? `<div class="detail-notes">${esc(item.sessionNotes)}</div>` : ''}
       ${item.exercises.map(ex => `
         <div class="card detail-exercise">
-          <p class="ex-name">${ex.exerciseName}</p>
-          ${ex.notes ? `<p class="detail-ex-note">${ex.notes}</p>` : ''}
+          <p class="ex-name">${esc(ex.exerciseName)}</p>
+          ${ex.notes ? `<p class="detail-ex-note">${esc(ex.notes)}</p>` : ''}
           ${ex.sets.map(s => `<div class="detail-set-row">
-            <span class="set-num">Set ${s.setNumber}${s.isDropSet ? ' ↓' : ''}</span>
-            <span>${s.isTimed ? `${s.seconds}s` : `${s.weight} × ${s.reps}`}${s.side ? ` (${s.side})` : ''}</span>
+            <span class="set-num">Set ${esc(s.setNumber)}${s.isDropSet ? ' ↓' : ''}</span>
+            <span>${s.isTimed ? `${esc(s.seconds)}s` : `${esc(s.weight)} × ${esc(s.reps)}`}${s.side ? ` (${esc(s.side)})` : ''}</span>
           </div>`).join('')}
         </div>
       `).join('')}
@@ -95,11 +97,11 @@ function showRunDetail(el, run) {
         <span class="history-date">${run.date}</span>
       </div>
       <div class="card detail-exercise" style="margin-top:16px">
-        <div class="detail-set-row"><span>Distance</span><span>${run.distanceMiles} mi</span></div>
+        <div class="detail-set-row"><span>Distance</span><span>${esc(run.distanceMiles)} mi</span></div>
         <div class="detail-set-row"><span>Duration</span><span>${min}:${sec}</span></div>
-        <div class="detail-set-row"><span>Pace</span><span>${run.paceMinPerMile} min/mi</span></div>
+        <div class="detail-set-row"><span>Pace</span><span>${esc(run.paceMinPerMile)} min/mi</span></div>
         <div class="detail-set-row"><span>Effort</span><span>${run.perceivedEffort}/10</span></div>
-        ${run.notes ? `<div class="detail-set-row"><span>Notes</span><span>${run.notes}</span></div>` : ''}
+        ${run.notes ? `<div class="detail-set-row"><span>Notes</span><span>${esc(run.notes)}</span></div>` : ''}
       </div>
     </div>
   `;
