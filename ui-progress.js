@@ -4,6 +4,8 @@ const CHART_COLORS = { line: '#F3A64E', vol: 'rgba(243,166,78,0.3)', run: '#4CAF
 const activeCharts = [];
 
 export async function renderProgressTab(el) {
+  activeCharts.forEach(c => { try { c.destroy(); } catch(e) {} });
+  activeCharts.length = 0;
   el.innerHTML = `
     <div class="screen">
       <h1 class="tab-title">Progress</h1>
