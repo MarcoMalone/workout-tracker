@@ -96,3 +96,21 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .run-form { display: flex; flex-direction: column; gap: 8px; }
 .form-label { font-size: 14px; font-weight: 600; color: var(--text-2); margin-top: 8px; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+/* History tab */
+.tab-title { font-size: 24px; font-weight: 700; margin-bottom: 16px; }
+.filter-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; scrollbar-width: none; }
+.filter-chips::-webkit-scrollbar { display: none; }
+.chip { white-space: nowrap; padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 14px; font-weight: 500; cursor: pointer; min-height: 36px; }
+.chip.active { background: var(--navy); color: var(--text); border-color: var(--accent); }
+.history-row { padding: 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.history-row:active { background: var(--surface-hi); }
+.history-name { font-size: 16px; font-weight: 600; }
+.history-meta { display: flex; justify-content: space-between; margin-top: 4px; }
+.history-date, .history-vol { font-size: 13px; color: var(--text-3); }
+.detail-header { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+.detail-notes { background: var(--surface); border-left: 3px solid var(--accent); padding: 12px; border-radius: var(--r-sm); margin-bottom: 12px; font-size: 14px; color: var(--text-2); }
+.detail-exercise { padding: 12px; margin-bottom: 8px; }
+.detail-ex-note { font-size: 13px; color: var(--accent-dim); font-style: italic; margin: 4px 0 8px; }
+.detail-set-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.detail-set-row:last-child { border-bottom: none; }
