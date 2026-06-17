@@ -114,3 +114,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .detail-ex-note { font-size: 13px; color: var(--accent-dim); font-style: italic; margin: 4px 0 8px; }
 .detail-set-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .detail-set-row:last-child { border-bottom: none; }
+
+/* Progress tab */
+.seg-control { display: flex; background: var(--surface); border-radius: var(--r-md); padding: 3px; margin-bottom: 20px; }
+.seg-btn { flex: 1; padding: 10px; border: none; border-radius: 10px; background: none; color: var(--text-2); font-size: 15px; font-weight: 600; cursor: pointer; min-height: 40px; }
+.seg-btn.active { background: var(--navy); color: var(--text); }
+.chart-wrap { height: 180px; margin-bottom: 24px; }
