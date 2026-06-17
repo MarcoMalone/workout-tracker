@@ -15,6 +15,7 @@ const TABS = {
 };
 
 export async function switchTab(tabName) {
+  if (!TABS[tabName]) return;
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
   const el = document.getElementById('tab-content');
   el.innerHTML = '';
