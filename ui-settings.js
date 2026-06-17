@@ -32,6 +32,12 @@ export async function renderSettingsTab(el) {
         <button class="btn btn-ghost" id="add-pre-item">+ Add item</button>
         <button class="btn btn-secondary settings-save-btn" id="save-pre-cl" style="margin-top:8px">Save</button>
       </div>
+      <div class="settings-group card">
+        <label class="settings-label">Post-Workout Items</label>
+        <div id="post-cl-list"></div>
+        <button class="btn btn-ghost" id="add-post-item">+ Add item</button>
+        <button class="btn btn-secondary settings-save-btn" id="save-post-cl" style="margin-top:8px">Save</button>
+      </div>
 
       <p class="section-title" style="margin-top:20px">Exercise Library</p>
       <div class="settings-group card" id="exercise-library"></div>
@@ -67,10 +73,23 @@ export async function renderSettingsTab(el) {
     renderChecklistEditor(el.querySelector('#pre-cl-list'), preItems, 'pre');
   });
   el.querySelector('#save-pre-cl').addEventListener('click', async () => {
-    const inputs = el.querySelectorAll('.cl-item-input');
+    const inputs = el.querySelector('#pre-cl-list').querySelectorAll('.cl-item-input');
     const items = Array.from(inputs).map(i => i.value).filter(Boolean);
     await setSetting('preChecklist', items);
     showToast('Checklist saved');
+  });
+
+  const postItems = postCL ?? ['Rate your session (1–5)?','Cool-down done?','Any new soreness?'];
+  renderChecklistEditor(el.querySelector('#post-cl-list'), postItems, 'post');
+  el.querySelector('#add-post-item').addEventListener('click', () => {
+    postItems.push('New item');
+    renderChecklistEditor(el.querySelector('#post-cl-list'), postItems, 'post');
+  });
+  el.querySelector('#save-post-cl').addEventListener('click', async () => {
+    const inputs = el.querySelectorAll('#post-cl-list .cl-item-input');
+    const items = Array.from(inputs).map(i => i.value).filter(Boolean);
+    await setSetting('postChecklist', items);
+    showToast('Post-checklist saved');
   });
 
   // Exercise library
