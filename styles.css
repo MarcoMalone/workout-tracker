@@ -91,3 +91,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .star-btn.filled { color: var(--accent); }
 .session-notes-input { margin-top: 12px; }
 .set-side { background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-size: 15px; padding: 8px; min-height: 44px; }
+
+/* Run form */
+.run-form { display: flex; flex-direction: column; gap: 8px; }
+.form-label { font-size: 14px; font-weight: 600; color: var(--text-2); margin-top: 8px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }

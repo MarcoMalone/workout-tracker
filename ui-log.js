@@ -1,4 +1,4 @@
-import { getTemplates, getTemplate, getExercise, getLastSessionForExercise, saveSession, getSetting } from './db.js';
+import { getTemplates, getTemplate, getExercise, getLastSessionForExercise, saveSession, getSetting, addRunLog } from './db.js';
 import { switchTab } from './app.js';
 
 export let activeSession = null;
@@ -35,7 +35,7 @@ export async function renderLogTab(el) {
     import('./ui-settings.js').then(m => m.showTemplateEditor(el));
   });
   el.querySelector('#start-run-btn').addEventListener('click', () => {
-    console.log('run');
+    showRunForm(el);
   });
 }
 
@@ -269,5 +269,52 @@ async function showPostChecklist(el) {
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
     await switchTab('log');
+  });
+}
+
+function showRunForm(el) {
+  el.innerHTML = `
+    <div class="screen">
+      <div class="session-header">
+        <h2>Log a Run</h2>
+        <button class="btn btn-ghost" id="cancel-run">Cancel</button>
+      </div>
+      <div class="run-form">
+        <label class="form-label">Date</label>
+        <input type="date" class="input" id="run-date" value="${new Date().toISOString().split('T')[0]}">
+        <label class="form-label">Distance (miles)</label>
+        <input type="number" class="input" id="run-dist" step="0.01" inputmode="decimal" placeholder="2.5">
+        <label class="form-label">Duration (mm:ss)</label>
+        <input type="text" class="input" id="run-dur" placeholder="28:30" pattern="[0-9]+:[0-5][0-9]">
+        <label class="form-label">Perceived Effort (1–10)</label>
+        <input type="range" id="run-effort" min="1" max="10" value="6">
+        <div style="text-align:center; color:var(--accent); font-size:20px; font-weight:700" id="effort-display">6</div>
+        <label class="form-label">Notes</label>
+        <textarea class="input" id="run-notes" rows="2" placeholder="How did it feel?"></textarea>
+        <button class="btn btn-primary btn-full" id="save-run-btn" style="margin-top:16px">Save Run</button>
+      </div>
+    </div>
+  `;
+  el.querySelector('#run-effort').addEventListener('input', e => {
+    el.querySelector('#effort-display').textContent = e.target.value;
+  });
+  el.querySelector('#cancel-run').addEventListener('click', () => renderLogTab(el));
+  el.querySelector('#save-run-btn').addEventListener('click', async () => {
+    const dist = parseFloat(el.querySelector('#run-dist').value);
+    const durStr = el.querySelector('#run-dur').value;
+    const [min, sec] = durStr.split(':').map(Number);
+    const durationMinutes = min + (sec / 60);
+    if (!dist || !durStr.includes(':')) { alert('Enter distance and duration.'); return; }
+    await addRunLog({
+      id: crypto.randomUUID(),
+      date: el.querySelector('#run-date').value,
+      distanceMiles: dist,
+      durationMinutes,
+      paceMinPerMile: parseFloat((durationMinutes / dist).toFixed(2)),
+      perceivedEffort: Number(el.querySelector('#run-effort').value),
+      notes: el.querySelector('#run-notes').value,
+      bodyPartGroup: 'legs'
+    });
+    await switchTab('history');
   });
 }
