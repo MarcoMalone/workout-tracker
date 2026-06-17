@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, getSetting, setSetting, addExercise, getExercises,
          addTemplate, getTemplates, saveSession, getSessionsByBodyPart,
-         getLastSessionForExercise, addRunLog, getRunLogs,
+         getLastSessionForExercise, addRunLog, getRunLogs, seedIfEmpty,
          _resetForTest } from '../db.js';
 
 beforeEach(async () => {

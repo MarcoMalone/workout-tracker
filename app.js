@@ -1,4 +1,4 @@
-import { initDB } from './db.js';
+import { initDB, seedIfEmpty } from './db.js';
 import { renderLogTab } from './ui-log.js';
 import { renderHistoryTab } from './ui-history.js';
 import { renderProgressTab } from './ui-progress.js';
@@ -24,6 +24,7 @@ export async function switchTab(tabName) {
 
 async function init() {
   await initDB();
+  await seedIfEmpty();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
   const needsOnboarding = await checkOnboarding();

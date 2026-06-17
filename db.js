@@ -121,3 +121,13 @@ export async function getRunLogs(limit = 20) {
   const all = await (await db()).getAll('run_logs');
   return all.sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
 }
+
+// ─── Seed data ────────────────────────────────────────────────────────────────
+import { SEED_EXERCISES, SEED_TEMPLATES } from './seed-data.js';
+
+export async function seedIfEmpty() {
+  const existing = await getExercises();
+  if (existing.length > 0) return;
+  for (const ex of SEED_EXERCISES) await addExercise(ex);
+  for (const tpl of SEED_TEMPLATES) await addTemplate(tpl);
+}
