@@ -100,11 +100,30 @@ export async function importCSV(file, el) {
   alert(`Imported ${count} sessions.`);
 }
 
+function parseCSVRow(line) {
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      fields.push(current.trim()); current = '';
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
 export function parseWorkoutCSV(csvText) {
   const lines = csvText.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim());
+  const headers = parseCSVRow(lines[0]);
   const rows = lines.slice(1).map(line => {
-    const vals = line.split(',');
+    const vals = parseCSVRow(line);
     return Object.fromEntries(headers.map((h, i) => [h, (vals[i] ?? '').trim()]));
   });
 
