@@ -25,7 +25,7 @@ export async function switchTab(tabName) {
 async function init() {
   await initDB();
   await seedIfEmpty();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/workout-tracker/sw.js').catch(() => {});
   document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
   const needsOnboarding = await checkOnboarding();
   if (needsOnboarding) return;
