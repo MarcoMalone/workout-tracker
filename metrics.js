@@ -25,6 +25,10 @@ export function percentChange(data) {
   return Math.round(((valid[valid.length - 1] - valid[0]) / valid[0]) * 100);
 }
 
+function localDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function buildConsistencyMap(activityByDate, weeks = 12, today = new Date()) {
   const LEVEL = { arms: 3, legs: 3, core: 3, run: 2, walk: 1 };
   const dayOfWeek = today.getDay(); // 0=Sun
@@ -39,7 +43,7 @@ export function buildConsistencyMap(activityByDate, weeks = 12, today = new Date
       const date = new Date(currentMonday);
       date.setDate(currentMonday.getDate() - (weeks - 1 - w) * 7 + d);
       if (date > today) continue;
-      const key = date.toISOString().slice(0, 10);
+      const key = localDateKey(date);
       const activity = activityByDate[key] || null;
       cells.push({ weekIdx: w, dayIdx: d, level: activity ? (LEVEL[activity] ?? 0) : 0, date: key, activity });
     }

@@ -1,4 +1,4 @@
-import { getExercises, getSessionsByBodyPart, getSessionsForExercise,
+import { getExercises, getSessionsForExercise,
          getRunLogs, getWalkLogs, getAllSessions } from './db.js';
 import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap } from './metrics.js';
 
@@ -60,18 +60,22 @@ function buildActivityByDate(sessions, runs, walks) {
   return map;
 }
 
+function localDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function streakCaption(activityByDate) {
   const today = new Date();
   let streak = 0;
   const d = new Date(today);
-  while (activityByDate[d.toISOString().slice(0, 10)]) {
+  while (activityByDate[localDateKey(d)]) {
     streak++;
     d.setDate(d.getDate() - 1);
   }
   if (streak >= 1) return `🔥 ${streak}-day streak`;
   const sorted = Object.keys(activityByDate).sort().reverse();
   if (!sorted.length) return 'No activity logged yet';
-  const todayKey = today.toISOString().slice(0, 10);
+  const todayKey = localDateKey(today);
   const diff = Math.round((new Date(todayKey) - new Date(sorted[0])) / 86400000);
   return `Last workout: ${diff} day${diff !== 1 ? 's' : ''} ago`;
 }
@@ -229,6 +233,7 @@ function buildCarousel(container, exWithData) {
   container.appendChild(track);
 
   // IntersectionObserver: lazy chart init/destroy
+  const visibleCanvases = new Set();
   const observer = new IntersectionObserver(entries => {
     for (const entry of entries) {
       const canvas = entry.target;
@@ -236,6 +241,7 @@ function buildCarousel(container, exWithData) {
       if (!info) continue;
 
       if (entry.isIntersecting) {
+        visibleCanvases.add(canvas);
         renderSlideChart(canvas, info, currentMetric, chartRefs);
         const idx = parseInt(canvas.closest('.exercise-slide').dataset.idx);
         headerEl.querySelector('#car-title').textContent = info.ex.name;
@@ -246,6 +252,7 @@ function buildCarousel(container, exWithData) {
         headerEl.querySelector('#car-next').disabled = idx === exWithData.length - 1;
         currentIdx = idx;
       } else {
+        visibleCanvases.delete(canvas);
         const chart = chartRefs.get(canvas);
         if (chart) { chart.destroy(); chartRefs.delete(canvas); }
       }
@@ -266,7 +273,7 @@ function buildCarousel(container, exWithData) {
   const jump = headerEl.querySelector('#car-jump');
   if (jump) jump.addEventListener('change', e => scrollToSlide(parseInt(e.target.value)));
 
-  // Metric toggle: destroy all active slide charts; observer re-renders visible one
+  // Metric toggle: destroy all active slide charts, then re-render currently visible canvases
   const metricSel = metricRow.querySelector('#metric-sel');
   if (metricSel) {
     metricSel.addEventListener('change', e => {
@@ -274,6 +281,10 @@ function buildCarousel(container, exWithData) {
       track.querySelectorAll('canvas').forEach(c => {
         const chart = chartRefs.get(c);
         if (chart) { chart.destroy(); chartRefs.delete(c); }
+      });
+      visibleCanvases.forEach(c => {
+        const info = slideInfo.get(c);
+        if (info) renderSlideChart(c, info, currentMetric, chartRefs);
       });
     });
   }
