@@ -233,6 +233,7 @@ function buildCarousel(container, exWithData) {
   container.appendChild(track);
 
   // IntersectionObserver: lazy chart init/destroy
+  let currentIdx = 0;
   const visibleCanvases = new Set();
   const observer = new IntersectionObserver(entries => {
     for (const entry of entries) {
@@ -262,7 +263,6 @@ function buildCarousel(container, exWithData) {
   track.querySelectorAll('canvas').forEach(c => observer.observe(c));
 
   // Nav
-  let currentIdx = 0;
   function scrollToSlide(idx) {
     const slide = track.children[idx];
     if (!slide) return;
@@ -320,7 +320,7 @@ function renderSlideChart(canvas, { history, isTimed, statEl }, metric, chartRef
     // volume mode
     data = sorted.map(h => h.exercise.sets.reduce((sum, s) => sum + (s.weight || 0) * (s.reps || 0), 0));
     tooltipFn = v => `${Number(v).toLocaleString()} lbs volume`;
-    const best = Math.max(...data);
+    const best = data.length ? Math.max(...data) : 0;
     const change = percentChange(data);
     const sign = change >= 0 ? '+' : '';
     statEl.innerHTML = `<span class="chart-stat-pr">🏆 Best: ${best.toLocaleString()} lbs</span><span>📈 ${sign}${change}% over ${data.length} sessions</span>`;
