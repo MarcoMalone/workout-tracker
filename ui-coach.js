@@ -1,4 +1,4 @@
-import { getSessionsByBodyPart, getAllSessions, getRunLogs, getSetting } from './db.js';
+import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting } from './db.js';
 import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary } from './claude-api.js';
 
 export async function renderCoachTab(el) {
@@ -61,8 +61,8 @@ export async function renderCoachTab(el) {
   });
 
   el.querySelector('#export-btn').addEventListener('click', async () => {
-    const [sessions, runs] = await Promise.all([getAllSessions(30), getRunLogs(12)]);
-    const text = buildExportSummary(sessions, runs);
+    const [sessions, runs, walks] = await Promise.all([getAllSessions(30), getRunLogs(12), getWalkLogs(12)]);
+    const text = buildExportSummary(sessions, runs, walks);
     await navigator.clipboard.writeText(text);
     const confirm = el.querySelector('#export-confirm');
     confirm.classList.remove('hidden');

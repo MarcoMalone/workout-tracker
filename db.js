@@ -4,22 +4,28 @@ let _db = null;
 
 export async function initDB() {
   if (_db) return _db;
-  _db = await openDB('workout-tracker', 1, {
-    upgrade(db) {
-      const exStore = db.createObjectStore('exercise_definitions', { keyPath: 'id' });
-      exStore.createIndex('bodyPartGroup', 'bodyPartGroup');
+  _db = await openDB('workout-tracker', 2, {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        const exStore = db.createObjectStore('exercise_definitions', { keyPath: 'id' });
+        exStore.createIndex('bodyPartGroup', 'bodyPartGroup');
 
-      const tplStore = db.createObjectStore('workout_templates', { keyPath: 'id' });
-      tplStore.createIndex('bodyPartGroup', 'bodyPartGroup');
+        const tplStore = db.createObjectStore('workout_templates', { keyPath: 'id' });
+        tplStore.createIndex('bodyPartGroup', 'bodyPartGroup');
 
-      const sessStore = db.createObjectStore('logged_sessions', { keyPath: 'id' });
-      sessStore.createIndex('date', 'date');
-      sessStore.createIndex('bodyPartGroup', 'bodyPartGroup');
+        const sessStore = db.createObjectStore('logged_sessions', { keyPath: 'id' });
+        sessStore.createIndex('date', 'date');
+        sessStore.createIndex('bodyPartGroup', 'bodyPartGroup');
 
-      const runStore = db.createObjectStore('run_logs', { keyPath: 'id' });
-      runStore.createIndex('date', 'date');
+        const runStore = db.createObjectStore('run_logs', { keyPath: 'id' });
+        runStore.createIndex('date', 'date');
 
-      db.createObjectStore('app_settings');
+        db.createObjectStore('app_settings');
+      }
+      if (oldVersion < 2) {
+        const walkStore = db.createObjectStore('walk_logs', { keyPath: 'id' });
+        walkStore.createIndex('date', 'date');
+      }
     }
   });
   return _db;
@@ -122,12 +128,20 @@ export async function getRunLogs(limit = 20) {
   return all.sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
 }
 
+// ─── Walk logs ────────────────────────────────────────────────────────────────
+export async function addWalkLog(walk) {
+  return (await db()).put('walk_logs', walk);
+}
+export async function getWalkLogs(limit = 20) {
+  const all = await (await db()).getAll('walk_logs');
+  return all.sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
+}
+
 // ─── Seed data ────────────────────────────────────────────────────────────────
 import { SEED_EXERCISES, SEED_TEMPLATES } from './seed-data.js';
 
 export async function seedIfEmpty() {
-  const existing = await getExercises();
-  if (existing.length > 0) return;
-  for (const ex of SEED_EXERCISES) await addExercise(ex);
-  for (const tpl of SEED_TEMPLATES) await addTemplate(tpl);
+  const [exercises, templates] = await Promise.all([getExercises(), getTemplates()]);
+  if (exercises.length === 0) for (const ex of SEED_EXERCISES) await addExercise(ex);
+  if (templates.length === 0) for (const tpl of SEED_TEMPLATES) await addTemplate(tpl);
 }

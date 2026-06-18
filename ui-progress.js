@@ -1,6 +1,6 @@
-import { getExercises, getSessionsByBodyPart, getSessionsForExercise, getRunLogs } from './db.js';
+import { getExercises, getSessionsByBodyPart, getSessionsForExercise, getRunLogs, getWalkLogs } from './db.js';
 
-const CHART_COLORS = { line: '#F3A64E', vol: 'rgba(243,166,78,0.3)', run: '#4CAF7D', grid: '#2A3F58', text: '#8EA3B8' };
+const CHART_COLORS = { line: '#F3A64E', vol: 'rgba(243,166,78,0.3)', run: '#4CAF7D', walk: '#5BA4E0', grid: '#2A3F58', text: '#8EA3B8' };
 const activeCharts = [];
 
 export async function renderProgressTab(el) {
@@ -72,20 +72,34 @@ async function renderBodyPart(container, part) {
     activeCharts.push(chart);
   }
 
-  // Runs section for legs
+  // Cardio sections for legs
   if (part === 'legs') {
-    const runs = await getRunLogs(12);
+    const [runs, walks] = await Promise.all([getRunLogs(12), getWalkLogs(12)]);
+
     if (runs.length >= 2) {
       const runSection = document.createElement('div');
       runSection.innerHTML = '<p class="section-title">Runs</p><div class="chart-wrap"><canvas id="run-chart"></canvas></div>';
       container.appendChild(runSection);
-      const sorted = runs.slice().reverse();
+      const sortedRuns = runs.slice().reverse();
       const runChart = new Chart(runSection.querySelector('#run-chart'), {
         type: 'line',
-        data: { labels: sorted.map(r => r.date), datasets: [{ label: 'Miles', data: sorted.map(r => r.distanceMiles), borderColor: CHART_COLORS.run, backgroundColor: 'rgba(76,175,125,0.2)', tension: 0.3, fill: true, pointRadius: 4, yAxisID: 'y' }] },
+        data: { labels: sortedRuns.map(r => r.date), datasets: [{ label: 'Miles', data: sortedRuns.map(r => r.distanceMiles), borderColor: CHART_COLORS.run, backgroundColor: 'rgba(76,175,125,0.2)', tension: 0.3, fill: true, pointRadius: 4, yAxisID: 'y' }] },
         options: chartOptions('mi')
       });
       activeCharts.push(runChart);
+    }
+
+    if (walks.length >= 2) {
+      const walkSection = document.createElement('div');
+      walkSection.innerHTML = '<p class="section-title">Treadmill Walks</p><div class="chart-wrap"><canvas id="walk-chart"></canvas></div>';
+      container.appendChild(walkSection);
+      const sortedWalks = walks.slice().reverse();
+      const walkChart = new Chart(walkSection.querySelector('#walk-chart'), {
+        type: 'line',
+        data: { labels: sortedWalks.map(w => w.date), datasets: [{ label: 'Miles', data: sortedWalks.map(w => w.distanceMiles), borderColor: CHART_COLORS.walk, backgroundColor: 'rgba(91,164,224,0.2)', tension: 0.3, fill: true, pointRadius: 4, yAxisID: 'y' }] },
+        options: chartOptions('mi')
+      });
+      activeCharts.push(walkChart);
     }
   }
 }

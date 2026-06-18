@@ -43,6 +43,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .log-date { font-size: 22px; font-weight: 700; }
 .log-subtitle { color: var(--text-2); margin-top: 4px; }
 .log-start-btn { margin-bottom: 24px; }
+.log-cardio-row { display: flex; gap: 8px; margin-bottom: 24px; }
+.log-cardio-btn { flex: 1; }
+.form-hint { font-weight: 400; color: var(--text-3); font-size: 12px; }
 .template-section { margin-top: 8px; }
 .template-card { display: flex; align-items: center; justify-content: space-between; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; margin-bottom: 8px; cursor: pointer; min-height: 48px; }
 .template-card:active { opacity: 0.75; }

@@ -18,14 +18,14 @@ export function buildSessionSummary(session) {
   return lines.join('\n');
 }
 
-export async function buildPreWorkoutContext(recentSessions, userNote, healthContext) {
+export function buildPreWorkoutContext(recentSessions, userNote, healthContext) {
   const system = healthContext ? `${SYSTEM_BASE}\n\n${healthContext}` : SYSTEM_BASE;
   const sessionBlock = recentSessions.map(buildSessionSummary).join('\n\n');
   const userMessage = `Recent training sessions:\n\n${sessionBlock}\n\n---\nPre-workout check-in: ${userNote}`;
   return { system, userMessage };
 }
 
-export async function buildPostWorkoutContext(justFinished, recentSessions, healthContext) {
+export function buildPostWorkoutContext(justFinished, recentSessions, healthContext) {
   const system = healthContext ? `${SYSTEM_BASE}\n\n${healthContext}` : SYSTEM_BASE;
   const sessionBlock = recentSessions.map(buildSessionSummary).join('\n\n');
   const userMessage = `Recent sessions for context:\n\n${sessionBlock}\n\n---\nJust completed:\n\n${buildSessionSummary(justFinished)}\n\nPlease give me a post-workout debrief — what went well, what to watch, and a recommendation for next session.`;
@@ -43,7 +43,7 @@ export async function callClaude(system, userMessage, apiKey) {
   return response.content[0].text;
 }
 
-export function buildExportSummary(sessions, runs) {
+export function buildExportSummary(sessions, runs, walks = []) {
   const byPart = { arms: [], legs: [], core: [] };
   for (const s of sessions) {
     if (byPart[s.bodyPartGroup]) byPart[s.bodyPartGroup].push(s);
@@ -58,6 +58,15 @@ export function buildExportSummary(sessions, runs) {
   if (runs.length > 0) {
     lines.push(`### Runs (${runs.length})`);
     for (const r of runs.slice(0, 4)) lines.push(`${r.date}: ${r.distanceMiles} mi, ${Math.round(r.durationMinutes)} min, effort ${r.perceivedEffort}/10${r.notes ? ` — ${r.notes}` : ''}`);
+    lines.push('');
+  }
+  if (walks.length > 0) {
+    const totalMiles = walks.reduce((sum, w) => sum + w.distanceMiles, 0).toFixed(1);
+    lines.push(`### Treadmill Walks (${walks.length} sessions, ${totalMiles} mi total)`);
+    for (const w of walks.slice(0, 6)) {
+      const calPart = w.calories != null ? `, ~${w.calories} cal` : '';
+      lines.push(`${w.date}: ${w.distanceMiles} mi, ${Math.round(w.durationMinutes)} min at ${w.speedMph} mph${calPart}${w.notes ? ` — ${w.notes}` : ''}`);
+    }
     lines.push('');
   }
   const allNotes = sessions.flatMap(s => [s.sessionNotes, ...s.exercises.map(e => e.notes)]).filter(Boolean);

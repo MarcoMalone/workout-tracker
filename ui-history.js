@@ -1,19 +1,20 @@
-import { getAllSessions, getRunLogs } from './db.js';
+import { getAllSessions, getRunLogs, getWalkLogs } from './db.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 export async function renderHistoryTab(el) {
-  const [sessions, runs] = await Promise.all([getAllSessions(), getRunLogs()]);
+  const [sessions, runs, walks] = await Promise.all([getAllSessions(), getRunLogs(), getWalkLogs()]);
   const all = [
     ...sessions.map(s => ({ ...s, _type: 'workout' })),
-    ...runs.map(r => ({ ...r, _type: 'run', bodyPartGroup: 'legs' }))
+    ...runs.map(r => ({ ...r, _type: 'run', bodyPartGroup: 'legs' })),
+    ...walks.map(w => ({ ...w, _type: 'walk', bodyPartGroup: 'legs' }))
   ].sort((a, b) => b.date.localeCompare(a.date));
 
   el.innerHTML = `
     <div class="screen">
       <h1 class="tab-title">History</h1>
       <div class="filter-chips" id="filter-chips">
-        ${['All','Arms','Legs','Core','Runs'].map(f =>
+        ${['All','Arms','Legs','Core','Runs','Walks'].map(f =>
           `<button class="chip${f==='All'?' active':''}" data-filter="${f.toLowerCase()}">${f}</button>`
         ).join('')}
       </div>
@@ -27,15 +28,19 @@ export async function renderHistoryTab(el) {
   function renderList() {
     const filtered = activeFilter === 'all' ? all
       : activeFilter === 'runs' ? all.filter(i => i._type === 'run')
+      : activeFilter === 'walks' ? all.filter(i => i._type === 'walk')
       : all.filter(i => i.bodyPartGroup === activeFilter);
     listEl.innerHTML = filtered.length === 0
       ? '<p style="color:var(--text-3);text-align:center;padding:32px">No sessions yet</p>'
       : filtered.map(item => {
-          const meta = item._type === 'run'
+          const meta = (item._type === 'run' || item._type === 'walk')
             ? `${item.distanceMiles} mi · ${Math.round(item.durationMinutes)} min`
             : `${totalVolume(item)} lbs total`;
+          const name = item._type === 'run' ? '🏃 Run'
+            : item._type === 'walk' ? '🚶 Walk'
+            : esc(item.templateName);
           return `<div class="history-row" data-id="${item.id}" data-type="${item._type}">
-            <div><span class="history-name">${item._type === 'run' ? '🏃 Run' : esc(item.templateName)}</span></div>
+            <div><span class="history-name">${name}</span></div>
             <div class="history-meta"><span class="history-date">${item.date}</span><span class="history-vol">${meta}</span></div>
           </div>`;
         }).join('');
@@ -63,6 +68,7 @@ function totalVolume(session) {
 
 function showDetail(el, item, type) {
   if (type === 'run') { showRunDetail(el, item); return; }
+  if (type === 'walk') { showWalkDetail(el, item); return; }
   el.innerHTML = `
     <div class="screen">
       <div class="detail-header">
@@ -81,6 +87,26 @@ function showDetail(el, item, type) {
           </div>`).join('')}
         </div>
       `).join('')}
+    </div>
+  `;
+  el.querySelector('#back-btn').addEventListener('click', () => renderHistoryTab(el));
+}
+
+function showWalkDetail(el, walk) {
+  el.innerHTML = `
+    <div class="screen">
+      <div class="detail-header">
+        <button class="btn btn-ghost" id="back-btn">← Back</button>
+        <h2>🚶 Walk</h2>
+        <span class="history-date">${walk.date}</span>
+      </div>
+      <div class="card detail-exercise" style="margin-top:16px">
+        <div class="detail-set-row"><span>Distance</span><span>${esc(walk.distanceMiles)} mi</span></div>
+        <div class="detail-set-row"><span>Duration</span><span>${Math.round(walk.durationMinutes)} min</span></div>
+        <div class="detail-set-row"><span>Speed</span><span>${esc(walk.speedMph)} mph</span></div>
+        ${walk.calories != null ? `<div class="detail-set-row"><span>Calories</span><span>${esc(walk.calories)} <span style="color:var(--text-3);font-size:12px">(treadmill est.)</span></span></div>` : ''}
+        ${walk.notes ? `<div class="detail-set-row"><span>Notes</span><span>${esc(walk.notes)}</span></div>` : ''}
+      </div>
     </div>
   `;
   el.querySelector('#back-btn').addEventListener('click', () => renderHistoryTab(el));

@@ -4,8 +4,8 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, getSetting, setSetting, addExercise, getExercises,
          addTemplate, getTemplates, saveSession, getSessionsByBodyPart,
-         getLastSessionForExercise, addRunLog, getRunLogs, seedIfEmpty,
-         _resetForTest } from '../db.js';
+         getLastSessionForExercise, addRunLog, getRunLogs, addWalkLog, getWalkLogs,
+         seedIfEmpty, _resetForTest } from '../db.js';
 
 beforeEach(async () => {
   // Replace globalThis.indexedDB with a fresh factory so each test starts
@@ -64,4 +64,22 @@ test('addRunLog and getRunLogs', async () => {
   const runs = await getRunLogs();
   expect(runs).toHaveLength(1);
   expect(runs[0].distanceMiles).toBe(2.5);
+});
+
+test('addWalkLog and getWalkLogs', async () => {
+  const walk = { id: 'w-1', date: '2026-06-18', durationMinutes: 90, speedMph: 2.2, distanceMiles: 3.3, calories: 450, notes: 'good session' };
+  await addWalkLog(walk);
+  const walks = await getWalkLogs();
+  expect(walks).toHaveLength(1);
+  expect(walks[0].distanceMiles).toBe(3.3);
+  expect(walks[0].speedMph).toBe(2.2);
+  expect(walks[0].calories).toBe(450);
+});
+
+test('getWalkLogs returns newest first', async () => {
+  await addWalkLog({ id: 'w-1', date: '2026-06-10', durationMinutes: 60, speedMph: 2.2, distanceMiles: 2.2, calories: null, notes: '' });
+  await addWalkLog({ id: 'w-2', date: '2026-06-18', durationMinutes: 90, speedMph: 2.2, distanceMiles: 3.3, calories: null, notes: '' });
+  const walks = await getWalkLogs();
+  expect(walks[0].date).toBe('2026-06-18');
+  expect(walks[1].date).toBe('2026-06-10');
 });

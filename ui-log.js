@@ -1,4 +1,4 @@
-import { getTemplates, getTemplate, getExercise, getLastSessionForExercise, saveSession, getSetting, addRunLog } from './db.js';
+import { getTemplates, getTemplate, getExercise, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog } from './db.js';
 import { switchTab } from './app.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -17,7 +17,10 @@ export async function renderLogTab(el) {
         <h1 class="log-date">${formatDate(new Date())}</h1>
         <p class="log-subtitle">What are we doing today?</p>
       </div>
-      <button class="btn btn-primary btn-full log-start-btn" id="start-run-btn">Log a Run</button>
+      <div class="log-cardio-row">
+        <button class="btn btn-secondary log-cardio-btn" id="start-run-btn">🏃 Log a Run</button>
+        <button class="btn btn-secondary log-cardio-btn" id="start-walk-btn">🚶 Log a Walk</button>
+      </div>
       <div class="template-section">
         <p class="section-title">Workouts</p>
         <div class="template-list" id="template-list"></div>
@@ -36,9 +39,8 @@ export async function renderLogTab(el) {
   el.querySelector('#new-template-btn').addEventListener('click', () => {
     import('./ui-settings.js').then(m => m.showTemplateEditor(el));
   });
-  el.querySelector('#start-run-btn').addEventListener('click', () => {
-    showRunForm(el);
-  });
+  el.querySelector('#start-run-btn').addEventListener('click', () => showRunForm(el));
+  el.querySelector('#start-walk-btn').addEventListener('click', () => showWalkForm(el));
 }
 
 async function renderActiveSession(el) {
@@ -271,6 +273,70 @@ async function showPostChecklist(el) {
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
     await switchTab('log');
+  });
+}
+
+function showWalkForm(el) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  el.innerHTML = `
+    <div class="screen">
+      <div class="session-header">
+        <h2>🚶 Log a Walk</h2>
+        <button class="btn btn-ghost" id="cancel-walk">Cancel</button>
+      </div>
+      <div class="run-form">
+        <label class="form-label">Date</label>
+        <input type="date" class="input" id="walk-date" value="${todayStr}">
+        <label class="form-label">Duration (minutes)</label>
+        <input type="number" class="input" id="walk-dur" step="1" inputmode="numeric" placeholder="90">
+        <label class="form-label">Speed (mph)</label>
+        <input type="number" class="input" id="walk-speed" step="0.1" inputmode="decimal" value="2.2">
+        <p class="walk-dist-preview" id="walk-dist-preview"></p>
+        <label class="form-label">Treadmill Distance (mi) <span class="form-hint">— optional, overrides calculation</span></label>
+        <input type="number" class="input" id="walk-dist-override" step="0.01" inputmode="decimal" placeholder="leave blank to auto-calculate">
+        <label class="form-label">Calories <span class="form-hint">— treadmill estimate</span></label>
+        <input type="number" class="input" id="walk-cals" step="1" inputmode="numeric" placeholder="optional">
+        <label class="form-label">Notes</label>
+        <textarea class="input" id="walk-notes" rows="2" placeholder="How did it go?"></textarea>
+        <button class="btn btn-primary btn-full" id="save-walk-btn" style="margin-top:16px">Save Walk</button>
+      </div>
+    </div>
+  `;
+
+  function updateDistPreview() {
+    const dur = parseFloat(el.querySelector('#walk-dur').value);
+    const speed = parseFloat(el.querySelector('#walk-speed').value);
+    const preview = el.querySelector('#walk-dist-preview');
+    if (dur && speed) {
+      preview.textContent = `≈ ${(dur / 60 * speed).toFixed(2)} mi`;
+      preview.style.cssText = 'text-align:center;color:var(--accent);font-size:18px;font-weight:700;padding:4px 0';
+    } else {
+      preview.textContent = '';
+    }
+  }
+
+  el.querySelector('#walk-dur').addEventListener('input', updateDistPreview);
+  el.querySelector('#walk-speed').addEventListener('input', updateDistPreview);
+  el.querySelector('#cancel-walk').addEventListener('click', () => renderLogTab(el));
+  el.querySelector('#save-walk-btn').addEventListener('click', async () => {
+    const dur = parseFloat(el.querySelector('#walk-dur').value);
+    const speed = parseFloat(el.querySelector('#walk-speed').value);
+    if (!dur || !speed) { alert('Enter duration and speed.'); return; }
+    const overrideVal = el.querySelector('#walk-dist-override').value;
+    const distanceMiles = overrideVal
+      ? parseFloat(overrideVal)
+      : parseFloat((dur / 60 * speed).toFixed(2));
+    const calsVal = el.querySelector('#walk-cals').value;
+    await addWalkLog({
+      id: crypto.randomUUID(),
+      date: el.querySelector('#walk-date').value,
+      durationMinutes: dur,
+      speedMph: speed,
+      distanceMiles,
+      calories: calsVal ? Number(calsVal) : null,
+      notes: el.querySelector('#walk-notes').value
+    });
+    await switchTab('history');
   });
 }
 
