@@ -51,7 +51,7 @@ export async function renderSettingsTab(el) {
       <div class="settings-group card">
         <button class="btn btn-ghost btn-full" id="export-json-btn">Export JSON Backup</button>
         <button class="btn btn-ghost btn-full" id="import-csv-btn" style="margin-top:8px">Import from Google Sheets (CSV or Excel)</button>
-        <input type="file" id="csv-file-input" accept=".csv,.xlsx" class="hidden">
+        <input type="file" id="csv-file-input" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
       </div>
     </div>
   `;
