@@ -31,7 +31,7 @@ function renderOnboarding() {
         <p class="onboard-sub">Log workouts, track progression, get AI coaching. All offline-first.</p>
         <button class="btn btn-primary btn-full" id="import-btn">Import my Google Sheets history</button>
         <button class="btn btn-ghost btn-full" id="fresh-btn" style="margin-top:8px">Start fresh</button>
-        <input type="file" id="csv-input" accept=".csv" class="hidden">
+        <input type="file" id="csv-input" accept=".csv,.xlsx" class="hidden">
       </div>
     `;
     el.querySelector('#fresh-btn').addEventListener('click', () => showStep(2));
@@ -90,7 +90,15 @@ function renderOnboarding() {
 }
 
 export async function importCSV(file, el) {
-  const text = await file.text();
+  let text;
+  if (file.name.toLowerCase().endsWith('.xlsx')) {
+    const buffer = await file.arrayBuffer();
+    const workbook = window.XLSX.read(buffer);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    text = window.XLSX.utils.sheet_to_csv(sheet);
+  } else {
+    text = await file.text();
+  }
   const sessions = parseWorkoutCSV(text);
   let count = 0;
   for (const session of sessions) {
