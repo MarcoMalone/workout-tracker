@@ -114,14 +114,24 @@ function renderBodyPart(container, part, allSessions, runs, walks) {
   renderHeatmap(layerBEl, buildConsistencyMap(partActivity, 8), LAYER_B_COLORS, `8-week ${part} activity`);
   container.appendChild(layerBEl);
 
-  // Build exercise history directly from sessions — works for imported and live-logged data
+  // Build exercise history from sessions — deduplicate by (exerciseId, date), filter noise
+  const EXCLUDED_NAMES = ['drop set', 'dead hang'];
   const exMap = new Map();
   sessions.slice().reverse().forEach(session => {
     session.exercises.forEach(exercise => {
+      const lname = (exercise.exerciseName || '').toLowerCase();
+      if (EXCLUDED_NAMES.some(n => lname.includes(n))) return;
       if (!exMap.has(exercise.exerciseId)) {
         exMap.set(exercise.exerciseId, { ex: { id: exercise.exerciseId, name: exercise.exerciseName }, history: [] });
       }
-      exMap.get(exercise.exerciseId).history.push({ date: session.date, exercise });
+      const entry = exMap.get(exercise.exerciseId);
+      const existing = entry.history.find(h => h.date === session.date);
+      if (existing) {
+        // Same exercise appeared in two sessions on the same date (e.g. Arm A + Arm B) — merge sets
+        existing.exercise = { ...existing.exercise, sets: [...existing.exercise.sets, ...exercise.sets] };
+      } else {
+        entry.history.push({ date: session.date, exercise: { ...exercise, sets: [...exercise.sets] } });
+      }
     });
   });
   const exWithData = Array.from(exMap.values()).map(({ ex, history }) => ({
@@ -283,6 +293,19 @@ function buildCarousel(container, exWithData) {
   }
 }
 
+function capOutliers(data) {
+  const valid = data.filter(v => v != null).sort((a, b) => a - b);
+  if (valid.length < 3) return data;
+  const med = valid[Math.floor(valid.length / 2)];
+  let lastGood = null;
+  return data.map(v => {
+    if (v == null) return null;
+    if (v > med * 1.7) return lastGood; // suppress machine-lift spikes
+    lastGood = v;
+    return v;
+  });
+}
+
 function renderSlideChart(canvas, { history, isTimed, statEl }, metric, chartRefs) {
   const existing = chartRefs.get(canvas);
   if (existing) existing.destroy();
@@ -299,7 +322,7 @@ function renderSlideChart(canvas, { history, isTimed, statEl }, metric, chartRef
     pointColors = data.map(() => '#F3A64E');
     pointRadii = data.map(() => 4);
   } else if (metric === 'e1rm') {
-    data = sorted.map(h => getBestE1RM(h.exercise.sets));
+    data = capOutliers(sorted.map(h => getBestE1RM(h.exercise.sets)));
     tooltipFn = v => `${v} lbs est. 1RM`;
     const prFlags = findPRIndices(data);
     const valid = data.filter(v => v != null);
@@ -354,8 +377,13 @@ function renderSlideChart(canvas, { history, isTimed, statEl }, metric, chartRef
   }));
 }
 
+function formatPRDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+}
+
 function buildPRBoard(container, exWithData) {
-  const rows = exWithData.map(({ ex, history }) => {
+  const prEntries = exWithData.map(({ ex, history }) => {
     const sorted = history.slice().reverse();
     const isTimed = sorted.some(h => h.exercise.sets.some(s => s.seconds != null));
     let bestVal = null, bestDate = '';
@@ -370,21 +398,29 @@ function buildPRBoard(container, exWithData) {
       let bestNum = -Infinity;
       sorted.forEach(h => {
         const e = getBestE1RM(h.exercise.sets);
-        if (e != null && e > bestNum) { bestNum = e; bestVal = `${e} lbs est. 1RM`; bestDate = h.date; }
+        if (e != null && e > bestNum) { bestNum = e; bestVal = `${e} lbs`; bestDate = h.date; }
       });
     }
-
-    if (!bestVal) return '';
-    return `<div class="pr-row">
-      <span class="pr-name">${esc(ex.name)}</span>
-      <span><span class="pr-val">${bestVal}</span><span class="pr-date"> ${bestDate}</span></span>
-    </div>`;
+    return bestVal ? { name: ex.name, val: bestVal, date: bestDate } : null;
   }).filter(Boolean);
 
-  if (!rows.length) return;
+  // Newest PR first
+  prEntries.sort((a, b) => b.date.localeCompare(a.date));
+
+  if (!prEntries.length) return;
+
+  const rows = prEntries.map(({ name, val, date }) =>
+    `<div class="pr-row">
+      <span class="pr-name">${esc(name)}</span>
+      <div class="pr-meta">
+        <span class="pr-val">${val}</span>
+        <span class="pr-date">${formatPRDate(date)}</span>
+      </div>
+    </div>`
+  ).join('');
 
   const board = document.createElement('div');
-  board.innerHTML = `<div class="card pr-board"><p class="pr-board-title">Personal Records</p>${rows.join('')}</div>`;
+  board.innerHTML = `<div class="card pr-board"><p class="pr-board-title">Personal Records</p>${rows}</div>`;
   container.appendChild(board);
 }
 
