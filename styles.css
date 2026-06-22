@@ -1,13 +1,14 @@
 :root {
-  --bg: #0F1923;
-  --surface: #1A2535;
-  --surface-hi: #22344A;
-  --navy: #1D3461;
+  --bg: #080E1A;
+  --surface: #0E1B2E;
+  --surface-hi: #152540;
+  --navy: #1B3A6B;
+  --blue: #2B7FD4;
   --accent: #F3A64E;
-  --text: #F0F4F8;
-  --text-2: #8EA3B8;
-  --text-3: #5C7A96;
-  --border: #2A3F58;
+  --text: #EEF2F8;
+  --text-2: #7A9AB8;
+  --text-3: #4E6E8A;
+  --border: #1C3050;
   --success: #4CAF7D;
   --danger: #E05252;
   --r-sm: 8px; --r-md: 12px; --r-lg: 16px;
@@ -19,9 +20,10 @@
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; -webkit-tap-highlight-color: transparent; }
 #app { display: flex; flex-direction: column; height: 100%; }
 #tab-content { flex: 1; overflow-y: auto; padding-top: var(--safe-t); padding-bottom: calc(var(--nav-h) + var(--safe-b) + 8px); }
-#bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b); background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: stretch; }
+#bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b); background: var(--surface); border-top: none; display: flex; align-items: stretch; }
+#bottom-nav::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent 0%, var(--blue) 35%, var(--navy) 65%, transparent 100%); }
 .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: none; border: none; color: var(--text-3); cursor: pointer; min-height: 48px; transition: color 0.15s; }
-.nav-tab.active { color: var(--accent); }
+.nav-tab.active { color: var(--blue); }
 .nav-icon { width: 22px; height: 22px; }
 .nav-label { font-size: 11px; font-weight: 500; }
 .hidden { display: none !important; }
@@ -35,7 +37,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .btn-ghost { background: none; color: var(--text-2); border: 1px solid var(--border); }
 .btn-full { width: 100%; }
 .input { background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-size: 16px; padding: 12px; width: 100%; }
-.input:focus { outline: none; border-color: var(--accent); }
+.input:focus { outline: none; border-color: var(--blue); }
 .section-title { font-size: 13px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
 
 /* Log tab */
@@ -79,7 +81,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .set-row.set-done { opacity: 0.5; }
 .set-num { font-size: 13px; color: var(--text-3); min-width: 42px; }
 .set-input { background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-size: 17px; font-weight: 600; text-align: center; padding: 8px; width: 70px; min-height: 44px; }
-.set-input:focus { outline: none; border-color: var(--accent); }
+.set-input:focus { outline: none; border-color: var(--blue); }
 .w-input { width: 70px; }
 .r-input { width: 56px; }
 .set-unit, .set-sep { font-size: 13px; color: var(--text-3); }
@@ -105,7 +107,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .filter-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; scrollbar-width: none; }
 .filter-chips::-webkit-scrollbar { display: none; }
 .chip { white-space: nowrap; padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 14px; font-weight: 500; cursor: pointer; min-height: 36px; }
-.chip.active { background: var(--navy); color: var(--text); border-color: var(--accent); }
+.chip.active { background: var(--navy); color: var(--text); border-color: var(--blue); }
 .history-row { padding: 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
 .history-row:active { background: var(--surface-hi); }
 .history-name { font-size: 16px; font-weight: 600; }

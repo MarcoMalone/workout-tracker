@@ -108,20 +108,6 @@ async function renderBodyPart(container, part, allSessions, runs, walks) {
     return;
   }
 
-  // Session volume bar chart (unchanged)
-  const volSection = document.createElement('div');
-  volSection.innerHTML = '<p class="section-title">Session Volume</p><div class="chart-wrap"><canvas id="vol-chart"></canvas></div>';
-  container.appendChild(volSection);
-  const volData = sessions.slice().reverse().map(s => ({
-    x: s.date,
-    y: s.exercises.reduce((sum, ex) => sum + ex.sets.reduce((s2, set) => s2 + (set.weight || 0) * (set.reps || 0), 0), 0)
-  }));
-  activeCharts.push(new Chart(volSection.querySelector('#vol-chart'), {
-    type: 'bar',
-    data: { labels: volData.map(d => d.x), datasets: [{ data: volData.map(d => d.y), backgroundColor: CHART_COLORS.vol, borderColor: CHART_COLORS.line, borderWidth: 1 }] },
-    options: baseChartOptions('lbs')
-  }));
-
   // Layer B heatmap (this body part only, 8 weeks)
   const partActivity = {};
   allSessions.filter(s => s.bodyPartGroup === part).forEach(s => { partActivity[s.date] = part; });

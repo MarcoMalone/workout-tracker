@@ -1,4 +1,4 @@
-import { getTemplates, getTemplate, getExercise, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog } from './db.js';
+import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog } from './db.js';
 import { switchTab } from './app.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -49,9 +49,13 @@ async function renderActiveSession(el) {
     <div class="screen session-screen">
       <div class="session-header">
         <span class="session-name">${esc(activeSession.templateName)}</span>
-        <button class="btn btn-ghost session-finish-btn" id="finish-btn">Finish</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" id="discard-btn" style="min-height:36px;font-size:14px;color:var(--danger);border-color:var(--danger)">Discard</button>
+          <button class="btn btn-ghost session-finish-btn" id="finish-btn" style="min-height:36px;font-size:14px">Finish</button>
+        </div>
       </div>
       <div id="exercise-cards"></div>
+      <button class="btn btn-ghost btn-full" id="add-exercise-btn" style="margin-top:8px">+ Add Exercise</button>
     </div>
   `;
   const cardsEl = el.querySelector('#exercise-cards');
@@ -62,7 +66,20 @@ async function renderActiveSession(el) {
     activeSession.exercises[i].exerciseName = exDef.name;
     cardsEl.appendChild(buildExerciseCard(i, exDef, prev, activeSession.exercises[i]));
   }
+  for (let i = template.exercises.length; i < activeSession.exercises.length; i++) {
+    const ex = activeSession.exercises[i];
+    const exDef = await getExercise(ex.exerciseId);
+    const prev = await getLastSessionForExercise(ex.exerciseId);
+    cardsEl.appendChild(buildExerciseCard(i, exDef, prev, ex));
+  }
   el.querySelector('#finish-btn').addEventListener('click', () => showPostChecklist(el));
+  el.querySelector('#discard-btn').addEventListener('click', () => {
+    if (confirm('Discard this workout? All logged data will be lost.')) {
+      activeSession = null;
+      renderLogTab(el);
+    }
+  });
+  el.querySelector('#add-exercise-btn').addEventListener('click', () => showAddExerciseModal(el, cardsEl));
 }
 
 function buildExerciseCard(exIdx, exDef, prev, sessionEx) {
@@ -273,6 +290,45 @@ async function showPostChecklist(el) {
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
     await switchTab('log');
+  });
+}
+
+async function showAddExerciseModal(el, cardsEl) {
+  const exercises = await getExercises();
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <div class="modal-sheet">
+      <h2 class="modal-title">Add Exercise</h2>
+      <div style="max-height:55vh;overflow-y:auto">
+        ${exercises.map(ex => `<button class="template-card add-ex-pick" data-id="${esc(ex.id)}" style="margin-bottom:8px"><span class="template-name">${esc(ex.name)}</span><span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></button>`).join('')}
+      </div>
+      <button class="btn btn-ghost btn-full" id="cancel-add-ex" style="margin-top:12px">Cancel</button>
+    </div>
+  `;
+  overlay.querySelector('#cancel-add-ex').addEventListener('click', () => {
+    overlay.classList.add('hidden');
+    overlay.innerHTML = '';
+  });
+  overlay.querySelectorAll('.add-ex-pick').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const exId = btn.dataset.id;
+      const exDef = await getExercise(exId);
+      const prev = await getLastSessionForExercise(exId);
+      const newIdx = activeSession.exercises.length;
+      activeSession.exercises.push({
+        exerciseId: exId,
+        exerciseName: exDef.name,
+        notes: '',
+        sets: Array.from({ length: 3 }, (_, i) => ({
+          setNumber: i + 1, weight: null, reps: null, seconds: null,
+          side: null, isDropSet: false, parentSetIndex: null
+        }))
+      });
+      overlay.classList.add('hidden');
+      overlay.innerHTML = '';
+      cardsEl.appendChild(buildExerciseCard(newIdx, exDef, prev, activeSession.exercises[newIdx]));
+    });
   });
 }
 
