@@ -1,5 +1,4 @@
-import { getExercises, getSessionsForExercise,
-         getRunLogs, getWalkLogs, getAllSessions } from './db.js';
+import { getRunLogs, getWalkLogs, getAllSessions } from './db.js';
 import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap } from './metrics.js';
 
 const CHART_COLORS = { line: '#F3A64E', vol: 'rgba(243,166,78,0.3)', run: '#4CAF7D', walk: '#5BA4E0', grid: '#2A3F58', text: '#8EA3B8' };
@@ -100,8 +99,8 @@ function renderHeatmap(container, cells, colorMap, captionHTML) {
   container.appendChild(heatmap);
 }
 
-async function renderBodyPart(container, part, allSessions, runs, walks) {
-  const sessions = allSessions.filter(s => s.bodyPartGroup === part).slice(0, 20);
+function renderBodyPart(container, part, allSessions, runs, walks) {
+  const sessions = allSessions.filter(s => s.bodyPartGroup === part);
 
   if (sessions.length === 0) {
     container.innerHTML = '<p style="color:var(--text-3);text-align:center;padding:32px">No sessions yet for this body part</p>';
@@ -110,17 +109,25 @@ async function renderBodyPart(container, part, allSessions, runs, walks) {
 
   // Layer B heatmap (this body part only, 8 weeks)
   const partActivity = {};
-  allSessions.filter(s => s.bodyPartGroup === part).forEach(s => { partActivity[s.date] = part; });
+  sessions.forEach(s => { partActivity[s.date] = part; });
   const layerBEl = document.createElement('div');
   renderHeatmap(layerBEl, buildConsistencyMap(partActivity, 8), LAYER_B_COLORS, `8-week ${part} activity`);
   container.appendChild(layerBEl);
 
-  // Exercise carousel + PR board
-  const exerciseDefs = await getExercises(part);
-  const histories = await Promise.all(exerciseDefs.map(ex => getSessionsForExercise(ex.id, 12)));
-  const exWithData = exerciseDefs
-    .map((ex, i) => ({ ex, history: histories[i] }))
-    .filter(({ history }) => history.length >= 1);
+  // Build exercise history directly from sessions — works for imported and live-logged data
+  const exMap = new Map();
+  sessions.slice().reverse().forEach(session => {
+    session.exercises.forEach(exercise => {
+      if (!exMap.has(exercise.exerciseId)) {
+        exMap.set(exercise.exerciseId, { ex: { id: exercise.exerciseId, name: exercise.exerciseName }, history: [] });
+      }
+      exMap.get(exercise.exerciseId).history.push({ date: session.date, exercise });
+    });
+  });
+  const exWithData = Array.from(exMap.values()).map(({ ex, history }) => ({
+    ex,
+    history: history.sort((a, b) => b.date.localeCompare(a.date))
+  }));
 
   if (exWithData.length > 0) {
     buildCarousel(container, exWithData);
@@ -160,7 +167,7 @@ function buildCarousel(container, exWithData) {
   const slideInfo = new Map(); // canvas → { ex, history, isTimed, statEl }
 
   const hasWeighted = exWithData.some(({ history }) =>
-    history.some(h => h.exercise.sets.some(s => !s.isTimed && s.weight))
+    history.some(h => h.exercise.sets.some(s => s.weight != null && s.seconds == null))
   );
 
   // Metric row
@@ -201,7 +208,7 @@ function buildCarousel(container, exWithData) {
     slide.className = 'exercise-slide';
     slide.dataset.idx = i;
 
-    const isTimed = history[0]?.exercise.sets.some(s => s.isTimed) ?? false;
+    const isTimed = history.some(h => h.exercise.sets.some(s => s.seconds != null));
     const statEl = document.createElement('div');
     statEl.className = 'chart-stats';
 
@@ -350,7 +357,7 @@ function renderSlideChart(canvas, { history, isTimed, statEl }, metric, chartRef
 function buildPRBoard(container, exWithData) {
   const rows = exWithData.map(({ ex, history }) => {
     const sorted = history.slice().reverse();
-    const isTimed = sorted[0]?.exercise.sets.some(s => s.isTimed) ?? false;
+    const isTimed = sorted.some(h => h.exercise.sets.some(s => s.seconds != null));
     let bestVal = null, bestDate = '';
 
     if (isTimed) {
