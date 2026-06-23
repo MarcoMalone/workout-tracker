@@ -48,7 +48,7 @@ export async function renderHistoryTab(el) {
             : `${totalVolume(item)} lbs total`;
           const name = item._type === 'run' ? '🏃 Run'
             : item._type === 'walk' ? '🚶 Walk'
-            : esc(item.templateName);
+            : esc(item.workoutLabel ? `${item.templateName} — ${item.workoutLabel}` : item.templateName);
           return `<div class="history-row" data-id="${item.id}" data-type="${item._type}">
             <div><span class="history-name">${name}</span></div>
             <div class="history-meta"><span class="history-date">${item.date}</span><span class="history-vol">${meta}</span></div>
@@ -84,7 +84,7 @@ function showDetail(el, item, type) {
     <div class="screen">
       <div class="detail-header">
         <button class="btn btn-ghost" id="back-btn">← Back</button>
-        <h2>${esc(displayName(item.templateName))}</h2>
+        <h2>${esc(displayName(item.workoutLabel ? `${item.templateName} — ${item.workoutLabel}` : item.templateName))}</h2>
         <span class="history-date">${item.date}</span>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
@@ -112,7 +112,8 @@ function showDetail(el, item, type) {
   `;
   el.querySelector('#back-btn').addEventListener('click', () => renderHistoryTab(el));
   el.querySelector('#copy-notes-btn').addEventListener('click', () => {
-    const lines = [`${displayName(item.templateName)} — ${item.date}`];
+    const titleStr = displayName(item.workoutLabel ? `${item.templateName} — ${item.workoutLabel}` : item.templateName);
+    const lines = [`${titleStr} — ${item.date}`];
     if (item.sessionNotes) lines.push(`Session: ${item.sessionNotes}`);
     item.exercises.forEach(ex => {
       if (ex.notes) lines.push(`${displayName(ex.exerciseName)}: ${ex.notes}`);

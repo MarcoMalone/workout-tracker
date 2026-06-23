@@ -4,7 +4,8 @@ import Anthropic from './vendor/anthropic-sdk.js';
 const SYSTEM_BASE = `You are a personal fitness coach assistant. Give specific, actionable guidance before and after workouts based on the user's health context, injury history, and recent training data. Be direct. Reference actual exercises and weights from the data. When injury or soreness is flagged, err toward caution. Keep responses under 250 words — this is read on a phone.`;
 
 export function buildSessionSummary(session) {
-  const lines = [`${session.date} — ${session.templateName}`];
+  const title = session.workoutLabel ? `${session.templateName} — ${session.workoutLabel}` : session.templateName;
+  const lines = [`${session.date} — ${title}`];
   for (const ex of session.exercises) {
     const setStrs = ex.sets.map(s => {
       if (s.seconds != null) return `${s.seconds}s`;
@@ -34,13 +35,26 @@ export function buildPostWorkoutContext(justFinished, recentSessions, healthCont
 
 export async function callClaude(system, userMessage, apiKey) {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 400,
-    system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-    messages: [{ role: 'user', content: userMessage }]
-  });
-  return response.content[0].text;
+  const MAX_RETRIES = 2;
+  let lastErr;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 400,
+        system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: userMessage }]
+      });
+      return response.content[0].text;
+    } catch (err) {
+      lastErr = err;
+      const msg = (err.message || '').toLowerCase();
+      const retryable = msg.includes('timeout') || msg.includes('stream') || msg.includes('connection') || msg.includes('network') || (err.status >= 500);
+      if (!retryable || attempt === MAX_RETRIES) throw err;
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 export function buildExportSummary(sessions, runs, walks = []) {
