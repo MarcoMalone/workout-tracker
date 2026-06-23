@@ -13,7 +13,10 @@ export async function renderHistoryTab(el) {
     ...walks.map(w => ({ ...w, _type: 'walk', bodyPartGroup: 'legs' }))
   ].sort((a, b) => b.date.localeCompare(a.date)).filter(item => {
     if (item._type !== 'workout') return true;
-    if (item.startedAt) return true; // live-logged session — never filter
+    // A live session has a meaningful gap between startedAt and finishedAt (>30s).
+    // Imported sessions have startedAt=null (new) or startedAt===finishedAt (old imports).
+    const isLive = item.startedAt && item.finishedAt && (item.finishedAt - item.startedAt) > 30000;
+    if (isLive) return true; // never dedup a real logged session
     const key = `${item.date}__${item.templateName}`;
     if (seen.has(key)) return false;
     seen.add(key);
