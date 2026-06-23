@@ -4,11 +4,18 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 
 export async function renderHistoryTab(el) {
   const [sessions, runs, walks] = await Promise.all([getAllSessions(), getRunLogs(), getWalkLogs()]);
+  const seen = new Set();
   const all = [
     ...sessions.map(s => ({ ...s, _type: 'workout' })),
     ...runs.map(r => ({ ...r, _type: 'run', bodyPartGroup: 'legs' })),
     ...walks.map(w => ({ ...w, _type: 'walk', bodyPartGroup: 'legs' }))
-  ].sort((a, b) => b.date.localeCompare(a.date));
+  ].sort((a, b) => b.date.localeCompare(a.date)).filter(item => {
+    if (item._type !== 'workout') return true;
+    const key = `${item.date}__${item.templateName}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
   el.innerHTML = `
     <div class="screen">

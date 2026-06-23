@@ -44,6 +44,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .log-home-header { padding: 24px 0 20px; }
 .log-date { font-size: 22px; font-weight: 700; }
 .log-subtitle { color: var(--text-2); margin-top: 4px; }
+.last-workout-row { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.last-chip { font-size: 13px; color: var(--text-3); }
+.last-chip-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--blue); margin-right: 5px; }
+.soreness-banner { background: rgba(224,82,82,0.12); border: 1px solid rgba(224,82,82,0.3); border-radius: var(--r-sm); padding: 10px 12px; font-size: 14px; color: #e07070; margin-bottom: 12px; }
 .log-start-btn { margin-bottom: 24px; }
 .log-cardio-row { display: flex; gap: 8px; margin-bottom: 24px; }
 .log-cardio-btn { flex: 1; }

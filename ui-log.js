@@ -1,4 +1,4 @@
-import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog } from './db.js';
+import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getAllSessions } from './db.js';
 import { switchTab } from './app.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -10,12 +10,21 @@ export async function renderLogTab(el) {
     renderActiveSession(el);
     return;
   }
-  const templates = await getTemplates();
+  const [templates, recent] = await Promise.all([getTemplates(), getAllSessions(20)]);
+  const lastArms = recent.find(s => s.bodyPartGroup === 'arms');
+  const lastLegs = recent.find(s => s.bodyPartGroup === 'legs');
+  const lastLine = (lastArms || lastLegs) ? `
+    <div class="last-workout-row">
+      ${lastArms ? `<span class="last-chip"><span class="last-chip-label">Arms</span>${esc(lastArms.templateName)} · ${shortDate(lastArms.date)}</span>` : ''}
+      ${lastLegs ? `<span class="last-chip"><span class="last-chip-label">Legs</span>${esc(lastLegs.templateName)} · ${shortDate(lastLegs.date)}</span>` : ''}
+    </div>` : '';
+
   el.innerHTML = `
     <div class="screen">
       <div class="log-home-header">
         <h1 class="log-date">${formatDate(new Date())}</h1>
         <p class="log-subtitle">What are we doing today?</p>
+        ${lastLine}
       </div>
       <div class="log-cardio-row">
         <button class="btn btn-secondary log-cardio-btn" id="start-run-btn">🏃 Log a Run</button>
@@ -54,6 +63,7 @@ async function renderActiveSession(el) {
           <button class="btn btn-ghost session-finish-btn" id="finish-btn" style="min-height:36px;font-size:14px">Finish</button>
         </div>
       </div>
+      ${activeSession.sorenessNote ? `<div class="soreness-banner">⚠ ${esc(activeSession.sorenessNote)}</div>` : ''}
       <div id="exercise-cards"></div>
       <button class="btn btn-ghost btn-full" id="add-exercise-btn" style="margin-top:8px">+ Add Exercise</button>
     </div>
@@ -171,6 +181,11 @@ function formatDate(d) {
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
+function shortDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 async function showPreChecklist(el, template) {
   const raw = await getSetting('preChecklist');
   const items = raw ?? [
@@ -188,6 +203,7 @@ async function showPreChecklist(el, template) {
     <div class="modal-sheet">
       <h2 class="modal-title">Pre-Workout Check</h2>
       <div class="checklist" id="pre-checklist"></div>
+      <input type="text" class="input" id="soreness-note" placeholder="Anything sore or tight today? (e.g. left lat, slept 5 hrs)" style="margin-bottom:14px">
       <button class="btn btn-primary btn-full" id="start-session-btn">Start ${esc(template.name)}</button>
     </div>
   `;
@@ -205,13 +221,14 @@ async function showPreChecklist(el, template) {
     list.appendChild(row);
   });
   overlay.querySelector('#start-session-btn').addEventListener('click', () => {
+    const sorenessNote = overlay.querySelector('#soreness-note').value.trim();
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
-    startSession(el, template, answers);
+    startSession(el, template, answers, sorenessNote);
   });
 }
 
-function startSession(el, template, answers) {
+function startSession(el, template, answers, sorenessNote = '') {
   activeSession = {
     id: crypto.randomUUID(),
     templateId: template.id,
@@ -221,6 +238,7 @@ function startSession(el, template, answers) {
     startedAt: Date.now(),
     finishedAt: null,
     sessionRating: null,
+    sorenessNote,
     preChecklist: answers,
     postChecklist: {},
     sessionNotes: '',
