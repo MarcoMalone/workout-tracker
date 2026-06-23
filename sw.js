@@ -1,4 +1,4 @@
-const CACHE = 'workout-v10';
+const CACHE = 'workout-v11';
 const BASE = '/workout-tracker';
 const PRECACHE = [
   BASE + '/', BASE + '/index.html', BASE + '/styles.css', BASE + '/app.js', BASE + '/db.js',

@@ -29,7 +29,10 @@ export async function renderSettingsTab(el) {
       <div class="settings-group card">
         <label class="settings-label">Pre-Workout Items</label>
         <div id="pre-cl-list"></div>
-        <button class="btn btn-ghost" id="add-pre-item">+ Add item</button>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" id="add-pre-item" style="flex:1;min-width:100px">+ Add item</button>
+          <button class="btn btn-ghost" id="reset-pre-cl" style="flex:1;min-width:100px;color:var(--text-3)">↺ Reset defaults</button>
+        </div>
         <button class="btn btn-secondary settings-save-btn" id="save-pre-cl" style="margin-top:8px">Save</button>
       </div>
       <div class="settings-group card">
@@ -66,7 +69,13 @@ export async function renderSettingsTab(el) {
   });
 
   // Checklist editor
-  const preItems = preCL ?? ['Dynamic warm-up done?','Joints feel okay?','Hydrated?','Any new soreness?'];
+  const PRE_DEFAULTS = [
+    'Dynamic warm-up done? (arm circles, leg swings — 5 min)',
+    'Joints feel okay? (no unusual pain)',
+    'Hydrated?',
+    'Any new soreness since last session?'
+  ];
+  const preItems = preCL ?? [...PRE_DEFAULTS];
   renderChecklistEditor(el.querySelector('#pre-cl-list'), preItems, 'pre');
   el.querySelector('#add-pre-item').addEventListener('click', () => {
     preItems.push('New item');
@@ -77,6 +86,12 @@ export async function renderSettingsTab(el) {
     const items = Array.from(inputs).map(i => i.value).filter(Boolean);
     await setSetting('preChecklist', items);
     showToast('Checklist saved');
+  });
+  el.querySelector('#reset-pre-cl').addEventListener('click', () => {
+    preItems.length = 0;
+    PRE_DEFAULTS.forEach(d => preItems.push(d));
+    renderChecklistEditor(el.querySelector('#pre-cl-list'), preItems, 'pre');
+    showToast('Reset to defaults — tap Save to keep');
   });
 
   const postItems = postCL ?? ['Rate your session (1–5)?','Cool-down done?','Any new soreness?'];
@@ -119,7 +134,7 @@ export async function renderSettingsTab(el) {
 
 function renderChecklistEditor(container, items, prefix) {
   container.innerHTML = items.map((item, i) =>
-    `<div class="cl-row"><input class="input cl-item-input" value="${esc(item)}" data-idx="${i}"><button class="cl-remove-btn" data-idx="${i}">âœ•</button></div>`
+    `<div class="cl-row"><input class="input cl-item-input" value="${esc(item)}" data-idx="${i}"><button class="cl-remove-btn" data-idx="${i}" title="Remove">&times;</button></div>`
   ).join('');
   container.querySelectorAll('.cl-remove-btn').forEach(btn => {
     btn.addEventListener('click', () => { items.splice(Number(btn.dataset.idx), 1); renderChecklistEditor(container, items, prefix); });
