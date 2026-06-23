@@ -1,4 +1,4 @@
-import { getAllSessions, getRunLogs, getWalkLogs, deleteSession } from './db.js';
+import { getAllSessions, getRunLogs, getWalkLogs, deleteSession, saveSession } from './db.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -87,9 +87,15 @@ function showDetail(el, item, type) {
         <h2>${esc(displayName(item.templateName))}</h2>
         <span class="history-date">${item.date}</span>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="btn btn-ghost" id="copy-notes-btn" style="flex:1;font-size:13px">📋 Copy Notes</button>
-        <button class="btn btn-ghost" id="delete-session-btn" style="flex:1;font-size:13px;color:var(--danger);border-color:rgba(224,82,82,0.3)">Delete Workout</button>
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn btn-ghost" id="copy-notes-btn" style="flex:1;font-size:12px;min-width:80px">📋 Notes</button>
+        <button class="btn btn-ghost" id="edit-date-btn" style="flex:1;font-size:12px;min-width:80px">📅 Date</button>
+        <button class="btn btn-ghost" id="delete-session-btn" style="flex:1;font-size:12px;min-width:80px;color:var(--danger);border-color:rgba(224,82,82,0.3)">🗑 Delete</button>
+      </div>
+      <div id="date-edit-row" style="display:none;gap:8px;margin-bottom:12px;align-items:center">
+        <input type="date" class="input" id="date-input" value="${item.date}" style="flex:1;font-size:15px">
+        <button class="btn btn-primary" id="save-date-btn" style="min-height:40px">Save</button>
+        <button class="btn btn-ghost" id="cancel-date-btn" style="min-height:40px">Cancel</button>
       </div>
       ${item.sessionNotes ? `<div class="detail-notes">${esc(item.sessionNotes)}</div>` : ''}
       ${item.exercises.map(ex => `
@@ -112,7 +118,21 @@ function showDetail(el, item, type) {
       if (ex.notes) lines.push(`${displayName(ex.exerciseName)}: ${ex.notes}`);
     });
     if (lines.length === 1) { alert('No notes recorded for this session.'); return; }
-    navigator.clipboard.writeText(lines.join('\n')).then(() => alert('Notes copied to clipboard!'));
+    navigator.clipboard.writeText(lines.join('\n')).then(() => alert('Copied!'));
+  });
+  el.querySelector('#edit-date-btn').addEventListener('click', () => {
+    const row = el.querySelector('#date-edit-row');
+    row.style.display = row.style.display === 'flex' ? 'none' : 'flex';
+  });
+  el.querySelector('#save-date-btn').addEventListener('click', async () => {
+    const newDate = el.querySelector('#date-input').value;
+    if (!newDate) return;
+    item.date = newDate;
+    await saveSession(item);
+    showDetail(el, item, 'workout');
+  });
+  el.querySelector('#cancel-date-btn').addEventListener('click', () => {
+    el.querySelector('#date-edit-row').style.display = 'none';
   });
   el.querySelector('#delete-session-btn').addEventListener('click', async () => {
     if (!confirm(`Delete "${displayName(item.templateName)}" from ${item.date}? This cannot be undone.`)) return;
