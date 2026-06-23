@@ -85,13 +85,13 @@ async function renderActiveSession(el) {
     const exDef = await getExercise(tplEx.exerciseId);
     const prev = await getLastSessionForExercise(tplEx.exerciseId);
     activeSession.exercises[i].exerciseName = exDef.name;
-    cardsEl.appendChild(buildExerciseCard(i, exDef, prev, activeSession.exercises[i]));
+    cardsEl.appendChild(buildExerciseCard(i, exDef, prev, activeSession.exercises[i], el));
   }
   for (let i = template.exercises.length; i < activeSession.exercises.length; i++) {
     const ex = activeSession.exercises[i];
     const exDef = await getExercise(ex.exerciseId);
     const prev = await getLastSessionForExercise(ex.exerciseId);
-    cardsEl.appendChild(buildExerciseCard(i, exDef, prev, ex));
+    cardsEl.appendChild(buildExerciseCard(i, exDef, prev, ex, el));
   }
   el.querySelector('#finish-btn').addEventListener('click', () => showPostChecklist(el));
   el.querySelector('#sticky-finish-btn').addEventListener('click', () => showPostChecklist(el));
@@ -107,7 +107,7 @@ async function renderActiveSession(el) {
   });
 }
 
-function buildExerciseCard(exIdx, exDef, prev, sessionEx) {
+function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
   const card = document.createElement('div');
   card.className = 'exercise-card card';
   card.dataset.exIdx = exIdx;
@@ -121,7 +121,10 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx) {
   card.innerHTML = `
     <div class="ex-header">
       <span class="ex-name">${esc(displayName)}${machineLabel}</span>
-      <button class="ex-note-btn" title="Add note">📝</button>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="ex-note-btn" title="Add note">📝</button>
+        <button class="ex-remove-btn" title="Remove exercise">✕</button>
+      </div>
     </div>
     <div class="ex-prev">Previous: ${esc(prevText)}</div>
     <div class="ex-sets" id="sets-${exIdx}"></div>
@@ -139,6 +142,11 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx) {
 
   card.querySelector('.ex-note-btn').addEventListener('click', () => {
     card.querySelector(`#note-${exIdx}`).classList.toggle('hidden');
+  });
+  card.querySelector('.ex-remove-btn').addEventListener('click', async () => {
+    if (!confirm(`Remove ${displayName} from this workout?`)) return;
+    activeSession.exercises.splice(exIdx, 1);
+    await renderActiveSession(el);
   });
   card.querySelector(`#note-${exIdx} textarea`).addEventListener('input', e => {
     activeSession.exercises[exIdx].notes = e.target.value;
@@ -314,6 +322,7 @@ async function showPostChecklist(el) {
       </div>
       <textarea class="input session-notes-input" placeholder="How did it go? Anything to note…" rows="3" id="session-notes">${esc(activeSession?.sessionNotes || '')}</textarea>
       <button class="btn btn-primary btn-full" id="save-session-btn" style="margin-top:16px">Save Workout</button>
+      <button class="btn btn-ghost btn-full" id="cancel-finish-btn" style="margin-top:8px">← Back to Workout</button>
     </div>
   `;
 
@@ -347,6 +356,10 @@ async function showPostChecklist(el) {
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
     await switchTab('log');
+  });
+  overlay.querySelector('#cancel-finish-btn').addEventListener('click', () => {
+    overlay.classList.add('hidden');
+    overlay.innerHTML = '';
   });
 }
 
@@ -384,7 +397,7 @@ async function showAddExerciseModal(el, cardsEl) {
       });
       overlay.classList.add('hidden');
       overlay.innerHTML = '';
-      cardsEl.appendChild(buildExerciseCard(newIdx, exDef, prev, activeSession.exercises[newIdx]));
+      cardsEl.appendChild(buildExerciseCard(newIdx, exDef, prev, activeSession.exercises[newIdx], el));
     });
   });
 }

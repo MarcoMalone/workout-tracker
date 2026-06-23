@@ -1,4 +1,4 @@
-import { getAllSessions, getRunLogs, getWalkLogs } from './db.js';
+import { getAllSessions, getRunLogs, getWalkLogs, deleteSession } from './db.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -79,27 +79,46 @@ function totalVolume(session) {
 function showDetail(el, item, type) {
   if (type === 'run') { showRunDetail(el, item); return; }
   if (type === 'walk') { showWalkDetail(el, item); return; }
+  const displayName = n => (n || '').replace(/_/g, ' ');
   el.innerHTML = `
     <div class="screen">
       <div class="detail-header">
         <button class="btn btn-ghost" id="back-btn">← Back</button>
-        <h2>${esc(item.templateName)}</h2>
+        <h2>${esc(displayName(item.templateName))}</h2>
         <span class="history-date">${item.date}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn btn-ghost" id="copy-notes-btn" style="flex:1;font-size:13px">📋 Copy Notes</button>
+        <button class="btn btn-ghost" id="delete-session-btn" style="flex:1;font-size:13px;color:var(--danger);border-color:rgba(224,82,82,0.3)">Delete Workout</button>
       </div>
       ${item.sessionNotes ? `<div class="detail-notes">${esc(item.sessionNotes)}</div>` : ''}
       ${item.exercises.map(ex => `
         <div class="card detail-exercise">
-          <p class="ex-name">${esc(ex.exerciseName)}</p>
+          <p class="ex-name">${esc(displayName(ex.exerciseName))}</p>
           ${ex.notes ? `<p class="detail-ex-note">${esc(ex.notes)}</p>` : ''}
           ${ex.sets.map(s => `<div class="detail-set-row">
             <span class="set-num">Set ${esc(s.setNumber)}${s.isDropSet ? ' ↓' : ''}</span>
-            <span>${s.isTimed ? `${esc(s.seconds)}s` : `${esc(s.weight)} × ${esc(s.reps)}`}${s.side ? ` (${esc(s.side)})` : ''}</span>
+            <span>${s.seconds != null ? `${esc(s.seconds)}s` : `${esc(s.weight)} × ${esc(s.reps)}`}${s.side ? ` (${esc(s.side)})` : ''}</span>
           </div>`).join('')}
         </div>
       `).join('')}
     </div>
   `;
   el.querySelector('#back-btn').addEventListener('click', () => renderHistoryTab(el));
+  el.querySelector('#copy-notes-btn').addEventListener('click', () => {
+    const lines = [`${displayName(item.templateName)} — ${item.date}`];
+    if (item.sessionNotes) lines.push(`Session: ${item.sessionNotes}`);
+    item.exercises.forEach(ex => {
+      if (ex.notes) lines.push(`${displayName(ex.exerciseName)}: ${ex.notes}`);
+    });
+    if (lines.length === 1) { alert('No notes recorded for this session.'); return; }
+    navigator.clipboard.writeText(lines.join('\n')).then(() => alert('Notes copied to clipboard!'));
+  });
+  el.querySelector('#delete-session-btn').addEventListener('click', async () => {
+    if (!confirm(`Delete "${displayName(item.templateName)}" from ${item.date}? This cannot be undone.`)) return;
+    await deleteSession(item.id);
+    renderHistoryTab(el);
+  });
 }
 
 function showWalkDetail(el, walk) {

@@ -84,6 +84,9 @@ export async function deleteTemplate(id) {
 export async function saveSession(session) {
   return (await db()).put('logged_sessions', session);
 }
+export async function deleteSession(id) {
+  return (await db()).delete('logged_sessions', id);
+}
 export async function getSession(id) {
   return (await db()).get('logged_sessions', id);
 }
