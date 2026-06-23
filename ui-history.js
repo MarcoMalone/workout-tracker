@@ -4,6 +4,8 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 
 export async function renderHistoryTab(el) {
   const [sessions, runs, walks] = await Promise.all([getAllSessions(), getRunLogs(), getWalkLogs()]);
+  // Only dedup imported sessions (startedAt is null/undefined = came from CSV import).
+  // Live-logged sessions always show, even if same date+template (e.g. two sessions same day).
   const seen = new Set();
   const all = [
     ...sessions.map(s => ({ ...s, _type: 'workout' })),
@@ -11,6 +13,7 @@ export async function renderHistoryTab(el) {
     ...walks.map(w => ({ ...w, _type: 'walk', bodyPartGroup: 'legs' }))
   ].sort((a, b) => b.date.localeCompare(a.date)).filter(item => {
     if (item._type !== 'workout') return true;
+    if (item.startedAt) return true; // live-logged session — never filter
     const key = `${item.date}__${item.templateName}`;
     if (seen.has(key)) return false;
     seen.add(key);

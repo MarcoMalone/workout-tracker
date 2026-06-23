@@ -116,20 +116,26 @@ function renderBodyPart(container, part, allSessions, runs, walks) {
   renderHeatmap(layerBEl, buildConsistencyMap(partActivity, 8), LAYER_B_COLORS, `8-week ${part} activity`);
   container.appendChild(layerBEl);
 
-  // Build exercise history from sessions — deduplicate by (exerciseId, date), filter noise
+  // Build exercise history from sessions — group by normalized name so Rear_Delt_Flys and
+  // Rear Delt Flys are treated as the same exercise, filter noise
   const EXCLUDED_NAMES = ['drop set', 'dead hang'];
-  const exMap = new Map();
+  const normName = n => (n || '').replace(/_/g, ' ').trim().toLowerCase();
+  const exMap = new Map(); // keyed by normalized exercise name
   sessions.slice().reverse().forEach(session => {
     session.exercises.forEach(exercise => {
-      const lname = (exercise.exerciseName || '').toLowerCase();
+      const lname = (exercise.exerciseName || '').toLowerCase().replace(/_/g, ' ');
       if (EXCLUDED_NAMES.some(n => lname.includes(n))) return;
-      if (!exMap.has(exercise.exerciseId)) {
-        exMap.set(exercise.exerciseId, { ex: { id: exercise.exerciseId, name: exercise.exerciseName }, history: [] });
+      const key = normName(exercise.exerciseName);
+      const displayName = (exercise.exerciseName || '').replace(/_/g, ' ');
+      if (!exMap.has(key)) {
+        exMap.set(key, { ex: { id: exercise.exerciseId, name: displayName }, history: [] });
+      } else if (!exMap.get(key).ex.name.includes('_') === false && !displayName.includes('_')) {
+        // Prefer the cleaner (non-underscored) display name
+        exMap.get(key).ex.name = displayName;
       }
-      const entry = exMap.get(exercise.exerciseId);
+      const entry = exMap.get(key);
       const existing = entry.history.find(h => h.date === session.date);
       if (existing) {
-        // Same exercise appeared in two sessions on the same date (e.g. Arm A + Arm B) — merge sets
         existing.exercise = { ...existing.exercise, sets: [...existing.exercise.sets, ...exercise.sets] };
       } else {
         entry.history.push({ date: session.date, exercise: { ...exercise, sets: [...exercise.sets] } });
