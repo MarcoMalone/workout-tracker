@@ -118,7 +118,7 @@ function renderBodyPart(container, part, allSessions, runs, walks) {
 
   // Build exercise history — group by normalized name, then merge L/R unilateral pairs
   const EXCLUDED_NAMES = ['drop set', 'dead hang', 'push-up', 'push up', 'pushup'];
-  const normName = n => (n || '').replace(/_/g, ' ').trim().toLowerCase();
+  const normName = n => (n || '').replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
   const exMap = new Map(); // keyed by normalized exercise name (including any L/R suffix)
   sessions.slice().reverse().forEach(session => {
     session.exercises.forEach(exercise => {
