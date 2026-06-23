@@ -76,7 +76,9 @@ function streakCaption(activityByDate) {
   if (!sorted.length) return 'No activity logged yet';
   const todayKey = localDateKey(today);
   const diff = Math.round((new Date(todayKey) - new Date(sorted[0])) / 86400000);
-  return `Last workout: ${diff} day${diff !== 1 ? 's' : ''} ago`;
+  if (diff <= 0) return 'Last workout: today';
+  if (diff === 1) return 'Last workout: yesterday';
+  return `Last workout: ${diff} days ago`;
 }
 
 function renderHeatmap(container, cells, colorMap, captionHTML) {

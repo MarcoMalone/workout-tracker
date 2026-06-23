@@ -2,6 +2,9 @@ import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionFor
 import { switchTab } from './app.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function localDateStr(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 
 export let activeSession = null;
 
@@ -66,6 +69,14 @@ async function renderActiveSession(el) {
       ${activeSession.sorenessNote ? `<div class="soreness-banner">⚠ ${esc(activeSession.sorenessNote)}</div>` : ''}
       <div id="exercise-cards"></div>
       <button class="btn btn-ghost btn-full" id="add-exercise-btn" style="margin-top:8px">+ Add Exercise</button>
+      <div style="margin-top:16px">
+        <p class="section-title" style="margin-bottom:6px">Session Notes</p>
+        <textarea class="input" id="session-notes-during" rows="3" placeholder="Jot notes, observations, or anything to remember…" style="width:100%;box-sizing:border-box">${esc(activeSession.sessionNotes || '')}</textarea>
+      </div>
+      <div style="height:80px"></div>
+    </div>
+    <div class="sticky-finish-bar">
+      <button class="btn btn-primary btn-full" id="sticky-finish-btn">Finish Workout</button>
     </div>
   `;
   const cardsEl = el.querySelector('#exercise-cards');
@@ -83,6 +94,7 @@ async function renderActiveSession(el) {
     cardsEl.appendChild(buildExerciseCard(i, exDef, prev, ex));
   }
   el.querySelector('#finish-btn').addEventListener('click', () => showPostChecklist(el));
+  el.querySelector('#sticky-finish-btn').addEventListener('click', () => showPostChecklist(el));
   el.querySelector('#discard-btn').addEventListener('click', () => {
     if (confirm('Discard this workout? All logged data will be lost.')) {
       activeSession = null;
@@ -90,6 +102,9 @@ async function renderActiveSession(el) {
     }
   });
   el.querySelector('#add-exercise-btn').addEventListener('click', () => showAddExerciseModal(el, cardsEl));
+  el.querySelector('#session-notes-during').addEventListener('input', e => {
+    activeSession.sessionNotes = e.target.value;
+  });
 }
 
 function buildExerciseCard(exIdx, exDef, prev, sessionEx) {
@@ -100,11 +115,12 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx) {
   const prevText = prev
     ? prev.sets.map(s => s.seconds != null ? `${s.seconds}s` : `${s.weight}×${s.reps}`).join(', ')
     : 'No previous data';
+  const displayName = (exDef.name || '').replace(/_/g, ' ');
   const machineLabel = exDef.machineId ? ` (${esc(exDef.machineId)})` : '';
 
   card.innerHTML = `
     <div class="ex-header">
-      <span class="ex-name">${esc(exDef.name)}${machineLabel}</span>
+      <span class="ex-name">${esc(displayName)}${machineLabel}</span>
       <button class="ex-note-btn" title="Add note">📝</button>
     </div>
     <div class="ex-prev">Previous: ${esc(prevText)}</div>
@@ -119,7 +135,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx) {
   `;
 
   const setsEl = card.querySelector(`#sets-${exIdx}`);
-  sessionEx.sets.forEach((_, sIdx) => appendSetRow(setsEl, exIdx, sIdx, exDef, prev));
+  refreshSets(setsEl, exIdx, exDef, prev);
 
   card.querySelector('.ex-note-btn').addEventListener('click', () => {
     card.querySelector(`#note-${exIdx}`).classList.toggle('hidden');
@@ -148,31 +164,54 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx) {
   return card;
 }
 
+function refreshSets(setsEl, exIdx, exDef, prev) {
+  setsEl.innerHTML = '';
+  activeSession.exercises[exIdx].sets.forEach((set, sIdx) => {
+    appendSetRow(setsEl, exIdx, sIdx, exDef, prev, set.isDropSet);
+  });
+}
+
 function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
+  const currentSet = activeSession.exercises[exIdx].sets[sIdx];
   const prevSet = prev?.sets[sIdx];
-  const prevWeight = prevSet?.weight ?? '';
+  const weight = currentSet.weight ?? prevSet?.weight ?? '';
+  const reps = currentSet.reps ?? prevSet?.reps ?? '';
+  const unit = exDef.unit || 'lbs';
   const row = document.createElement('div');
   row.className = `set-row${isDropSet ? ' drop-set' : ''}`;
 
   if (exDef.isTimed) {
-    row.innerHTML = `<span class="set-num">Set ${sIdx + 1}${isDropSet ? ' ↓' : ''}</span><input type="number" class="set-input" placeholder="${prevSet?.seconds ?? ''}" inputmode="numeric" data-field="seconds"><span class="set-unit">sec</span><button class="set-check" aria-label="Mark done">✓</button>`;
+    const seconds = currentSet.seconds ?? prevSet?.seconds ?? '';
+    row.innerHTML = `<span class="set-num">Set ${sIdx + 1}${isDropSet ? ' ↓' : ''}</span><input type="number" class="set-input" value="${seconds}" inputmode="numeric" data-field="seconds"><span class="set-unit">sec</span><button class="set-check" aria-label="Mark done">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
     row.querySelector('[data-field="seconds"]').addEventListener('input', e => {
       activeSession.exercises[exIdx].sets[sIdx].seconds = Number(e.target.value) || null;
     });
   } else if (exDef.isUnilateral) {
-    row.innerHTML = `<span class="set-num">Set ${sIdx + 1}</span><input type="number" class="set-input w-input" value="${prevWeight}" inputmode="decimal"><span class="set-unit">${exDef.unit || 'lbs'}</span><span class="set-sep">×</span><input type="number" class="set-input r-input" placeholder="reps" inputmode="numeric"><select class="set-side"><option value="L">L</option><option value="R">R</option></select><button class="set-check">✓</button>`;
+    row.innerHTML = `<span class="set-num">Set ${sIdx + 1}</span><input type="number" class="set-input w-input" value="${weight}" inputmode="decimal"><span class="set-unit">${unit}</span><span class="set-sep">×</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><select class="set-side"><option value="L">L</option><option value="R">R</option></select><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
     row.querySelector('.w-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].weight = Number(e.target.value) || null; });
-    row.querySelector('.r-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
+    const rInp = row.querySelector('.r-input');
+    rInp.addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
     row.querySelector('.set-side').addEventListener('change', e => { activeSession.exercises[exIdx].sets[sIdx].side = e.target.value; });
+    row.querySelector('.step-dn').addEventListener('click', () => { const v = Math.max(0, (Number(rInp.value) || 0) - 1); rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
+    row.querySelector('.step-up').addEventListener('click', () => { const v = (Number(rInp.value) || 0) + 1; rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
   } else {
-    row.innerHTML = `<span class="set-num">Set ${sIdx + 1}${isDropSet ? ' ↓' : ''}</span><input type="number" class="set-input w-input" value="${prevWeight}" inputmode="decimal"><span class="set-unit">${exDef.unit || 'lbs'}</span><span class="set-sep">×</span><input type="number" class="set-input r-input" placeholder="reps" inputmode="numeric"><button class="set-check">✓</button>`;
+    row.innerHTML = `<span class="set-num">Set ${sIdx + 1}${isDropSet ? ' ↓' : ''}</span><input type="number" class="set-input w-input" value="${weight}" inputmode="decimal"><span class="set-unit">${unit}</span><span class="set-sep">×</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
     row.querySelector('.w-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].weight = Number(e.target.value) || null; });
-    row.querySelector('.r-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
+    const rInp = row.querySelector('.r-input');
+    rInp.addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
+    row.querySelector('.step-dn').addEventListener('click', () => { const v = Math.max(0, (Number(rInp.value) || 0) - 1); rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
+    row.querySelector('.step-up').addEventListener('click', () => { const v = (Number(rInp.value) || 0) + 1; rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
   }
 
   row.querySelector('.set-check').addEventListener('click', function () {
     this.classList.toggle('done');
     row.classList.toggle('set-done');
+  });
+  row.querySelector('.set-remove-btn').addEventListener('click', () => {
+    if (activeSession.exercises[exIdx].sets.length <= 1) return;
+    activeSession.exercises[exIdx].sets.splice(sIdx, 1);
+    activeSession.exercises[exIdx].sets.forEach((s, i) => { s.setNumber = i + 1; });
+    refreshSets(setsEl, exIdx, exDef, prev);
   });
   setsEl.appendChild(row);
 }
@@ -234,7 +273,7 @@ function startSession(el, template, answers, sorenessNote = '') {
     templateId: template.id,
     templateName: template.name,
     bodyPartGroup: template.bodyPartGroup,
-    date: new Date().toISOString().split('T')[0],
+    date: localDateStr(),
     startedAt: Date.now(),
     finishedAt: null,
     sessionRating: null,
@@ -273,7 +312,7 @@ async function showPostChecklist(el) {
           ${[1, 2, 3, 4, 5].map(n => `<button class="star-btn" data-val="${n}">★</button>`).join('')}
         </div>
       </div>
-      <textarea class="input session-notes-input" placeholder="How did it go? Anything to note…" rows="3" id="session-notes"></textarea>
+      <textarea class="input session-notes-input" placeholder="How did it go? Anything to note…" rows="3" id="session-notes">${esc(activeSession?.sessionNotes || '')}</textarea>
       <button class="btn btn-primary btn-full" id="save-session-btn" style="margin-top:16px">Save Workout</button>
     </div>
   `;
@@ -351,7 +390,7 @@ async function showAddExerciseModal(el, cardsEl) {
 }
 
 function showWalkForm(el) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = localDateStr();
   el.innerHTML = `
     <div class="screen">
       <div class="session-header">
@@ -423,7 +462,7 @@ function showRunForm(el) {
       </div>
       <div class="run-form">
         <label class="form-label">Date</label>
-        <input type="date" class="input" id="run-date" value="${new Date().toISOString().split('T')[0]}">
+        <input type="date" class="input" id="run-date" value="${localDateStr()}">
         <label class="form-label">Distance (miles)</label>
         <input type="number" class="input" id="run-dist" step="0.01" inputmode="decimal" placeholder="2.5">
         <label class="form-label">Duration (mm:ss)</label>
