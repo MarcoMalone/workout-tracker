@@ -136,7 +136,7 @@ function renderBodyPart(container, part, allSessions, runs, walks) {
       if (existing) {
         existing.exercise = { ...existing.exercise, sets: [...existing.exercise.sets, ...exercise.sets] };
       } else {
-        entry.history.push({ date: session.date, exercise: { ...exercise, sets: [...exercise.sets] } });
+        entry.history.push({ date: session.date, exercise: { ...exercise, sets: [...exercise.sets] }, sessionNotes: session.sessionNotes || '' });
       }
     });
   });
@@ -266,10 +266,14 @@ function buildCarousel(container, exWithData) {
     const canvas = document.createElement('canvas');
     wrap.appendChild(canvas);
 
+    const navEl = document.createElement('div');
+    navEl.className = 'chart-date-nav';
+
     slide.appendChild(statEl);
     slide.appendChild(wrap);
+    slide.appendChild(navEl);
     track.appendChild(slide);
-    slideInfo.set(canvas, { ex, history, isTimed, statEl, isLR, histL, histR, histBoth });
+    slideInfo.set(canvas, { ex, history, isTimed, statEl, navEl, isLR, histL, histR, histBoth });
   });
 
   container.appendChild(track);
@@ -332,6 +336,29 @@ function buildCarousel(container, exWithData) {
   }
 }
 
+function buildDateNav(container, dates, getContentFn) {
+  if (!dates || !dates.length) { container.innerHTML = ''; return; }
+  let idx = dates.length - 1; // start at most recent
+  function render() {
+    const date = dates[idx];
+    container.innerHTML = `
+      <div class="date-nav-row">
+        <button class="date-nav-btn" data-dir="-1" ${idx === 0 ? 'disabled' : ''}>&#9664;</button>
+        <span class="date-nav-label">${formatPRDate(date)}</span>
+        <button class="date-nav-btn" data-dir="1" ${idx === dates.length - 1 ? 'disabled' : ''}>&#9654;</button>
+      </div>
+      <div class="date-nav-detail">${getContentFn(date)}</div>
+    `;
+    container.querySelectorAll('.date-nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        idx = Math.max(0, Math.min(dates.length - 1, idx + Number(btn.dataset.dir)));
+        render();
+      });
+    });
+  }
+  render();
+}
+
 function capOutliers(data) {
   const valid = data.filter(v => v != null).sort((a, b) => a - b);
   if (valid.length < 3) return data;
@@ -345,8 +372,8 @@ function capOutliers(data) {
   });
 }
 
-function renderSlideChart(canvas, { history, isTimed, statEl, isLR, histL, histR, histBoth }, metric, chartRefs) {
-  if (isLR) { renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl }, metric, chartRefs); return; }
+function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL, histR, histBoth }, metric, chartRefs) {
+  if (isLR) { renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl }, metric, chartRefs); return; }
   const existing = chartRefs.get(canvas);
   if (existing) existing.destroy();
 
@@ -410,14 +437,26 @@ function renderSlideChart(canvas, { history, isTimed, statEl, isLR, histL, histR
         tooltip: { callbacks: { label: ctx => tooltipFn(ctx.parsed.y) } }
       },
       scales: {
-        x: { ticks: { color: '#8EA3B8', maxTicksLimit: 6 }, grid: { color: '#2A3F58' } },
+        x: { ticks: { color: '#8EA3B8', maxTicksLimit: 6, includeBounds: true }, grid: { color: '#2A3F58' } },
         y: { min: minVal, ticks: { color: '#8EA3B8' }, grid: { color: '#2A3F58' } }
       }
     }
   }));
+
+  if (navEl) {
+    buildDateNav(navEl, labels, date => {
+      const h = sorted.find(e => e.date === date);
+      if (!h) return '';
+      const setStrs = h.exercise.sets.map(s =>
+        s.seconds != null ? `${s.seconds}s` : (s.weight && s.reps ? `${s.weight}×${s.reps}${s.isDropSet ? '↓' : ''}` : '—')
+      ).join(' · ');
+      const notes = h.sessionNotes ? `<p class="date-nav-notes">${esc(h.sessionNotes)}</p>` : '';
+      return `<p class="date-nav-sets">${setStrs}</p>${notes}`;
+    });
+  }
 }
 
-function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl }, metric, chartRefs) {
+function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl }, metric, chartRefs) {
   const existing = chartRefs.get(canvas);
   if (existing) existing.destroy();
 
@@ -427,33 +466,71 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl }, metr
     ...(histBoth || []).map(h => h.date)
   ])].sort();
 
-  const getValue = (hist, date) => {
-    if (!hist) return null;
-    const entry = hist.find(h => h.date === date);
-    if (!entry) return null;
-    if (isTimed) return Math.max(...entry.exercise.sets.map(s => s.seconds || 0));
-    if (metric === 'volume') return entry.exercise.sets.reduce((sum, s) => sum + (s.weight || 0) * (s.reps || 0), 0);
-    return getBestE1RM(entry.exercise.sets);
+  // Split histBoth sets by side field:
+  //   side='R' → Right dataset
+  //   side='L' or null (when R-labeled sets exist in same entry) → Left dataset
+  //   no side labels at all → Untracked
+  const getBothEntry = date => histBoth && histBoth.find(h => h.date === date);
+
+  const getRSets = date => {
+    const sets = [];
+    const rEntry = histR && histR.find(h => h.date === date);
+    if (rEntry) sets.push(...rEntry.exercise.sets);
+    const b = getBothEntry(date);
+    if (b) sets.push(...b.exercise.sets.filter(s => s.side === 'R'));
+    return sets;
   };
+
+  const getLSets = date => {
+    const sets = [];
+    const lEntry = histL && histL.find(h => h.date === date);
+    if (lEntry) sets.push(...lEntry.exercise.sets);
+    const b = getBothEntry(date);
+    if (b) {
+      const hasRInBoth = b.exercise.sets.some(s => s.side === 'R');
+      const hasLInBoth = b.exercise.sets.some(s => s.side === 'L');
+      // null-side sets are Left when the entry alternates with R (or has explicit L labels)
+      sets.push(...b.exercise.sets.filter(s => s.side === 'L' || (!s.side && (hasRInBoth || hasLInBoth))));
+    }
+    return sets;
+  };
+
+  const getUntrackedSets = date => {
+    const b = getBothEntry(date);
+    if (!b) return [];
+    if (b.exercise.sets.some(s => s.side)) return []; // classified into L/R
+    return b.exercise.sets;
+  };
+
+  const computeVal = sets => {
+    if (!sets.length) return null;
+    if (isTimed) return Math.max(...sets.map(s => s.seconds || 0));
+    if (metric === 'volume') return sets.reduce((sum, s) => sum + (s.weight || 0) * (s.reps || 0), 0);
+    return getBestE1RM(sets);
+  };
+
+  const lData = capOutliers(allDates.map(d => computeVal(getLSets(d))));
+  const rData = capOutliers(allDates.map(d => computeVal(getRSets(d))));
+  const uData = capOutliers(allDates.map(d => computeVal(getUntrackedSets(d))));
+
+  const hasL = lData.some(v => v != null);
+  const hasR = rData.some(v => v != null);
+  const hasU = uData.some(v => v != null);
 
   const datasets = [];
-  if (histL) datasets.push({ label: 'Left', data: capOutliers(allDates.map(d => getValue(histL, d))), borderColor: '#5BA4E0', backgroundColor: 'rgba(91,164,224,0.1)', tension: 0.3, fill: false, pointRadius: 4, spanGaps: true });
-  if (histR) datasets.push({ label: 'Right', data: capOutliers(allDates.map(d => getValue(histR, d))), borderColor: '#F3A64E', backgroundColor: 'rgba(243,166,78,0.1)', tension: 0.3, fill: false, pointRadius: 4, spanGaps: true });
-  if (histBoth) datasets.push({ label: 'Untracked', data: capOutliers(allDates.map(d => getValue(histBoth, d))), borderColor: '#8EA3B8', backgroundColor: 'rgba(142,163,184,0.05)', tension: 0.3, fill: false, pointRadius: 3, spanGaps: true, borderDash: [4, 4] });
-
-  const getHistBest = hist => {
-    if (!hist) return null;
-    const vals = hist.flatMap(h => { const e = isTimed ? Math.max(...h.exercise.sets.map(s => s.seconds || 0)) : getBestE1RM(h.exercise.sets); return e != null ? [e] : []; });
-    return vals.length ? Math.max(...vals) : null;
-  };
+  if (hasL) datasets.push({ label: 'Left', data: lData, borderColor: '#5BA4E0', backgroundColor: 'rgba(91,164,224,0.1)', tension: 0.3, fill: false, pointRadius: 4, spanGaps: true });
+  if (hasR) datasets.push({ label: 'Right', data: rData, borderColor: '#F3A64E', backgroundColor: 'rgba(243,166,78,0.1)', tension: 0.3, fill: false, pointRadius: 4, spanGaps: true });
+  if (hasU) datasets.push({ label: 'Untracked', data: uData, borderColor: '#8EA3B8', backgroundColor: 'rgba(142,163,184,0.05)', tension: 0.3, fill: false, pointRadius: 3, spanGaps: true, borderDash: [4, 4] });
 
   const unit = isTimed ? 'sec' : (metric === 'e1rm' ? 'lbs est.' : 'lbs vol');
+  const lBest = hasL ? Math.max(...lData.filter(v => v != null)) : null;
+  const rBest = hasR ? Math.max(...rData.filter(v => v != null)) : null;
   const parts = [];
-  const lBest = getHistBest(histL); if (lBest != null) parts.push(`L: ${lBest}`);
-  const rBest = getHistBest(histR); if (rBest != null) parts.push(`R: ${rBest}`);
+  if (lBest != null) parts.push(`L: ${lBest}`);
+  if (rBest != null) parts.push(`R: ${rBest}`);
   statEl.innerHTML = `<span class="chart-stat-pr">🏆 ${parts.length ? parts.join(' / ') + ' ' + unit : 'No data yet'}</span>`;
 
-  const allVals = datasets.flatMap(d => d.data.filter(v => v != null));
+  const allVals = [...lData, ...rData, ...uData].filter(v => v != null);
   const minVal = allVals.length ? Math.floor(Math.min(...allVals) * 0.94) : 0;
 
   chartRefs.set(canvas, new Chart(canvas, {
@@ -466,11 +543,32 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl }, metr
         tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} ${unit}` } }
       },
       scales: {
-        x: { ticks: { color: '#8EA3B8', maxTicksLimit: 6 }, grid: { color: '#2A3F58' } },
+        x: { ticks: { color: '#8EA3B8', maxTicksLimit: 6, includeBounds: true }, grid: { color: '#2A3F58' } },
         y: { min: minVal, ticks: { color: '#8EA3B8' }, grid: { color: '#2A3F58' } }
       }
     }
   }));
+
+  if (navEl) {
+    buildDateNav(navEl, allDates, date => {
+      const lSets = getLSets(date);
+      const rSets = getRSets(date);
+      const uSets = getUntrackedSets(date);
+      const fmtSets = sets => sets.map(s =>
+        s.seconds != null ? `${s.seconds}s` : (s.weight && s.reps ? `${s.weight}×${s.reps}` : '—')
+      ).join(' · ') || '—';
+      const b = getBothEntry(date);
+      const lEntry = histL && histL.find(h => h.date === date);
+      const rEntry = histR && histR.find(h => h.date === date);
+      const notes = (lEntry || rEntry || b)?.sessionNotes || '';
+      let html = '';
+      if (lSets.length) html += `<p class="date-nav-sets"><span style="color:#5BA4E0;font-weight:700">L</span>&nbsp;&nbsp;${fmtSets(lSets)}</p>`;
+      if (rSets.length) html += `<p class="date-nav-sets"><span style="color:#F3A64E;font-weight:700">R</span>&nbsp;&nbsp;${fmtSets(rSets)}</p>`;
+      if (uSets.length) html += `<p class="date-nav-sets">${fmtSets(uSets)}</p>`;
+      if (notes) html += `<p class="date-nav-notes">${esc(notes)}</p>`;
+      return html;
+    });
+  }
 }
 
 function formatPRDate(dateStr) {
