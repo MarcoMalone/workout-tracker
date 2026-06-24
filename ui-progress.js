@@ -136,7 +136,7 @@ function renderBodyPart(container, part, allSessions, runs, walks) {
       if (existing) {
         existing.exercise = { ...existing.exercise, sets: [...existing.exercise.sets, ...exercise.sets] };
       } else {
-        entry.history.push({ date: session.date, exercise: { ...exercise, sets: [...exercise.sets] }, sessionNotes: session.sessionNotes || '' });
+        entry.history.push({ date: session.date, exercise: { ...exercise, sets: [...exercise.sets] }, sessionNotes: session.sessionNotes || '', workoutContext: session.workoutContext || '' });
       }
     });
   });
@@ -336,8 +336,8 @@ function buildCarousel(container, exWithData) {
   }
 }
 
-function buildDateNav(container, dates, getContentFn) {
-  if (!dates || !dates.length) { container.innerHTML = ''; return; }
+function buildDateNav(container, dates, getContentFn, onIndexChange) {
+  if (!dates || !dates.length) { container.innerHTML = ''; return { jumpTo: () => {} }; }
   let idx = dates.length - 1; // start at most recent
   function render() {
     const date = dates[idx];
@@ -352,11 +352,18 @@ function buildDateNav(container, dates, getContentFn) {
     container.querySelectorAll('.date-nav-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         idx = Math.max(0, Math.min(dates.length - 1, idx + Number(btn.dataset.dir)));
+        if (onIndexChange) onIndexChange(idx);
         render();
       });
     });
   }
   render();
+  return {
+    jumpTo: i => {
+      idx = Math.max(0, Math.min(dates.length - 1, i));
+      render();
+    }
+  };
 }
 
 function capOutliers(data) {
@@ -414,7 +421,10 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
   const validData = data.filter(v => v != null);
   const minVal = validData.length ? Math.floor(Math.min(...validData) * 0.94) : 0;
 
-  chartRefs.set(canvas, new Chart(canvas, {
+  let selectedIdx = labels.length - 1;
+  let navJumpTo = null;
+
+  const chart = new Chart(canvas, {
     type: 'line',
     data: {
       labels,
@@ -439,20 +449,43 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
       scales: {
         x: { ticks: { color: '#8EA3B8', maxTicksLimit: 6, includeBounds: true }, grid: { color: '#2A3F58' } },
         y: { min: minVal, ticks: { color: '#8EA3B8' }, grid: { color: '#2A3F58' } }
+      },
+      onClick: (e, elements) => {
+        if (!elements.length) return;
+        selectedIdx = elements[0].index;
+        highlightPoint(selectedIdx);
+        if (navJumpTo) navJumpTo(selectedIdx);
       }
     }
-  }));
+  });
+  chartRefs.set(canvas, chart);
+
+  function highlightPoint(selIdx) {
+    chart.data.datasets[0].pointBackgroundColor = data.map((v, i) =>
+      i === selIdx && v != null ? '#EEF2F8' : pointColors[i]
+    );
+    chart.data.datasets[0].pointRadius = data.map((v, i) =>
+      i === selIdx && v != null ? 8 : pointRadii[i]
+    );
+    chart.update('none');
+  }
 
   if (navEl) {
-    buildDateNav(navEl, labels, date => {
+    const { jumpTo } = buildDateNav(navEl, labels, date => {
       const h = sorted.find(e => e.date === date);
       if (!h) return '';
       const setStrs = h.exercise.sets.map(s =>
         s.seconds != null ? `${s.seconds}s` : (s.weight && s.reps ? `${s.weight}×${s.reps}${s.isDropSet ? '↓' : ''}` : '—')
       ).join(' · ');
+      const ctx = h.workoutContext ? `<p class="date-nav-context">&#9889; ${esc(h.workoutContext)}</p>` : '';
       const notes = h.sessionNotes ? `<p class="date-nav-notes">${esc(h.sessionNotes)}</p>` : '';
-      return `<p class="date-nav-sets">${setStrs}</p>${notes}`;
+      return `<p class="date-nav-sets">${setStrs}</p>${ctx}${notes}`;
+    }, newIdx => {
+      selectedIdx = newIdx;
+      highlightPoint(newIdx);
     });
+    navJumpTo = jumpTo;
+    highlightPoint(selectedIdx);
   }
 }
 
@@ -533,7 +566,10 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl 
   const allVals = [...lData, ...rData, ...uData].filter(v => v != null);
   const minVal = allVals.length ? Math.floor(Math.min(...allVals) * 0.94) : 0;
 
-  chartRefs.set(canvas, new Chart(canvas, {
+  let selectedIdx = allDates.length - 1;
+  let navJumpTo = null;
+
+  const chart = new Chart(canvas, {
     type: 'line',
     data: { labels: allDates, datasets },
     options: {
@@ -545,12 +581,28 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl 
       scales: {
         x: { ticks: { color: '#8EA3B8', maxTicksLimit: 6, includeBounds: true }, grid: { color: '#2A3F58' } },
         y: { min: minVal, ticks: { color: '#8EA3B8' }, grid: { color: '#2A3F58' } }
+      },
+      onClick: (e, elements) => {
+        if (!elements.length) return;
+        selectedIdx = elements[0].index;
+        highlightPoints(selectedIdx);
+        if (navJumpTo) navJumpTo(selectedIdx);
       }
     }
-  }));
+  });
+  chartRefs.set(canvas, chart);
+
+  function highlightPoints(selIdx) {
+    chart.data.datasets.forEach(ds => {
+      ds.pointRadius = ds.data.map((v, i) => i === selIdx && v != null ? 8 : 4);
+      ds.pointBorderColor = ds.data.map((v, i) => i === selIdx && v != null ? '#EEF2F8' : ds.borderColor);
+      ds.pointBorderWidth = ds.data.map((v, i) => i === selIdx && v != null ? 2 : 1);
+    });
+    chart.update('none');
+  }
 
   if (navEl) {
-    buildDateNav(navEl, allDates, date => {
+    const { jumpTo } = buildDateNav(navEl, allDates, date => {
       const lSets = getLSets(date);
       const rSets = getRSets(date);
       const uSets = getUntrackedSets(date);
@@ -560,14 +612,22 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl 
       const b = getBothEntry(date);
       const lEntry = histL && histL.find(h => h.date === date);
       const rEntry = histR && histR.find(h => h.date === date);
-      const notes = (lEntry || rEntry || b)?.sessionNotes || '';
+      const anyEntry = lEntry || rEntry || b;
+      const notes = anyEntry?.sessionNotes || '';
+      const ctx = anyEntry?.workoutContext ? `<p class="date-nav-context">&#9889; ${esc(anyEntry.workoutContext)}</p>` : '';
       let html = '';
       if (lSets.length) html += `<p class="date-nav-sets"><span style="color:#5BA4E0;font-weight:700">L</span>&nbsp;&nbsp;${fmtSets(lSets)}</p>`;
       if (rSets.length) html += `<p class="date-nav-sets"><span style="color:#F3A64E;font-weight:700">R</span>&nbsp;&nbsp;${fmtSets(rSets)}</p>`;
       if (uSets.length) html += `<p class="date-nav-sets">${fmtSets(uSets)}</p>`;
+      if (ctx) html += ctx;
       if (notes) html += `<p class="date-nav-notes">${esc(notes)}</p>`;
       return html;
+    }, newIdx => {
+      selectedIdx = newIdx;
+      highlightPoints(newIdx);
     });
+    navJumpTo = jumpTo;
+    highlightPoints(selectedIdx);
   }
 }
 

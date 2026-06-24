@@ -324,6 +324,10 @@ async function showPostChecklist(el) {
         <label class="form-label" style="margin-bottom:4px">Name this workout <span class="form-hint">— optional</span></label>
         <input class="input" id="workout-label" placeholder="e.g. Workout with Orlando" value="${esc(activeSession?.workoutLabel || '')}">
       </div>
+      <div style="margin-top:8px">
+        <label class="form-label" style="margin-bottom:4px">Context tag <span class="form-hint">— shows on progress chart</span></label>
+        <input class="input" id="workout-context" placeholder="e.g. Pitching in 2 days, Tired, Full energy" value="${esc(activeSession?.workoutContext || '')}">
+      </div>
       <textarea class="input session-notes-input" placeholder="How did it go? Anything to note…" rows="3" id="session-notes" style="margin-top:8px">${esc(activeSession?.sessionNotes || '')}</textarea>
       <button class="btn btn-primary btn-full" id="save-session-btn" style="margin-top:16px">Save Workout</button>
       <button class="btn btn-ghost btn-full" id="cancel-finish-btn" style="margin-top:8px">← Back to Workout</button>
@@ -357,6 +361,8 @@ async function showPostChecklist(el) {
     activeSession.sessionRating = rating;
     const labelVal = overlay.querySelector('#workout-label').value.trim();
     activeSession.workoutLabel = labelVal || null;
+    const ctxVal = overlay.querySelector('#workout-context').value.trim();
+    activeSession.workoutContext = ctxVal || null;
     await saveSession(activeSession);
     activeSession = null;
     overlay.classList.add('hidden');
