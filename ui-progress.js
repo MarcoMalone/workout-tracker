@@ -102,7 +102,17 @@ function renderHeatmap(container, cells, colorMap, captionHTML) {
 }
 
 function renderBodyPart(container, part, allSessions, runs, walks) {
-  const sessions = allSessions.filter(s => s.bodyPartGroup === part);
+  // Dedup imported sessions the same way the history tab does — prevents doubled sets
+  const seen = new Set();
+  const dedupedSessions = allSessions.filter(item => {
+    const isLive = item.startedAt && item.finishedAt && (item.finishedAt - item.startedAt) > 30000;
+    if (isLive) return true;
+    const key = `${item.date}__${item.templateName}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const sessions = dedupedSessions.filter(s => s.bodyPartGroup === part);
 
   if (sessions.length === 0) {
     container.innerHTML = '<p style="color:var(--text-3);text-align:center;padding:32px">No sessions yet for this body part</p>';
@@ -462,10 +472,16 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
 
   function highlightPoint(selIdx) {
     chart.data.datasets[0].pointBackgroundColor = data.map((v, i) =>
-      i === selIdx && v != null ? '#EEF2F8' : pointColors[i]
+      i === selIdx && v != null ? 'rgba(0,0,0,0)' : pointColors[i]
     );
     chart.data.datasets[0].pointRadius = data.map((v, i) =>
-      i === selIdx && v != null ? 8 : pointRadii[i]
+      i === selIdx && v != null ? 9 : pointRadii[i]
+    );
+    chart.data.datasets[0].pointBorderColor = data.map((v, i) =>
+      i === selIdx && v != null ? '#EEF2F8' : '#F3A64E'
+    );
+    chart.data.datasets[0].pointBorderWidth = data.map((v, i) =>
+      i === selIdx && v != null ? 3 : 1
     );
     chart.update('none');
   }
@@ -550,10 +566,27 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl 
   const hasR = rData.some(v => v != null);
   const hasU = uData.some(v => v != null);
 
+  const lPRFlags = hasL ? findPRIndices(lData) : [];
+  const rPRFlags = hasR ? findPRIndices(rData) : [];
+  const basePtColors = {};
+  const basePtRadii = {};
+
   const datasets = [];
-  if (hasL) datasets.push({ label: 'Left', data: lData, borderColor: '#5BA4E0', backgroundColor: 'rgba(91,164,224,0.1)', tension: 0.3, fill: false, pointRadius: 4, spanGaps: true });
-  if (hasR) datasets.push({ label: 'Right', data: rData, borderColor: '#F3A64E', backgroundColor: 'rgba(243,166,78,0.1)', tension: 0.3, fill: false, pointRadius: 4, spanGaps: true });
-  if (hasU) datasets.push({ label: 'Untracked', data: uData, borderColor: '#8EA3B8', backgroundColor: 'rgba(142,163,184,0.05)', tension: 0.3, fill: false, pointRadius: 3, spanGaps: true, borderDash: [4, 4] });
+  if (hasL) {
+    basePtColors.Left = lData.map((v, i) => lPRFlags[i] && v != null ? '#5BA4E0' : 'rgba(0,0,0,0)');
+    basePtRadii.Left = lData.map((v, i) => lPRFlags[i] && v != null ? 6 : 4);
+    datasets.push({ label: 'Left', data: lData, borderColor: '#5BA4E0', backgroundColor: 'rgba(91,164,224,0.1)', tension: 0.3, fill: false, pointBackgroundColor: basePtColors.Left, pointRadius: basePtRadii.Left, spanGaps: true });
+  }
+  if (hasR) {
+    basePtColors.Right = rData.map((v, i) => rPRFlags[i] && v != null ? '#F3A64E' : 'rgba(0,0,0,0)');
+    basePtRadii.Right = rData.map((v, i) => rPRFlags[i] && v != null ? 6 : 4);
+    datasets.push({ label: 'Right', data: rData, borderColor: '#F3A64E', backgroundColor: 'rgba(243,166,78,0.1)', tension: 0.3, fill: false, pointBackgroundColor: basePtColors.Right, pointRadius: basePtRadii.Right, spanGaps: true });
+  }
+  if (hasU) {
+    basePtColors.Untracked = uData.map(() => 'rgba(0,0,0,0)');
+    basePtRadii.Untracked = uData.map(() => 3);
+    datasets.push({ label: 'Untracked', data: uData, borderColor: '#8EA3B8', backgroundColor: 'rgba(142,163,184,0.05)', tension: 0.3, fill: false, pointBackgroundColor: basePtColors.Untracked, pointRadius: basePtRadii.Untracked, spanGaps: true, borderDash: [4, 4] });
+  }
 
   const unit = isTimed ? 'sec' : (metric === 'e1rm' ? 'lbs est.' : 'lbs vol');
   const lBest = hasL ? Math.max(...lData.filter(v => v != null)) : null;
@@ -594,9 +627,21 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl 
 
   function highlightPoints(selIdx) {
     chart.data.datasets.forEach(ds => {
-      ds.pointRadius = ds.data.map((v, i) => i === selIdx && v != null ? 8 : 4);
-      ds.pointBorderColor = ds.data.map((v, i) => i === selIdx && v != null ? '#EEF2F8' : ds.borderColor);
-      ds.pointBorderWidth = ds.data.map((v, i) => i === selIdx && v != null ? 2 : 1);
+      const baseColors = basePtColors[ds.label] || ds.data.map(() => 'rgba(0,0,0,0)');
+      const baseRadii = basePtRadii[ds.label] || ds.data.map(() => 4);
+      // Ring highlight: transparent fill + white border ring at selected index
+      ds.pointBackgroundColor = ds.data.map((v, i) =>
+        i === selIdx && v != null ? 'rgba(0,0,0,0)' : baseColors[i]
+      );
+      ds.pointRadius = ds.data.map((v, i) =>
+        i === selIdx && v != null ? 9 : baseRadii[i]
+      );
+      ds.pointBorderColor = ds.data.map((v, i) =>
+        i === selIdx && v != null ? '#EEF2F8' : ds.borderColor
+      );
+      ds.pointBorderWidth = ds.data.map((v, i) =>
+        i === selIdx && v != null ? 3 : 1
+      );
     });
     chart.update('none');
   }

@@ -100,6 +100,20 @@ function showDetail(el, item, type) {
         <button class="btn btn-primary" id="save-date-btn" style="min-height:40px">Save</button>
         <button class="btn btn-ghost" id="cancel-date-btn" style="min-height:40px">Cancel</button>
       </div>
+      <div id="context-tag-section" style="margin-bottom:12px">
+        ${item.workoutContext
+          ? `<div style="display:flex;align-items:center;gap:8px">
+               <span class="detail-context-tag">&#9889; ${esc(item.workoutContext)}</span>
+               <button class="btn btn-ghost" id="edit-context-btn" style="font-size:12px;min-height:32px;padding:0 10px">Edit</button>
+             </div>`
+          : `<button class="btn btn-ghost" id="add-context-btn" style="font-size:12px;min-height:32px;padding:0 10px;border-style:dashed;color:var(--text-3)">&#9889; Add context tag</button>`
+        }
+        <div id="context-input-row" style="display:none;gap:8px;align-items:center;margin-top:6px">
+          <input type="text" class="input" id="context-input" placeholder="e.g. Pitching in 2 days, Tired…" value="${esc(item.workoutContext || '')}" style="flex:1;font-size:15px">
+          <button class="btn btn-primary" id="save-context-btn" style="min-height:40px">Save</button>
+          <button class="btn btn-ghost" id="cancel-context-btn" style="min-height:40px">&times;</button>
+        </div>
+      </div>
       ${item.sessionNotes ? `<div class="detail-notes">${esc(item.sessionNotes)}</div>` : ''}
       ${item.exercises.map(ex => `
         <div class="card detail-exercise">
@@ -137,6 +151,25 @@ function showDetail(el, item, type) {
   });
   el.querySelector('#cancel-date-btn').addEventListener('click', () => {
     el.querySelector('#date-edit-row').style.display = 'none';
+  });
+  const addCtxBtn = el.querySelector('#add-context-btn');
+  const editCtxBtn = el.querySelector('#edit-context-btn');
+  const ctxInputRow = el.querySelector('#context-input-row');
+  if (addCtxBtn) addCtxBtn.addEventListener('click', () => {
+    ctxInputRow.style.display = 'flex';
+    el.querySelector('#context-input').focus();
+  });
+  if (editCtxBtn) editCtxBtn.addEventListener('click', () => {
+    ctxInputRow.style.display = 'flex';
+  });
+  el.querySelector('#save-context-btn').addEventListener('click', async () => {
+    const val = el.querySelector('#context-input').value.trim();
+    item.workoutContext = val || null;
+    await saveSession(item);
+    showDetail(el, item, 'workout');
+  });
+  el.querySelector('#cancel-context-btn').addEventListener('click', () => {
+    ctxInputRow.style.display = 'none';
   });
   el.querySelector('#delete-session-btn').addEventListener('click', async () => {
     if (!confirm(`Delete "${displayName(item.templateName)}" from ${item.date}? This cannot be undone.`)) return;

@@ -210,3 +210,4 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .date-nav-sets { font-size: 12px; color: var(--text-2); margin: 2px 0; line-height: 1.5; }
 .date-nav-notes { font-size: 11px; color: var(--accent); margin: 4px 0 0; font-style: italic; }
 .date-nav-context { font-size: 12px; color: var(--blue); margin: 4px 0 0; font-weight: 600; }
+.detail-context-tag { font-size: 13px; color: var(--blue); font-weight: 700; }
