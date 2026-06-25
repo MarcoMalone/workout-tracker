@@ -5,6 +5,7 @@ import { renderProgressTab } from './ui-progress.js';
 import { renderCoachTab } from './ui-coach.js';
 import { renderSettingsTab } from './ui-settings.js';
 import { checkOnboarding } from './onboarding.js';
+import { migrateNewTemplates } from './migrate-data.js';
 
 const TABS = {
   log: renderLogTab,
@@ -25,6 +26,7 @@ export async function switchTab(tabName) {
 async function init() {
   await initDB();
   await seedIfEmpty();
+  await migrateNewTemplates();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/workout-tracker/sw.js').catch(() => {});
   document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
   const needsOnboarding = await checkOnboarding();
