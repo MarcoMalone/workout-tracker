@@ -8,12 +8,24 @@ function localDateStr(d = new Date()) {
 
 export let activeSession = null;
 
+function toTimeInput(ts) {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function fromTimeInput(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
+}
+
 export async function renderLogTab(el) {
   if (activeSession !== null) {
     renderActiveSession(el);
     return;
   }
-  const [templates, recent] = await Promise.all([getTemplates(), getAllSessions(20)]);
+  const [templates, recent] = await Promise.all([getTemplates(), getAllSessions(50)]);
   const lastArms = recent.find(s => s.bodyPartGroup === 'arms');
   const lastLegs = recent.find(s => s.bodyPartGroup === 'legs');
   const lastLine = (lastArms || lastLegs) ? `
@@ -42,9 +54,17 @@ export async function renderLogTab(el) {
   `;
   const list = el.querySelector('#template-list');
   for (const tpl of templates) {
+    // Compute estimated duration from last 3 sessions for this template
+    const tplSessions = recent.filter(s => s.templateId === tpl.id && s.finishedAt && s.startedAt && (s.finishedAt - s.startedAt) > 60000);
+    let durationTag = '';
+    if (tplSessions.length >= 2) {
+      const avgMs = tplSessions.slice(0, 3).reduce((sum, s) => sum + (s.finishedAt - s.startedAt), 0) / Math.min(tplSessions.length, 3);
+      const avgMin = Math.round(avgMs / 60000);
+      durationTag = `<span class="tpl-duration">~${avgMin}m</span>`;
+    }
     const btn = document.createElement('button');
     btn.className = 'template-card';
-    btn.innerHTML = `<span class="template-name">${esc(tpl.name)}</span><span class="template-tag tag-${esc(tpl.bodyPartGroup)}">${esc(tpl.bodyPartGroup)}</span>`;
+    btn.innerHTML = `<span class="template-name">${esc(tpl.name)}</span><span class="tpl-card-right">${durationTag}<span class="template-tag tag-${esc(tpl.bodyPartGroup)}">${esc(tpl.bodyPartGroup)}</span></span>`;
     btn.addEventListener('click', () => showPreChecklist(el, tpl));
     list.appendChild(btn);
   }
@@ -185,17 +205,46 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
   const weight = currentSet.weight ?? prevSet?.weight ?? '';
   const reps = currentSet.reps ?? prevSet?.reps ?? '';
   const unit = exDef.unit || 'lbs';
+  const setLabel = `Set ${sIdx + 1}${isDropSet ? ' ↓' : ''}`;
   const row = document.createElement('div');
   row.className = `set-row${isDropSet ? ' drop-set' : ''}`;
 
-  if (exDef.isTimed) {
+  // Pre-select side based on set index: even sets → L, odd → R (for unilateral)
+  const autoSide = sIdx % 2 === 0 ? 'L' : 'R';
+  const side = currentSet.side ?? autoSide;
+  if (exDef.isUnilateral && !currentSet.side) activeSession.exercises[exIdx].sets[sIdx].side = side;
+
+  const sideSelect = `<select class="set-side"><option value="L"${side === 'L' ? ' selected' : ''}>L</option><option value="R"${side === 'R' ? ' selected' : ''}>R</option></select>`;
+
+  if (exDef.isTimed && exDef.isUnilateral) {
+    // Timed + unilateral (Side Plank, Side Star Plank, Kneeling Hip Flexor Stretch, Modified Pigeon)
     const seconds = currentSet.seconds ?? prevSet?.seconds ?? '';
-    row.innerHTML = `<span class="set-num">Set ${sIdx + 1}${isDropSet ? ' ↓' : ''}</span><input type="number" class="set-input" value="${seconds}" inputmode="numeric" data-field="seconds"><span class="set-unit">sec</span><button class="set-check" aria-label="Mark done">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input r-input" value="${seconds}" inputmode="numeric" data-field="seconds"><span class="set-unit">sec</span>${sideSelect}<button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    row.querySelector('[data-field="seconds"]').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].seconds = Number(e.target.value) || null; });
+    row.querySelector('.set-side').addEventListener('change', e => { activeSession.exercises[exIdx].sets[sIdx].side = e.target.value; });
+  } else if (exDef.isTimed) {
+    const seconds = currentSet.seconds ?? prevSet?.seconds ?? '';
+    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input r-input" value="${seconds}" inputmode="numeric" data-field="seconds"><span class="set-unit">sec</span><button class="set-check" aria-label="Mark done">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
     row.querySelector('[data-field="seconds"]').addEventListener('input', e => {
       activeSession.exercises[exIdx].sets[sIdx].seconds = Number(e.target.value) || null;
     });
+  } else if (exDef.isBodyweight && exDef.isUnilateral) {
+    // Bodyweight unilateral: reps + side, no weight (Straight Leg Raise VMO, Glute Iso, etc.)
+    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><span class="set-unit">reps</span>${sideSelect}<button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    const rInp = row.querySelector('.r-input');
+    rInp.addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
+    row.querySelector('.set-side').addEventListener('change', e => { activeSession.exercises[exIdx].sets[sIdx].side = e.target.value; });
+    row.querySelector('.step-dn').addEventListener('click', () => { const v = Math.max(0, (Number(rInp.value) || 0) - 1); rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
+    row.querySelector('.step-up').addEventListener('click', () => { const v = (Number(rInp.value) || 0) + 1; rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
+  } else if (exDef.isBodyweight) {
+    // Bodyweight: reps only, no weight (Butterfly Bridge, Dead Bug, Bird Dog, Ab Wheel, etc.)
+    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><span class="set-unit">reps</span><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    const rInp = row.querySelector('.r-input');
+    rInp.addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
+    row.querySelector('.step-dn').addEventListener('click', () => { const v = Math.max(0, (Number(rInp.value) || 0) - 1); rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
+    row.querySelector('.step-up').addEventListener('click', () => { const v = (Number(rInp.value) || 0) + 1; rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
   } else if (exDef.isUnilateral) {
-    row.innerHTML = `<span class="set-num">Set ${sIdx + 1}</span><input type="number" class="set-input w-input" value="${weight}" inputmode="decimal"><span class="set-unit">${unit}</span><span class="set-sep">×</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><select class="set-side"><option value="L">L</option><option value="R">R</option></select><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input w-input" value="${weight}" inputmode="decimal"><span class="set-unit">${unit}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button>${sideSelect}<button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
     row.querySelector('.w-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].weight = Number(e.target.value) || null; });
     const rInp = row.querySelector('.r-input');
     rInp.addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
@@ -203,7 +252,7 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
     row.querySelector('.step-dn').addEventListener('click', () => { const v = Math.max(0, (Number(rInp.value) || 0) - 1); rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
     row.querySelector('.step-up').addEventListener('click', () => { const v = (Number(rInp.value) || 0) + 1; rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
   } else {
-    row.innerHTML = `<span class="set-num">Set ${sIdx + 1}${isDropSet ? ' ↓' : ''}</span><input type="number" class="set-input w-input" value="${weight}" inputmode="decimal"><span class="set-unit">${unit}</span><span class="set-sep">×</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input w-input" value="${weight}" inputmode="decimal"><span class="set-unit">${unit}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
     row.querySelector('.w-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].weight = Number(e.target.value) || null; });
     const rInp = row.querySelector('.r-input');
     rInp.addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
@@ -233,14 +282,30 @@ function shortDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+const LEG_WARMUP_ITEMS = [
+  'Walking hamstring stretch (5 each leg)',
+  'Quad stretches — standing (5 each)',
+  'Walking hip rotations / stepovers',
+  'Straight-leg kicks (10 each)',
+  "World's greatest stretch — lunge into glute (5 each)",
+  'Butt kicks (10)',
+  'High knee skips (10)',
+  'Skips (20)',
+  'Calf stretch (30s each)',
+  'Side-to-side lunges (5 each)',
+];
+
+const DEFAULT_CHECKLIST_ITEMS = [
+  'Dynamic warm-up done? (arm circles, leg swings — 5 min)',
+  'Joints feel okay? (no unusual pain)',
+  'Hydrated?',
+  'Any new soreness since last session?',
+];
+
 async function showPreChecklist(el, template) {
+  const isLegDay = template.bodyPartGroup === 'legs';
   const raw = await getSetting('preChecklist');
-  const items = raw ?? [
-    'Dynamic warm-up done? (arm circles, leg swings — 5 min)',
-    'Joints feel okay? (no unusual pain)',
-    'Hydrated?',
-    'Any new soreness since last session?'
-  ];
+  const items = isLegDay ? LEG_WARMUP_ITEMS : (raw ?? DEFAULT_CHECKLIST_ITEMS);
   const answers = {};
   items.forEach((_, i) => { answers[i] = false; });
 
@@ -248,9 +313,12 @@ async function showPreChecklist(el, template) {
   overlay.classList.remove('hidden');
   overlay.innerHTML = `
     <div class="modal-sheet">
-      <h2 class="modal-title">Pre-Workout Check</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 class="modal-title" style="margin-bottom:0">${isLegDay ? 'Leg Day Warm-Up' : 'Pre-Workout Check'}</h2>
+        <button class="modal-dismiss-btn" id="dismiss-checklist" aria-label="Dismiss">✕</button>
+      </div>
       <div class="checklist" id="pre-checklist"></div>
-      <input type="text" class="input" id="soreness-note" placeholder="Anything sore or tight today? (e.g. left lat, slept 5 hrs)" style="margin-bottom:14px">
+      <input type="text" class="input" id="soreness-note" placeholder="Anything sore or tight today? (e.g. left hip, slept 5 hrs)" style="margin-bottom:14px">
       <button class="btn btn-primary btn-full" id="start-session-btn">Start ${esc(template.name)}</button>
     </div>
   `;
@@ -266,6 +334,10 @@ async function showPreChecklist(el, template) {
       this.classList.toggle('checked', answers[i]);
     });
     list.appendChild(row);
+  });
+  overlay.querySelector('#dismiss-checklist').addEventListener('click', () => {
+    overlay.classList.add('hidden');
+    overlay.innerHTML = '';
   });
   overlay.querySelector('#start-session-btn').addEventListener('click', () => {
     const sorenessNote = overlay.querySelector('#soreness-note').value.trim();
@@ -294,7 +366,10 @@ function startSession(el, template, answers, sorenessNote = '') {
       exerciseName: '',
       notes: '',
       sets: Array.from({ length: e.defaultSets }, (_, i) => ({
-        setNumber: i + 1, weight: null, reps: null, seconds: null,
+        setNumber: i + 1,
+        weight: e.defaultWeight ?? null,
+        reps: e.targetReps ?? null,
+        seconds: e.defaultSeconds ?? null,
         side: null, isDropSet: false, parentSetIndex: null
       }))
     }))
@@ -318,6 +393,16 @@ async function showPostChecklist(el) {
         <p class="section-title">Session Rating</p>
         <div class="stars" id="star-rating">
           ${[1, 2, 3, 4, 5].map(n => `<button class="star-btn" data-val="${n}">★</button>`).join('')}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <div style="flex:1">
+          <label class="form-label" style="margin-bottom:4px">Start Time</label>
+          <input type="time" class="input" id="start-time" value="${toTimeInput(activeSession?.startedAt || Date.now())}">
+        </div>
+        <div style="flex:1">
+          <label class="form-label" style="margin-bottom:4px">End Time</label>
+          <input type="time" class="input" id="end-time" value="${toTimeInput(Date.now())}">
         </div>
       </div>
       <div style="margin-top:12px">
@@ -355,7 +440,10 @@ async function showPostChecklist(el) {
   });
 
   overlay.querySelector('#save-session-btn').addEventListener('click', async () => {
-    activeSession.finishedAt = Date.now();
+    const startTimeVal = overlay.querySelector('#start-time').value;
+    const endTimeVal = overlay.querySelector('#end-time').value;
+    if (startTimeVal) activeSession.startedAt = fromTimeInput(startTimeVal);
+    activeSession.finishedAt = endTimeVal ? fromTimeInput(endTimeVal) : Date.now();
     activeSession.postChecklist = answers;
     activeSession.sessionNotes = overlay.querySelector('#session-notes').value;
     activeSession.sessionRating = rating;

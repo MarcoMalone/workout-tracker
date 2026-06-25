@@ -2,8 +2,9 @@ import { getRunLogs, getWalkLogs, getAllSessions } from './db.js';
 import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap } from './metrics.js';
 
 const CHART_COLORS = { line: '#F3A64E', vol: 'rgba(243,166,78,0.3)', run: '#4CAF7D', walk: '#5BA4E0', grid: '#2A3F58', text: '#8EA3B8' };
-const LAYER_A_COLORS = { arms: '#B09FE0', legs: '#6ECFB0', core: '#F0A060', run: '#4CAF7D', walk: '#5BA4E0' };
-const LAYER_B_COLORS = { arms: '#B09FE0', legs: '#6ECFB0', core: '#F0A060' };
+// Arms=purple, Legs=blue, Core=green, PT=orange, Run=coral, Walk=teal
+const LAYER_A_COLORS = { arms: '#B09FE0', legs: '#5BA4E0', core: '#4CAF7D', pt: '#F5923E', run: '#E87444', walk: '#6ECFB0' };
+const LAYER_B_COLORS = { arms: '#B09FE0', legs: '#5BA4E0', core: '#4CAF7D', pt: '#F5923E' };
 
 const activeCharts = [];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -27,10 +28,11 @@ export async function renderProgressTab(el) {
   const [allSessions, runs, walks] = await Promise.all([getAllSessions(200), getRunLogs(50), getWalkLogs(50)]);
 
   const activityByDate = buildActivityByDate(allSessions, runs, walks);
-  const layerACells = buildConsistencyMap(activityByDate, 12);
-  renderHeatmap(
+  const multiByDate = buildMultiActivityByDate(allSessions, runs, walks);
+  const multiCells = buildMultiCells(multiByDate, 12);
+  renderMultiHeatmap(
     el.querySelector('#layer-a-heatmap'),
-    layerACells,
+    multiCells,
     LAYER_A_COLORS,
     `12-week activity · <span class="heatmap-streak">${streakCaption(activityByDate)}</span>`
   );
@@ -57,6 +59,59 @@ function buildActivityByDate(sessions, runs, walks) {
   runs.forEach(r => { if (!map[r.date] || map[r.date] === 'walk') map[r.date] = 'run'; });
   sessions.forEach(s => { map[s.date] = s.bodyPartGroup || 'arms'; });
   return map;
+}
+
+function buildMultiActivityByDate(sessions, runs, walks) {
+  const map = {};
+  const add = (date, type) => {
+    if (!map[date]) map[date] = [];
+    if (!map[date].includes(type)) map[date].push(type);
+  };
+  walks.forEach(w => add(w.date, 'walk'));
+  runs.forEach(r => add(r.date, 'run'));
+  sessions.forEach(s => {
+    const type = s.templateId && s.templateId.startsWith('tpl-pt') ? 'pt' : (s.bodyPartGroup || 'arms');
+    add(s.date, type);
+  });
+  return map;
+}
+
+function buildMultiCells(multiByDate, weeks = 12) {
+  const today = new Date();
+  const dow = today.getDay();
+  const daysFromMon = dow === 0 ? 6 : dow - 1;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - daysFromMon);
+  monday.setHours(0, 0, 0, 0);
+  const cells = [];
+  for (let w = 0; w < weeks; w++) {
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() - (weeks - 1 - w) * 7 + d);
+      if (date > today) continue;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      cells.push({ date: key, activities: multiByDate[key] || [] });
+    }
+  }
+  return cells;
+}
+
+let _activeDayPopover = null;
+function showDayPopover(cellEl, date, activities, colorMap) {
+  if (_activeDayPopover) { _activeDayPopover.remove(); _activeDayPopover = null; }
+  const popover = document.createElement('div');
+  popover.className = 'day-popover';
+  const d = new Date(date + 'T12:00:00');
+  const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const dots = activities.map(t => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colorMap[t] || '#fff'};margin-right:3px"></span>${t}`).join(' · ');
+  popover.innerHTML = `<strong style="display:block;margin-bottom:4px">${dateStr}</strong><span>${dots}</span>`;
+  document.body.appendChild(popover);
+  const rect = cellEl.getBoundingClientRect();
+  const left = Math.min(rect.left, window.innerWidth - 180);
+  popover.style.cssText = `position:fixed;left:${left}px;top:${rect.bottom + 6}px;background:var(--surface-hi,#152540);border:1px solid var(--border,#1C3050);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--text,#EEF2F8);z-index:150;white-space:nowrap;max-width:220px`;
+  _activeDayPopover = popover;
+  const dismiss = () => { popover.remove(); if (_activeDayPopover === popover) _activeDayPopover = null; document.removeEventListener('click', dismiss); };
+  setTimeout(() => document.addEventListener('click', dismiss), 0);
 }
 
 function localDateKey(d) {
@@ -91,6 +146,38 @@ function renderHeatmap(container, cells, colorMap, captionHTML) {
     div.className = 'heatmap-cell';
     if (cell.activity) div.style.background = colorMap[cell.activity] || 'var(--surface-hi)';
     div.title = cell.date + (cell.activity ? ` · ${cell.activity}` : '');
+    grid.appendChild(div);
+  });
+  heatmap.appendChild(grid);
+  const cap = document.createElement('p');
+  cap.className = 'heatmap-caption';
+  cap.innerHTML = captionHTML;
+  heatmap.appendChild(cap);
+  container.appendChild(heatmap);
+}
+
+function renderMultiHeatmap(container, cells, colorMap, captionHTML) {
+  const heatmap = document.createElement('div');
+  heatmap.className = 'heatmap';
+  const grid = document.createElement('div');
+  grid.className = 'heatmap-grid';
+  cells.forEach(cell => {
+    const div = document.createElement('div');
+    div.className = 'heatmap-cell heatmap-cell-multi';
+    if (cell.activities && cell.activities.length > 0) {
+      cell.activities.forEach(type => {
+        const strip = document.createElement('div');
+        strip.className = 'hm-strip';
+        strip.style.background = colorMap[type] || '#4E6E8A';
+        div.appendChild(strip);
+      });
+      div.style.cursor = 'pointer';
+      div.addEventListener('click', e => {
+        e.stopPropagation();
+        showDayPopover(div, cell.date, cell.activities, colorMap);
+      });
+    }
+    div.title = cell.date + (cell.activities.length ? ' · ' + cell.activities.join(', ') : '');
     grid.appendChild(div);
   });
   heatmap.appendChild(grid);
