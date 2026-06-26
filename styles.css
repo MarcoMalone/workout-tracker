@@ -63,6 +63,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .tag-pt { background: #3A2010; color: #F5923E; }
 .tpl-card-right { display: flex; align-items: center; gap: 6px; }
 .tpl-duration { font-size: 12px; color: var(--text-3); }
+.tpl-gear-btn { background: none; border: none; padding: 4px 2px; font-size: 16px; color: var(--text-3); cursor: pointer; line-height: 1; border-radius: 4px; }
+.tpl-gear-btn:hover { color: var(--text); background: var(--surface-hi); }
 
 /* Modal */
 .modal-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 24px 16px calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 80vh; overflow-y: auto; }
@@ -144,11 +146,6 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .session-time-input { background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-size: 14px; padding: 6px 8px; height: 36px; }
 .session-time-input:focus { outline: none; border-color: var(--blue); }
 
-/* Template card with edit/delete row */
-.tpl-card-wrap { margin-bottom: 8px; }
-.tpl-card-wrap .template-card { margin-bottom: 0; border-radius: var(--r-md) var(--r-md) 0 0; border-bottom: none; }
-.tpl-row-actions { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 var(--r-md) var(--r-md); padding: 4px; }
-.tpl-row-actions .btn { flex: 1; min-height: 32px; font-size: 13px; padding: 0 8px; }
 
 /* Progress tab */
 .seg-control { display: flex; background: var(--surface); border-radius: var(--r-md); padding: 3px; margin-bottom: 20px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -254,3 +251,7 @@ body.light .toast { background: var(--navy); color: var(--text); }
 body.light .day-popover { background: var(--surface-hi); border-color: var(--border); color: var(--text); }
 body.light #bottom-nav { background: var(--surface); border-top: 1px solid var(--border); }
 body.light #bottom-nav::before { opacity: 0.3; }
+body.light .tag-arms { background: #E8E0FF; color: #5030C0; }
+body.light .tag-legs { background: #D0E8FF; color: #0050A0; }
+body.light .tag-core { background: #D0F0E0; color: #006030; }
+body.light .tag-pt { background: #FFE8D0; color: #A04000; }

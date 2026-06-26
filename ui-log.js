@@ -29,6 +29,7 @@ export async function renderLogTab(el) {
   const lastArms = recent.find(s => s.bodyPartGroup === 'arms');
   const lastLegs = recent.find(s => s.bodyPartGroup === 'legs');
   const lastLine = (lastArms || lastLegs) ? `
+    <p class="section-title" style="margin-bottom:4px;margin-top:12px">Last performed</p>
     <div class="last-workout-row">
       ${lastArms ? `<span class="last-chip"><span class="last-chip-label">Arms</span>${esc(lastArms.templateName)} · ${shortDate(lastArms.date)}</span>` : ''}
       ${lastLegs ? `<span class="last-chip"><span class="last-chip-label">Legs</span>${esc(lastLegs.templateName)} · ${shortDate(lastLegs.date)}</span>` : ''}
@@ -60,29 +61,17 @@ export async function renderLogTab(el) {
       const avgMs = tplSessions.slice(0, 3).reduce((sum, s) => sum + (s.finishedAt - s.startedAt), 0) / Math.min(tplSessions.length, 3);
       durationTag = `<span class="tpl-duration">~${Math.round(avgMs / 60000)}m</span>`;
     }
-    const wrap = document.createElement('div');
-    wrap.className = 'tpl-card-wrap';
-    const btn = document.createElement('button');
-    btn.className = 'template-card';
-    btn.innerHTML = `<span class="template-name">${esc(tpl.name)}</span><span class="tpl-card-right">${durationTag}<span class="template-tag tag-${esc(tpl.bodyPartGroup)}">${esc(tpl.bodyPartGroup)}</span></span>`;
-    btn.addEventListener('click', () => showPreChecklist(el, tpl));
-    const actions = document.createElement('div');
-    actions.className = 'tpl-row-actions';
-    actions.innerHTML = `<button class="btn btn-ghost tpl-edit-btn" style="min-height:32px;font-size:13px;padding:0 10px">Edit</button><button class="btn btn-ghost tpl-del-btn" style="min-height:32px;font-size:13px;padding:0 10px;color:var(--danger)">Del</button>`;
-    actions.querySelector('.tpl-edit-btn').addEventListener('click', e => {
+    const card = document.createElement('div');
+    card.className = 'template-card';
+    card.innerHTML = `<span class="template-name">${esc(tpl.name)}</span><span class="tpl-card-right">${durationTag}<span class="template-tag tag-${esc(tpl.bodyPartGroup)}">${esc(tpl.bodyPartGroup)}</span><button class="tpl-gear-btn" title="Edit template">⚙</button></span>`;
+    card.addEventListener('click', e => {
+      if (!e.target.closest('.tpl-gear-btn')) showPreChecklist(el, tpl);
+    });
+    card.querySelector('.tpl-gear-btn').addEventListener('click', e => {
       e.stopPropagation();
       import('./ui-settings.js').then(m => m.showTemplateEditor(el, tpl, () => renderLogTab(el)));
     });
-    actions.querySelector('.tpl-del-btn').addEventListener('click', async e => {
-      e.stopPropagation();
-      if (confirm(`Delete "${tpl.name}"? This cannot be undone.`)) {
-        await deleteTemplate(tpl.id);
-        renderLogTab(el);
-      }
-    });
-    wrap.appendChild(btn);
-    wrap.appendChild(actions);
-    list.appendChild(wrap);
+    list.appendChild(card);
   }
   el.querySelector('#new-template-btn').addEventListener('click', () => {
     import('./ui-settings.js').then(m => m.showTemplateEditor(el, null, () => renderLogTab(el)));
@@ -351,6 +340,28 @@ async function generateAdjustedTemplate(template, sorenessNote, apiKey) {
   return adjustedTemplate;
 }
 
+const ARM_STRETCH_ITEMS = [
+  'Massage gun mid-back (if tight)',
+  'Lat stretch',
+  'Chest / doorway stretch',
+  'Tricep stretch',
+  'Cross-body shoulder stretch',
+  'Wrist flexor stretch',
+  'Wrist extensor stretch',
+  'Prayer stretch',
+  'Quad stretch',
+  'Calf stretch',
+  'Ankle circles',
+];
+
+const ARM_WARMUP_ITEMS = [
+  'Massage gun to left mid-back (if tight)',
+  'Arm circles — 10 forward, 10 backward',
+  'Banded pull-aparts — 2×15',
+  'Wrist circles — 10 each direction',
+  'Light shoulder rotations — 10 each',
+];
+
 const LEG_WARMUP_ITEMS = [
   'Walking hamstring stretch (5 each leg)',
   'Quad stretches — standing (5 each)',
@@ -373,22 +384,25 @@ const DEFAULT_CHECKLIST_ITEMS = [
 
 async function showPreChecklist(el, template) {
   const isLegDay = template.bodyPartGroup === 'legs';
+  const isArmDay = template.bodyPartGroup === 'arms';
   const raw = await getSetting('preChecklist');
-  const items = isLegDay ? LEG_WARMUP_ITEMS : (raw ?? DEFAULT_CHECKLIST_ITEMS);
+  const items = isArmDay ? ARM_WARMUP_ITEMS : isLegDay ? LEG_WARMUP_ITEMS : (raw ?? DEFAULT_CHECKLIST_ITEMS);
   const answers = {};
   items.forEach((_, i) => { answers[i] = false; });
 
   const overlay = document.getElementById('modal-overlay');
   overlay.classList.remove('hidden');
+  const modalTitle = isArmDay ? 'Arm Day Warm-Up' : isLegDay ? 'Leg Day Warm-Up' : 'Pre-Workout Check';
   overlay.innerHTML = `
     <div class="modal-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h2 class="modal-title" style="margin-bottom:0">${isLegDay ? 'Leg Day Warm-Up' : 'Pre-Workout Check'}</h2>
+        <h2 class="modal-title" style="margin-bottom:0">${modalTitle}</h2>
         <button class="modal-dismiss-btn" id="dismiss-checklist" aria-label="Dismiss">✕</button>
       </div>
       <div class="checklist" id="pre-checklist"></div>
       <input type="text" class="input" id="soreness-note" placeholder="Anything sore or tight today? (e.g. left hip, slept 5 hrs)" style="margin-bottom:14px">
       <button class="btn btn-primary btn-full" id="start-session-btn">Start ${esc(template.name)}</button>
+
     </div>
   `;
   const list = overlay.querySelector('#pre-checklist');
@@ -467,8 +481,11 @@ function startSession(el, template, answers, sorenessNote = '') {
 async function showPostChecklist(el) {
   const raw = await getSetting('postChecklist');
   const items = raw ?? ['Static stretches done?', 'Hydrated?', 'Anything to note for next time?'];
+  const isArmDay = activeSession?.bodyPartGroup === 'arms';
   const answers = {};
   items.forEach((_, i) => { answers[i] = false; });
+  const stretchAnswers = {};
+  if (isArmDay) ARM_STRETCH_ITEMS.forEach((_, i) => { stretchAnswers[i] = false; });
 
   const overlay = document.getElementById('modal-overlay');
   overlay.classList.remove('hidden');
@@ -476,6 +493,7 @@ async function showPostChecklist(el) {
     <div class="modal-sheet">
       <h2 class="modal-title">Finish Workout</h2>
       <div class="checklist" id="post-checklist"></div>
+      ${isArmDay ? `<p class="section-title" style="margin:12px 0 6px">Arm Stretches</p><div class="checklist" id="arm-stretch-checklist"></div>` : ''}
       <div class="rating-row">
         <p class="section-title">Session Rating</p>
         <div class="stars" id="star-rating">
@@ -518,6 +536,20 @@ async function showPostChecklist(el) {
     });
     list.appendChild(row);
   });
+  if (isArmDay) {
+    const stretchList = overlay.querySelector('#arm-stretch-checklist');
+    ARM_STRETCH_ITEMS.forEach((item, i) => {
+      const row = document.createElement('div');
+      row.className = 'checklist-row';
+      row.innerHTML = `<button class="toggle-btn" data-idx="${i}"><span class="toggle-label">N</span></button><span class="checklist-item">${item}</span>`;
+      row.querySelector('.toggle-btn').addEventListener('click', function () {
+        stretchAnswers[i] = !stretchAnswers[i];
+        this.querySelector('.toggle-label').textContent = stretchAnswers[i] ? 'Y' : 'N';
+        this.classList.toggle('checked', stretchAnswers[i]);
+      });
+      stretchList.appendChild(row);
+    });
+  }
 
   let rating = null;
   overlay.querySelector('#star-rating').addEventListener('click', e => {

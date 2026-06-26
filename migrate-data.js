@@ -1,6 +1,6 @@
 import { addExercise, addTemplate, getTemplate } from './db.js';
 
-const MIGRATE_V = 3;
+const MIGRATE_V = 4;
 
 // All exercise definitions — put() is an upsert, safe to re-run
 const ALL_EXERCISES = [
@@ -19,7 +19,7 @@ const ALL_EXERCISES = [
   { id: 'ex-face-pulls', name: 'Face Pulls', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-pec-flys-machine', name: 'Pec Flys Machine', bodyPartGroup: 'arms', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-single-arm-lateral-raises', name: 'Single-Arm Lateral Raises', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: '' },
-  { id: 'ex-forearm-rope-rollups', name: 'Forearm Rope Roll-Ups', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
+  { id: 'ex-forearm-rope-rollups', name: 'Forearm Rope Roll-Ups', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '1 rep = roll up (backward) + roll down (forward) with wrists' },
 
   // === LEG EXERCISES ===
   { id: 'ex-hip-thrusts', name: 'Hip Thrusts', bodyPartGroup: 'legs', equipment: 'barbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
@@ -95,7 +95,7 @@ const ALL_TEMPLATES = [
       { exerciseId: 'ex-face-pulls', defaultSets: 3, targetReps: 12, defaultWeight: 30, order: 4 },
       { exerciseId: 'ex-pec-flys-machine', defaultSets: 3, targetReps: 12, defaultWeight: 92.5, order: 5 },
       { exerciseId: 'ex-single-arm-lateral-raises', defaultSets: 6, targetReps: 12, defaultWeight: 10, order: 6 },
-      { exerciseId: 'ex-forearm-rope-rollups', defaultSets: 3, targetReps: 12, defaultWeight: 15, order: 7 },
+      { exerciseId: 'ex-forearm-rope-rollups', defaultSets: 3, targetReps: 2, defaultWeight: 5, order: 7 },
     ]
   },
 

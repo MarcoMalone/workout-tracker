@@ -264,9 +264,19 @@ export async function showTemplateEditor(el, existing, onSave) {
         ${exercises.map(ex => `<div class="tpl-ex-row"><label><input type="checkbox" value="${ex.id}" ${selectedExIds.includes(ex.id) ? 'checked' : ''}> ${esc(ex.name)}</label></div>`).join('')}
       </div>
       <button class="btn btn-primary btn-full" id="save-tpl-btn">Save Template</button>
+      ${existing ? `<button class="btn btn-ghost btn-full" id="del-tpl-btn" style="margin-top:8px;color:var(--danger)">🗑 Delete Template</button>` : ''}
     </div>
   `;
   overlay.querySelector('#tpl-dismiss-btn').addEventListener('click', dismiss);
+  if (existing) {
+    overlay.querySelector('#del-tpl-btn').addEventListener('click', async () => {
+      if (!confirm(`Delete "${existing.name}"? This cannot be undone.`)) return;
+      await deleteTemplate(existing.id);
+      dismiss();
+      if (onSave) await onSave();
+      else await renderSettingsTab(el);
+    });
+  }
   overlay.querySelector('#save-tpl-btn').addEventListener('click', async () => {
     const name = overlay.querySelector('#tpl-name').value.trim();
     if (!name) { alert('Name required'); return; }
