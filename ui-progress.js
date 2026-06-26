@@ -20,6 +20,9 @@ export async function renderProgressTab(el) {
         <button class="seg-btn active" data-part="arms">Arms</button>
         <button class="seg-btn" data-part="legs">Legs</button>
         <button class="seg-btn" data-part="core">Core</button>
+        <button class="seg-btn" data-part="pt">PT</button>
+        <button class="seg-btn" data-part="walk">Walk</button>
+        <button class="seg-btn" data-part="run">Run</button>
       </div>
       <div id="charts-container"></div>
     </div>
@@ -199,19 +202,66 @@ function renderBodyPart(container, part, allSessions, runs, walks) {
     seen.add(key);
     return true;
   });
-  const sessions = dedupedSessions.filter(s => s.bodyPartGroup === part);
+
+  let sessions;
+  if (part === 'pt') {
+    sessions = dedupedSessions.filter(s => s.templateId && s.templateId.startsWith('tpl-pt'));
+  } else if (part === 'walk' || part === 'run') {
+    sessions = [];
+  } else {
+    sessions = dedupedSessions.filter(s => s.bodyPartGroup === part);
+  }
+
+  // Layer B heatmap (this body part only, 12 weeks)
+  const partActivity = {};
+  if (part === 'pt') {
+    sessions.forEach(s => { partActivity[s.date] = 'pt'; });
+  } else if (part === 'walk') {
+    walks.forEach(w => { partActivity[w.date] = 'walk'; });
+  } else if (part === 'run') {
+    runs.forEach(r => { partActivity[r.date] = 'run'; });
+  } else {
+    sessions.forEach(s => { partActivity[s.date] = part; });
+  }
+
+  const hasActivity = Object.keys(partActivity).length > 0;
+  if (!hasActivity && sessions.length === 0 && part !== 'walk' && part !== 'run') {
+    container.innerHTML = '<p style="color:var(--text-3);text-align:center;padding:32px">No sessions yet for this body part</p>';
+    return;
+  }
+
+  const layerBEl = document.createElement('div');
+  renderHeatmap(layerBEl, buildConsistencyMap(partActivity, 12), LAYER_B_COLORS, `12-week ${part} activity`);
+  container.appendChild(layerBEl);
+
+  // Walk-only or Run-only tabs: just show the cardio chart
+  if (part === 'walk') {
+    if (walks.length < 1) { container.appendChild(Object.assign(document.createElement('p'), { textContent: 'No walks logged yet', style: 'color:var(--text-3);text-align:center;padding:24px' })); }
+    else {
+      const walkSection = document.createElement('div');
+      walkSection.innerHTML = '<p class="section-title">Treadmill Walks</p><div class="chart-wrap"><canvas id="walk-chart-b"></canvas></div>';
+      container.appendChild(walkSection);
+      const sortedWalks = walks.slice().reverse();
+      activeCharts.push(new Chart(walkSection.querySelector('#walk-chart-b'), { type: 'line', data: { labels: sortedWalks.map(w => w.date), datasets: [{ label: 'Miles', data: sortedWalks.map(w => w.distanceMiles), borderColor: CHART_COLORS.walk, backgroundColor: 'rgba(91,164,224,0.2)', tension: 0.3, fill: true, pointRadius: 4, yAxisID: 'y' }] }, options: baseChartOptions('mi') }));
+    }
+    return;
+  }
+  if (part === 'run') {
+    if (runs.length < 1) { container.appendChild(Object.assign(document.createElement('p'), { textContent: 'No runs logged yet', style: 'color:var(--text-3);text-align:center;padding:24px' })); }
+    else {
+      const runSection = document.createElement('div');
+      runSection.innerHTML = '<p class="section-title">Runs</p><div class="chart-wrap"><canvas id="run-chart-b"></canvas></div>';
+      container.appendChild(runSection);
+      const sortedRuns = runs.slice().reverse();
+      activeCharts.push(new Chart(runSection.querySelector('#run-chart-b'), { type: 'line', data: { labels: sortedRuns.map(r => r.date), datasets: [{ label: 'Miles', data: sortedRuns.map(r => r.distanceMiles), borderColor: CHART_COLORS.run, backgroundColor: 'rgba(76,175,125,0.2)', tension: 0.3, fill: true, pointRadius: 4, yAxisID: 'y' }] }, options: baseChartOptions('mi') }));
+    }
+    return;
+  }
 
   if (sessions.length === 0) {
     container.innerHTML = '<p style="color:var(--text-3);text-align:center;padding:32px">No sessions yet for this body part</p>';
     return;
   }
-
-  // Layer B heatmap (this body part only, 8 weeks)
-  const partActivity = {};
-  sessions.forEach(s => { partActivity[s.date] = part; });
-  const layerBEl = document.createElement('div');
-  renderHeatmap(layerBEl, buildConsistencyMap(partActivity, 8), LAYER_B_COLORS, `8-week ${part} activity`);
-  container.appendChild(layerBEl);
 
   // Build exercise history — group by normalized name, then merge L/R unilateral pairs
   const EXCLUDED_NAMES = ['drop set', 'dead hang', 'push-up', 'push up', 'pushup'];
@@ -280,7 +330,7 @@ function renderBodyPart(container, part, allSessions, runs, walks) {
     buildPRBoard(container, exWithData);
   }
 
-  // Cardio charts for legs (unchanged)
+  // Cardio summary on legs tab (full detail now lives in Walk/Run tabs)
   if (part === 'legs') {
     if (runs.length >= 2) {
       const runSection = document.createElement('div');

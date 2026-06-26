@@ -1,4 +1,4 @@
-import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getAllSessions } from './db.js';
+import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getAllSessions, deleteTemplate, addTemplate } from './db.js';
 import { switchTab } from './app.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -54,22 +54,38 @@ export async function renderLogTab(el) {
   `;
   const list = el.querySelector('#template-list');
   for (const tpl of templates) {
-    // Compute estimated duration from last 3 sessions for this template
     const tplSessions = recent.filter(s => s.templateId === tpl.id && s.finishedAt && s.startedAt && (s.finishedAt - s.startedAt) > 60000);
     let durationTag = '';
     if (tplSessions.length >= 2) {
       const avgMs = tplSessions.slice(0, 3).reduce((sum, s) => sum + (s.finishedAt - s.startedAt), 0) / Math.min(tplSessions.length, 3);
-      const avgMin = Math.round(avgMs / 60000);
-      durationTag = `<span class="tpl-duration">~${avgMin}m</span>`;
+      durationTag = `<span class="tpl-duration">~${Math.round(avgMs / 60000)}m</span>`;
     }
+    const wrap = document.createElement('div');
+    wrap.className = 'tpl-card-wrap';
     const btn = document.createElement('button');
     btn.className = 'template-card';
     btn.innerHTML = `<span class="template-name">${esc(tpl.name)}</span><span class="tpl-card-right">${durationTag}<span class="template-tag tag-${esc(tpl.bodyPartGroup)}">${esc(tpl.bodyPartGroup)}</span></span>`;
     btn.addEventListener('click', () => showPreChecklist(el, tpl));
-    list.appendChild(btn);
+    const actions = document.createElement('div');
+    actions.className = 'tpl-row-actions';
+    actions.innerHTML = `<button class="btn btn-ghost tpl-edit-btn" style="min-height:32px;font-size:13px;padding:0 10px">Edit</button><button class="btn btn-ghost tpl-del-btn" style="min-height:32px;font-size:13px;padding:0 10px;color:var(--danger)">Del</button>`;
+    actions.querySelector('.tpl-edit-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      import('./ui-settings.js').then(m => m.showTemplateEditor(el, tpl, () => renderLogTab(el)));
+    });
+    actions.querySelector('.tpl-del-btn').addEventListener('click', async e => {
+      e.stopPropagation();
+      if (confirm(`Delete "${tpl.name}"? This cannot be undone.`)) {
+        await deleteTemplate(tpl.id);
+        renderLogTab(el);
+      }
+    });
+    wrap.appendChild(btn);
+    wrap.appendChild(actions);
+    list.appendChild(wrap);
   }
   el.querySelector('#new-template-btn').addEventListener('click', () => {
-    import('./ui-settings.js').then(m => m.showTemplateEditor(el));
+    import('./ui-settings.js').then(m => m.showTemplateEditor(el, null, () => renderLogTab(el)));
   });
   el.querySelector('#start-run-btn').addEventListener('click', () => showRunForm(el));
   el.querySelector('#start-walk-btn').addEventListener('click', () => showWalkForm(el));
@@ -86,12 +102,20 @@ async function renderActiveSession(el) {
           <button class="btn btn-ghost session-finish-btn" id="finish-btn" style="min-height:36px;font-size:14px">Finish</button>
         </div>
       </div>
+      <div class="session-time-row">
+        <span class="session-time-label">Started</span>
+        <input type="time" class="session-time-input" id="session-start-time" value="${toTimeInput(activeSession.startedAt)}">
+      </div>
       ${activeSession.sorenessNote ? `<div class="soreness-banner">⚠ ${esc(activeSession.sorenessNote)}</div>` : ''}
       <div id="exercise-cards"></div>
       <button class="btn btn-ghost btn-full" id="add-exercise-btn" style="margin-top:8px">+ Add Exercise</button>
       <div style="margin-top:16px">
         <p class="section-title" style="margin-bottom:6px">Session Notes</p>
         <textarea class="input" id="session-notes-during" rows="3" placeholder="Jot notes, observations, or anything to remember…" style="width:100%;box-sizing:border-box">${esc(activeSession.sessionNotes || '')}</textarea>
+      </div>
+      <div class="session-time-row" style="margin-top:12px">
+        <span class="session-time-label">End Time</span>
+        <input type="time" class="session-time-input" id="session-end-time" value="${activeSession._endTimeStr || ''}">
       </div>
       <div style="height:80px"></div>
     </div>
@@ -124,6 +148,12 @@ async function renderActiveSession(el) {
   el.querySelector('#add-exercise-btn').addEventListener('click', () => showAddExerciseModal(el, cardsEl));
   el.querySelector('#session-notes-during').addEventListener('input', e => {
     activeSession.sessionNotes = e.target.value;
+  });
+  el.querySelector('#session-start-time').addEventListener('change', e => {
+    if (e.target.value) activeSession.startedAt = fromTimeInput(e.target.value);
+  });
+  el.querySelector('#session-end-time').addEventListener('change', e => {
+    activeSession._endTimeStr = e.target.value;
   });
 }
 
@@ -282,6 +312,45 @@ function shortDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function showToast(msg, duration = 2500) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), duration);
+}
+
+async function generateAdjustedTemplate(template, sorenessNote, apiKey) {
+  const [{ buildAdjustedWorkoutTemplate }, exercises] = await Promise.all([
+    import('./claude-api.js'),
+    getExercises()
+  ]);
+  const healthContext = await getSetting('healthContext');
+  const adjustments = await buildAdjustedWorkoutTemplate(template, exercises, sorenessNote, healthContext, apiKey);
+  if (!adjustments || adjustments.length === 0) return null;
+
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const adjustedTemplate = {
+    id: `tpl-adjusted-${Date.now()}`,
+    name: `${dateStr} ${template.name} (adjusted)`,
+    bodyPartGroup: template.bodyPartGroup,
+    createdAt: Date.now(),
+    exercises: template.exercises.map((ex, idx) => {
+      const adj = adjustments.find(a => a.idx === idx);
+      if (!adj) return { ...ex };
+      if (adj.skip) return null;
+      return {
+        ...ex,
+        defaultWeight: (adj.defaultWeight != null) ? adj.defaultWeight : ex.defaultWeight,
+        targetReps: (adj.targetReps != null) ? adj.targetReps : ex.targetReps,
+      };
+    }).filter(Boolean)
+  };
+  await addTemplate(adjustedTemplate);
+  return adjustedTemplate;
+}
+
 const LEG_WARMUP_ITEMS = [
   'Walking hamstring stretch (5 each leg)',
   'Quad stretches — standing (5 each)',
@@ -339,8 +408,26 @@ async function showPreChecklist(el, template) {
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
   });
-  overlay.querySelector('#start-session-btn').addEventListener('click', () => {
+  overlay.querySelector('#start-session-btn').addEventListener('click', async () => {
     const sorenessNote = overlay.querySelector('#soreness-note').value.trim();
+    if (sorenessNote.length > 5 && !template.id.startsWith('tpl-pt')) {
+      const apiKey = await getSetting('anthropicApiKey');
+      if (apiKey) {
+        const startBtn = overlay.querySelector('#start-session-btn');
+        startBtn.textContent = 'Tailoring workout…';
+        startBtn.disabled = true;
+        try {
+          const adjusted = await generateAdjustedTemplate(template, sorenessNote, apiKey);
+          if (adjusted) {
+            overlay.classList.add('hidden');
+            overlay.innerHTML = '';
+            showToast(`Adjusted: ${adjusted.name} (delete after workout)`);
+            startSession(el, adjusted, answers, sorenessNote);
+            return;
+          }
+        } catch (e) { /* fall through to original */ }
+      }
+    }
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
     startSession(el, template, answers, sorenessNote);
@@ -402,7 +489,7 @@ async function showPostChecklist(el) {
         </div>
         <div style="flex:1">
           <label class="form-label" style="margin-bottom:4px">End Time</label>
-          <input type="time" class="input" id="end-time" value="${toTimeInput(Date.now())}">
+          <input type="time" class="input" id="end-time" value="${activeSession?._endTimeStr || toTimeInput(Date.now())}">
         </div>
       </div>
       <div style="margin-top:12px">

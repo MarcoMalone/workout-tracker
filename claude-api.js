@@ -57,6 +57,22 @@ export async function callClaude(system, userMessage, apiKey) {
   throw lastErr;
 }
 
+export async function buildAdjustedWorkoutTemplate(template, exerciseDefs, sorenessNote, healthContext, apiKey) {
+  const system = `You are a fitness coach adjusting workout templates based on athlete condition. Return ONLY valid JSON — no prose, no markdown.${healthContext ? '\n\n' + healthContext : ''}`;
+  const exLines = template.exercises.map((tplEx, idx) => {
+    const def = exerciseDefs.find(e => e.id === tplEx.exerciseId) || {};
+    const name = def.name || tplEx.exerciseId;
+    const weight = tplEx.defaultWeight ? `@ ${tplEx.defaultWeight} lbs` : '(bodyweight)';
+    const reps = tplEx.defaultSeconds ? `${tplEx.defaultSets} × ${tplEx.defaultSeconds}s` : `${tplEx.defaultSets} × ${tplEx.targetReps || '?'} reps`;
+    return `${idx}. ${name} — ${reps} ${weight}`;
+  }).join('\n');
+  const userMessage = `Athlete condition: "${sorenessNote}"\n\nTemplate: ${template.name}\nExercises:\n${exLines}\n\nReturn a JSON array. Only include exercises that need adjustment. Format: [{"idx": <number>, "defaultWeight": <number|null>, "targetReps": <number|null>, "skip": <boolean>, "note": <string>}]. Conservative approach — reduce load 20-30% for sore muscles, skip if clearly aggravating.`;
+  const response = await callClaude(system, userMessage, apiKey);
+  const jsonMatch = response.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) return null;
+  return JSON.parse(jsonMatch[0]);
+}
+
 export function buildExportSummary(sessions, runs, walks = []) {
   const byPart = { arms: [], legs: [], core: [] };
   for (const s of sessions) {

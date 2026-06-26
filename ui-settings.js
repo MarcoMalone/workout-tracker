@@ -50,6 +50,15 @@ export async function renderSettingsTab(el) {
       <div class="settings-group card" id="template-library"></div>
       <button class="btn btn-ghost btn-full" id="add-template-btn" style="margin-top:8px">+ New Template</button>
 
+      <p class="section-title" style="margin-top:20px">Appearance</p>
+      <div class="settings-group card">
+        <label class="settings-label">Theme</label>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-secondary" id="theme-dark-btn" style="flex:1">Dark</button>
+          <button class="btn btn-secondary" id="theme-light-btn" style="flex:1">Light</button>
+        </div>
+      </div>
+
       <p class="section-title" style="margin-top:20px">Data</p>
       <div class="settings-group card">
         <button class="btn btn-ghost btn-full" id="export-json-btn">Export JSON Backup</button>
@@ -130,6 +139,18 @@ export async function renderSettingsTab(el) {
     const { importCSV } = await import('./onboarding.js');
     await importCSV(e.target.files[0], el);
   });
+
+  const applyTheme = (theme) => {
+    localStorage.setItem('theme', theme);
+    document.body.classList.toggle('light', theme === 'light');
+    el.querySelector('#theme-dark-btn').style.borderColor = theme === 'dark' ? 'var(--blue)' : '';
+    el.querySelector('#theme-light-btn').style.borderColor = theme === 'light' ? 'var(--blue)' : '';
+  };
+  const currentTheme = localStorage.getItem('theme') || 'dark';
+  el.querySelector('#theme-dark-btn').style.borderColor = currentTheme === 'dark' ? 'var(--blue)' : '';
+  el.querySelector('#theme-light-btn').style.borderColor = currentTheme === 'light' ? 'var(--blue)' : '';
+  el.querySelector('#theme-dark-btn').addEventListener('click', () => applyTheme('dark'));
+  el.querySelector('#theme-light-btn').addEventListener('click', () => applyTheme('light'));
 }
 
 function renderChecklistEditor(container, items, prefix) {
@@ -153,9 +174,13 @@ async function renderExerciseLibrary(container) {
 async function renderTemplateLibrary(container, el) {
   const templates = await getTemplates();
   container.innerHTML = templates.length === 0 ? '<p style="color:var(--text-3);padding:12px">No templates yet</p>'
-    : templates.map(t => `<div class="lib-row"><span>${esc(t.name)} <span class="template-tag tag-${esc(t.bodyPartGroup)}">${esc(t.bodyPartGroup)}</span></span><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px" data-id="${esc(t.id)}">Delete</button></div>`).join('');
+    : templates.map(t => `<div class="lib-row"><span>${esc(t.name)} <span class="template-tag tag-${esc(t.bodyPartGroup)}">${esc(t.bodyPartGroup)}</span></span><div style="display:flex;gap:4px"><button class="btn btn-ghost lib-edit-btn" style="min-height:36px;font-size:13px" data-id="${esc(t.id)}">Edit</button><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px;color:var(--danger)" data-id="${esc(t.id)}">Del</button></div></div>`).join('');
   container.querySelectorAll('.lib-del-btn').forEach(btn => {
-    btn.addEventListener('click', async () => { await deleteTemplate(btn.dataset.id); await renderTemplateLibrary(container, el); });
+    btn.addEventListener('click', async () => { if (confirm('Delete this template?')) { await deleteTemplate(btn.dataset.id); await renderTemplateLibrary(container, el); } });
+  });
+  const allTemplates = await getTemplates();
+  container.querySelectorAll('.lib-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => { const tpl = allTemplates.find(t => t.id === btn.dataset.id); if (tpl) showTemplateEditor(el, tpl); });
   });
 }
 
@@ -164,7 +189,10 @@ function showExerciseForm(el, existing) {
   overlay.classList.remove('hidden');
   overlay.innerHTML = `
     <div class="modal-sheet">
-      <h2 class="modal-title">${existing ? 'Edit' : 'Add'} Exercise</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 class="modal-title" style="margin-bottom:0">${existing ? 'Edit' : 'Add'} Exercise</h2>
+        <button class="modal-dismiss-btn" id="ex-dismiss-btn">&times;</button>
+      </div>
       <label class="form-label">Name</label>
       <input class="input" id="ex-name" value="${esc(existing?.name || '')}">
       <label class="form-label">Body Part</label>
@@ -177,15 +205,21 @@ function showExerciseForm(el, existing) {
       <input class="input" id="ex-machine" value="${esc(existing?.machineId || '')}">
       <label class="form-label">Unit</label>
       <select class="input" id="ex-unit">
-        ${['lbs','seconds','miles'].map(u => `<option value="${u}" ${existing?.unit === u ? 'selected' : ''}>${u}</option>`).join('')}
+        ${['lbs','reps','seconds','miles'].map(u => `<option value="${u}" ${existing?.unit === u ? 'selected' : ''}>${u === 'reps' ? 'reps (bodyweight)' : u}</option>`).join('')}
       </select>
-      <div style="display:flex;gap:12px;margin-top:12px">
-        <label><input type="checkbox" id="ex-timed" ${existing?.isTimed ? 'checked' : ''}> Timed</label>
-        <label><input type="checkbox" id="ex-uni" ${existing?.isUnilateral ? 'checked' : ''}> Unilateral</label>
+      <div style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="ex-timed" ${existing?.isTimed ? 'checked' : ''}> Timed</label>
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="ex-uni" ${existing?.isUnilateral ? 'checked' : ''}> Unilateral</label>
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="ex-bw" ${existing?.isBodyweight ? 'checked' : ''}> Bodyweight (no weight field)</label>
       </div>
       <button class="btn btn-primary btn-full" id="save-ex-btn" style="margin-top:16px">Save</button>
     </div>
   `;
+  overlay.querySelector('#ex-dismiss-btn').addEventListener('click', () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; });
+  const unitSel = overlay.querySelector('#ex-unit');
+  const bwChk = overlay.querySelector('#ex-bw');
+  bwChk.addEventListener('change', () => { if (bwChk.checked) unitSel.value = 'reps'; });
+  unitSel.addEventListener('change', () => { if (unitSel.value === 'reps') bwChk.checked = true; });
   overlay.querySelector('#save-ex-btn').addEventListener('click', async () => {
     const exercise = {
       id: existing?.id || crypto.randomUUID(),
@@ -193,9 +227,10 @@ function showExerciseForm(el, existing) {
       bodyPartGroup: overlay.querySelector('#ex-part').value,
       equipment: overlay.querySelector('#ex-equip').value.trim(),
       machineId: overlay.querySelector('#ex-machine').value.trim() || null,
-      unit: overlay.querySelector('#ex-unit').value,
+      unit: unitSel.value,
       isTimed: overlay.querySelector('#ex-timed').checked,
       isUnilateral: overlay.querySelector('#ex-uni').checked,
+      isBodyweight: bwChk.checked,
       notes: ''
     };
     if (!exercise.name) { alert('Name required'); return; }
@@ -206,14 +241,18 @@ function showExerciseForm(el, existing) {
   });
 }
 
-export async function showTemplateEditor(el, existing) {
+export async function showTemplateEditor(el, existing, onSave) {
   const exercises = await getExercises();
   const overlay = document.getElementById('modal-overlay');
   overlay.classList.remove('hidden');
   const selectedExIds = existing?.exercises.map(e => e.exerciseId) ?? [];
+  const dismiss = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
   overlay.innerHTML = `
     <div class="modal-sheet">
-      <h2 class="modal-title">${existing ? 'Edit' : 'New'} Template</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 class="modal-title" style="margin-bottom:0">${existing ? 'Edit' : 'New'} Template</h2>
+        <button class="modal-dismiss-btn" id="tpl-dismiss-btn">&times;</button>
+      </div>
       <label class="form-label">Name</label>
       <input class="input" id="tpl-name" value="${esc(existing?.name || '')}">
       <label class="form-label">Body Part</label>
@@ -227,18 +266,22 @@ export async function showTemplateEditor(el, existing) {
       <button class="btn btn-primary btn-full" id="save-tpl-btn">Save Template</button>
     </div>
   `;
+  overlay.querySelector('#tpl-dismiss-btn').addEventListener('click', dismiss);
   overlay.querySelector('#save-tpl-btn').addEventListener('click', async () => {
     const name = overlay.querySelector('#tpl-name').value.trim();
     if (!name) { alert('Name required'); return; }
     const checked = Array.from(overlay.querySelectorAll('#tpl-ex-list input:checked'));
     const exList = checked.map((inp, i) => {
-      const ex = exercises.find(e => e.id === inp.value);
-      return { exerciseId: ex.id, defaultSets: 3, targetReps: ex.isTimed ? null : 12, order: i };
+      const exId = inp.value;
+      const existingEx = existing?.exercises.find(e => e.exerciseId === exId);
+      const exDef = exercises.find(e => e.id === exId);
+      if (existingEx) return { ...existingEx, order: i };
+      return { exerciseId: exId, defaultSets: 3, targetReps: exDef?.isTimed ? null : 12, defaultSeconds: exDef?.isTimed ? 30 : null, order: i };
     });
-    await addTemplate({ id: existing?.id || crypto.randomUUID(), name, bodyPartGroup: overlay.querySelector('#tpl-part').value, exercises: exList, createdAt: Date.now() });
-    overlay.classList.add('hidden');
-    overlay.innerHTML = '';
-    await renderSettingsTab(el);
+    await addTemplate({ id: existing?.id || crypto.randomUUID(), name, bodyPartGroup: overlay.querySelector('#tpl-part').value, exercises: exList, createdAt: existing?.createdAt || Date.now() });
+    dismiss();
+    if (onSave) await onSave();
+    else await renderSettingsTab(el);
   });
 }
 

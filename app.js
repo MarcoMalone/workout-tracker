@@ -24,6 +24,8 @@ export async function switchTab(tabName) {
 }
 
 async function init() {
+  const theme = localStorage.getItem('theme') || 'dark';
+  if (theme === 'light') document.body.classList.add('light');
   await initDB();
   await seedIfEmpty();
   await migrateNewTemplates();
