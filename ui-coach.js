@@ -93,11 +93,23 @@ async function runCoach(el, btnSel, respSel, contextFn, apiKey) {
   btn.disabled = true;
   btn.textContent = 'Thinking…';
   resp.classList.add('hidden');
-  resp.textContent = '';
+  resp.innerHTML = '';
   try {
     const { system, userMessage } = await contextFn();
     const text = await callClaude(system, userMessage, apiKey);
-    resp.textContent = text;
+    const textEl = document.createElement('p');
+    textEl.style.cssText = 'margin:0;white-space:pre-wrap';
+    textEl.textContent = text;
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'coach-copy-btn';
+    copyBtn.textContent = '📋 Copy response';
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = '✓ Copied!';
+      setTimeout(() => { copyBtn.textContent = '📋 Copy response'; }, 2000);
+    });
+    resp.appendChild(textEl);
+    resp.appendChild(copyBtn);
     resp.classList.remove('hidden');
   } catch (err) {
     resp.textContent = `Error: ${err.message}`;

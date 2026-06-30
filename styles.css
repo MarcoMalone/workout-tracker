@@ -164,6 +164,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .coach-body-picker { margin-bottom: 12px; }
 .coach-response { margin-top: 14px; padding: 12px; background: var(--surface-hi); border-radius: var(--r-sm); font-size: 15px; line-height: 1.55; color: var(--text); white-space: pre-wrap; }
 .coach-no-key { padding: 12px 16px; background: var(--surface); border: 1px solid var(--accent-dim); border-radius: var(--r-md); color: var(--text-2); font-size: 14px; margin-bottom: 16px; }
+.coach-copy-btn { display: block; margin-top: 10px; background: none; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 5px 12px; font-size: 12px; color: var(--text-3); cursor: pointer; }
+.coach-copy-btn:hover { color: var(--text); border-color: var(--text-3); }
 .export-confirm { text-align: center; color: var(--success); font-weight: 600; margin-top: 8px; }
 .chart-wrap { height: 180px; margin-bottom: 24px; }
 
