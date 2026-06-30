@@ -1,6 +1,6 @@
 import { addExercise, addTemplate, getTemplate } from './db.js';
 
-const MIGRATE_V = 4;
+const MIGRATE_V = 5;
 
 // All exercise definitions — put() is an upsert, safe to re-run
 const ALL_EXERCISES = [
@@ -47,9 +47,9 @@ const ALL_EXERCISES = [
 
   // === PT / REHAB EXERCISES ===
   { id: 'ex-butterfly-bridge', name: 'Butterfly Bridge', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: '' },
-  { id: 'ex-straight-leg-raise-vmo', name: 'Straight Leg Raise (VMO)', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: true, isBodyweight: true, notes: '' },
+  { id: 'ex-straight-leg-raise-vmo', name: 'Straight Leg Raise (VMO)', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: true, isBodyweight: true, notes: '3s hold at top per rep' },
   { id: 'ex-side-star-plank', name: 'Isometric Side Star Plank', bodyPartGroup: 'core', equipment: 'bodyweight', machineId: null, unit: 'seconds', isTimed: true, isUnilateral: true, isBodyweight: true, notes: '' },
-  { id: 'ex-glute-iso-captain-morgan', name: 'Glute Iso (Captain Morgan)', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: true, isBodyweight: true, notes: '' },
+  { id: 'ex-glute-iso-captain-morgan', name: 'Glute Iso (Captain Morgan)', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: true, isBodyweight: true, notes: '5s hold per rep' },
   { id: 'ex-hip-ir-stretch', name: 'Hip Internal Rotation Stretch', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'seconds', isTimed: true, isUnilateral: false, isBodyweight: true, notes: '' },
   { id: 'ex-happy-baby', name: 'Happy Baby Stretch', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'seconds', isTimed: true, isUnilateral: false, isBodyweight: true, notes: '' },
   { id: 'ex-kneeling-hip-flexor-stretch', name: 'Kneeling Hip Flexor Stretch', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'seconds', isTimed: true, isUnilateral: true, isBodyweight: true, notes: '' },
@@ -170,49 +170,45 @@ const ALL_TEMPLATES = [
     createdAt: 1750896000000,
     exercises: [
       { exerciseId: 'ex-butterfly-bridge', defaultSets: 3, targetReps: 8, order: 0 },
-      // 6 sets = 3 per leg
-      { exerciseId: 'ex-straight-leg-raise-vmo', defaultSets: 6, targetReps: 10, order: 1 },
-      // 6 sets = 3 per leg
-      { exerciseId: 'ex-glute-iso-captain-morgan', defaultSets: 6, targetReps: 5, order: 2 },
+      { exerciseId: 'ex-straight-leg-raise-vmo', defaultSets: 3, targetReps: 10, order: 1 },
+      { exerciseId: 'ex-glute-iso-captain-morgan', defaultSets: 3, targetReps: 5, order: 2 },
       { exerciseId: 'ex-hip-ir-stretch', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 3 },
       { exerciseId: 'ex-happy-baby', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 4 },
-      // 4 sets = 2 per side
-      { exerciseId: 'ex-kneeling-hip-flexor-stretch', defaultSets: 4, targetReps: null, defaultSeconds: 30, order: 5 },
-      // 4 sets = 2 per side
-      { exerciseId: 'ex-modified-pigeon', defaultSets: 4, targetReps: null, defaultSeconds: 30, order: 6 },
+      { exerciseId: 'ex-kneeling-hip-flexor-stretch', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 5 },
+      { exerciseId: 'ex-modified-pigeon', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 6 },
     ]
   },
 
-  // Full PT Session — complete program (~45–60 min)
+  // Full PT Session — matches PT app Home Exercise Program order exactly
   {
     id: 'tpl-pt-session',
     name: 'Full PT Session',
     bodyPartGroup: 'legs',
     createdAt: 1750896000000,
     exercises: [
-      // Mobility warm-up
-      { exerciseId: 'ex-sciatic-nerve-glides', defaultSets: 3, targetReps: 10, order: 0 },
-      { exerciseId: 'ex-leg-swings', defaultSets: 3, targetReps: 10, order: 1 },
-      { exerciseId: 'ex-seated-hip-rotations', defaultSets: 3, targetReps: 10, order: 2 },
-      // PT activation
-      { exerciseId: 'ex-butterfly-bridge', defaultSets: 3, targetReps: 8, order: 3 },
-      // 6 sets = 3 per leg
-      { exerciseId: 'ex-straight-leg-raise-vmo', defaultSets: 6, targetReps: 10, order: 4 },
-      // 6 sets = 3 per leg
-      { exerciseId: 'ex-glute-iso-captain-morgan', defaultSets: 6, targetReps: 5, order: 5 },
-      { exerciseId: 'ex-copenhagen-adduction', defaultSets: 3, targetReps: 10, order: 6 },
-      // Strength (PT exercise elevated)
-      { exerciseId: 'ex-weighted-step-ups', defaultSets: 6, targetReps: 8, defaultWeight: 25, order: 7 },
+      // Strength
+      { exerciseId: 'ex-weighted-step-ups', defaultSets: 3, targetReps: 8, order: 0 },
+      { exerciseId: 'ex-curtsy-lateral-lunge', defaultSets: 3, targetReps: 10, order: 1 },
       // Pelvic floor — 3 sets × 25s (5 reps × 5s hold)
-      { exerciseId: 'ex-pelvic-floor-elevators', defaultSets: 3, targetReps: null, defaultSeconds: 25, order: 8 },
+      { exerciseId: 'ex-pelvic-floor-elevators', defaultSets: 3, targetReps: null, defaultSeconds: 25, order: 2 },
+      // Glute Iso — 3 sets per side, 5s hold per rep
+      { exerciseId: 'ex-glute-iso-captain-morgan', defaultSets: 3, targetReps: 5, order: 3 },
       // Stretching
-      { exerciseId: 'ex-hip-ir-stretch', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 9 },
-      { exerciseId: 'ex-happy-baby', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 10 },
-      // 4 sets = 2 per side
-      { exerciseId: 'ex-kneeling-hip-flexor-stretch', defaultSets: 4, targetReps: null, defaultSeconds: 30, order: 11 },
-      // 4 sets = 2 per side
-      { exerciseId: 'ex-modified-pigeon', defaultSets: 4, targetReps: null, defaultSeconds: 30, order: 12 },
-      { exerciseId: 'ex-butterfly-pf-stretch', defaultSets: 2, targetReps: null, defaultSeconds: 60, order: 13 },
+      { exerciseId: 'ex-hip-ir-stretch', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 4 },
+      { exerciseId: 'ex-happy-baby', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 5 },
+      { exerciseId: 'ex-butterfly-pf-stretch', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 6 },
+      { exerciseId: 'ex-kneeling-hip-flexor-stretch', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 7 },
+      { exerciseId: 'ex-modified-pigeon', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 8 },
+      // Mobility / activation
+      { exerciseId: 'ex-sciatic-nerve-glides', defaultSets: 1, targetReps: 12, order: 9 },
+      { exerciseId: 'ex-leg-swings', defaultSets: 2, targetReps: 12, order: 10 },
+      { exerciseId: 'ex-seated-hip-rotations', defaultSets: 2, targetReps: 12, order: 11 },
+      { exerciseId: 'ex-copenhagen-adduction', defaultSets: 3, targetReps: 10, order: 12 },
+      { exerciseId: 'ex-butterfly-bridge', defaultSets: 3, targetReps: 8, order: 13 },
+      // Straight leg raise — 3 sets per side, 3s hold per rep
+      { exerciseId: 'ex-straight-leg-raise-vmo', defaultSets: 3, targetReps: 10, order: 14 },
+      // Isometric side star plank — 5 sets per side, 25s hold
+      { exerciseId: 'ex-side-star-plank', defaultSets: 5, targetReps: null, defaultSeconds: 25, order: 15 },
     ]
   },
 ];
@@ -224,7 +220,7 @@ export async function migrateNewTemplates() {
   for (const ex of ALL_EXERCISES) await addExercise(ex);
 
   if (storedV < MIGRATE_V) {
-    // v3: force-upsert all templates (adds Forearm Rope Roll-Ups to Arm B)
+    // v5: force-upsert all templates (fixes PT set counts, adds Curtsy Lunge + Side Star Plank to Full PT)
     for (const tpl of ALL_TEMPLATES) await addTemplate(tpl);
     localStorage.setItem('app_migrate_v', String(MIGRATE_V));
   } else {

@@ -8,6 +8,11 @@ function localDateStr(d = new Date()) {
 
 export let activeSession = null;
 
+let _pendingCoachNote = null;
+export function setPendingCoachNote(note, bodyPart) {
+  _pendingCoachNote = { note, bodyPart };
+}
+
 function toTimeInput(ts) {
   const d = new Date(ts);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -35,11 +40,19 @@ export async function renderLogTab(el) {
       ${lastLegs ? `<span class="last-chip"><span class="last-chip-label">Legs</span>${esc(lastLegs.templateName)} · ${shortDate(lastLegs.date)}</span>` : ''}
     </div>` : '';
 
+  const coachBanner = _pendingCoachNote
+    ? `<div class="coach-pending-banner" id="coach-pending-banner">
+        <span>💡 Coach note ready for <strong>${esc(_pendingCoachNote.bodyPart)}</strong> — tap a template to start</span>
+        <button class="coach-banner-dismiss" id="dismiss-coach-banner">✕</button>
+       </div>`
+    : '';
+
   el.innerHTML = `
     <div class="screen">
       <div class="log-home-header">
         <h1 class="log-date">${formatDate(new Date())}</h1>
         <p class="log-subtitle">What are we doing today?</p>
+        ${coachBanner}
         ${lastLine}
       </div>
       <div class="log-cardio-row">
@@ -65,7 +78,11 @@ export async function renderLogTab(el) {
     card.className = 'template-card';
     card.innerHTML = `<span class="template-name">${esc(tpl.name)}</span><span class="tpl-card-right">${durationTag}<span class="template-tag tag-${esc(tpl.bodyPartGroup)}">${esc(tpl.bodyPartGroup)}</span><button class="tpl-gear-btn" title="Edit template">⚙</button></span>`;
     card.addEventListener('click', e => {
-      if (!e.target.closest('.tpl-gear-btn')) showPreChecklist(el, tpl);
+      if (!e.target.closest('.tpl-gear-btn')) {
+        const note = _pendingCoachNote?.note || '';
+        _pendingCoachNote = null;
+        showPreChecklist(el, tpl, note);
+      }
     });
     card.querySelector('.tpl-gear-btn').addEventListener('click', e => {
       e.stopPropagation();
@@ -73,6 +90,10 @@ export async function renderLogTab(el) {
     });
     list.appendChild(card);
   }
+  el.querySelector('#dismiss-coach-banner')?.addEventListener('click', () => {
+    _pendingCoachNote = null;
+    el.querySelector('#coach-pending-banner')?.remove();
+  });
   el.querySelector('#new-template-btn').addEventListener('click', () => {
     import('./ui-settings.js').then(m => m.showTemplateEditor(el, null, () => renderLogTab(el)));
   });
@@ -90,6 +111,10 @@ async function renderActiveSession(el) {
           <button class="btn btn-ghost" id="discard-btn" style="min-height:36px;font-size:14px;color:var(--danger);border-color:var(--danger)">Discard</button>
           <button class="btn btn-ghost session-finish-btn" id="finish-btn" style="min-height:36px;font-size:14px">Finish</button>
         </div>
+      </div>
+      <div class="session-time-row">
+        <span class="session-time-label">Date</span>
+        <input type="date" class="session-time-input" id="session-date" value="${activeSession.date}">
       </div>
       <div class="session-time-row">
         <span class="session-time-label">Started</span>
@@ -137,6 +162,13 @@ async function renderActiveSession(el) {
   el.querySelector('#add-exercise-btn').addEventListener('click', () => showAddExerciseModal(el, cardsEl));
   el.querySelector('#session-notes-during').addEventListener('input', e => {
     activeSession.sessionNotes = e.target.value;
+  });
+  el.querySelector('#session-date').addEventListener('change', e => {
+    if (!e.target.value) return;
+    const [y, mo, d] = e.target.value.split('-').map(Number);
+    const old = new Date(activeSession.startedAt);
+    activeSession.date = e.target.value;
+    activeSession.startedAt = new Date(y, mo - 1, d, old.getHours(), old.getMinutes(), 0, 0).getTime();
   });
   el.querySelector('#session-start-time').addEventListener('change', e => {
     if (e.target.value) activeSession.startedAt = fromTimeInput(e.target.value);
@@ -382,7 +414,7 @@ const DEFAULT_CHECKLIST_ITEMS = [
   'Any new soreness since last session?',
 ];
 
-async function showPreChecklist(el, template) {
+async function showPreChecklist(el, template, prefilledNote = '') {
   const isLegDay = template.bodyPartGroup === 'legs';
   const isArmDay = template.bodyPartGroup === 'arms';
   const raw = await getSetting('preChecklist');
@@ -400,7 +432,7 @@ async function showPreChecklist(el, template) {
         <button class="modal-dismiss-btn" id="dismiss-checklist" aria-label="Dismiss">✕</button>
       </div>
       <div class="checklist" id="pre-checklist"></div>
-      <input type="text" class="input" id="soreness-note" placeholder="Anything sore or tight today? (e.g. left hip, slept 5 hrs)" style="margin-bottom:14px">
+      <input type="text" class="input" id="soreness-note" placeholder="Anything sore or tight today? (e.g. left hip, slept 5 hrs)" style="margin-bottom:14px" value="${esc(prefilledNote)}">
       <button class="btn btn-primary btn-full" id="start-session-btn">Start ${esc(template.name)}</button>
 
     </div>

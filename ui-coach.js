@@ -1,5 +1,7 @@
 import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting } from './db.js';
 import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary } from './claude-api.js';
+import { switchTab } from './app.js';
+import { setPendingCoachNote } from './ui-log.js';
 
 export async function renderCoachTab(el) {
   const apiKey = await getSetting('anthropicApiKey');
@@ -47,6 +49,21 @@ export async function renderCoachTab(el) {
       const [recent, health] = await Promise.all([getSessionsByBodyPart(part, 4), getSetting('healthContext')]);
       return buildPreWorkoutContext(recent, note, health);
     }, apiKey);
+    const resp = el.querySelector('#pre-response');
+    if (!resp.classList.contains('hidden') && !resp.textContent.startsWith('Error:')) {
+      el.querySelector('#coach-start-btn')?.remove();
+      const startBtn = document.createElement('button');
+      startBtn.id = 'coach-start-btn';
+      startBtn.className = 'btn btn-secondary btn-full';
+      startBtn.style.marginTop = '10px';
+      const label = part.charAt(0).toUpperCase() + part.slice(1);
+      startBtn.textContent = `→ Start ${label} Workout`;
+      startBtn.addEventListener('click', () => {
+        setPendingCoachNote(note, part);
+        switchTab('log');
+      });
+      resp.after(startBtn);
+    }
   });
 
   el.querySelector('#post-ask-btn').addEventListener('click', async () => {
