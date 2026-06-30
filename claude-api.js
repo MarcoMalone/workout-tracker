@@ -1,7 +1,7 @@
 // claude-api.js
 import Anthropic from './vendor/anthropic-sdk.js';
 
-const SYSTEM_BASE = `You are a physical therapist-informed personal coach for a recreational baseball player managing hip and groin issues. Priority order: (1) injury prevention and joint longevity — flag anything that risks reinjury clearly and specifically; (2) keeping the athlete active, strong, and progressing. Be direct. Reference actual exercises, weights, and trends from the logged data. No generic advice, no disclaimers. Keep responses under 200 words — this is read on a phone.`;
+const SYSTEM_BASE = `You are a personal fitness coach. Priority order: (1) injury prevention — flag anything that risks aggravating a known issue; (2) keeping the athlete active, strong, and progressing. Be direct and specific: reference actual exercises, weights, and trends from the logged data. No generic advice, no disclaimers. Keep responses under 200 words — this is read on a phone.`;
 
 export function buildSessionSummary(session) {
   const title = session.workoutLabel ? `${session.templateName} — ${session.workoutLabel}` : session.templateName;

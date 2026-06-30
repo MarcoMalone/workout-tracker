@@ -18,10 +18,11 @@ export async function renderSettingsTab(el) {
         <button class="btn btn-secondary settings-save-btn" id="save-api-key">Save Key</button>
       </div>
 
-      <p class="section-title" style="margin-top:20px">Health Notes</p>
+      <p class="section-title" style="margin-top:20px">Coach Profile</p>
       <div class="settings-group card">
-        <label class="settings-label">Sent with every coaching request</label>
-        <textarea class="input" id="health-ctx" rows="6" placeholder="Injury history, things to monitor, ortho notes...">${esc(healthCtx)}</textarea>
+        <label class="settings-label">Your system prompt — shapes every coaching response</label>
+        <p class="settings-hint">Include your sport, injury history, current PT stage, and goals. This is injected into every Coach request so the AI knows who it's talking to.</p>
+        <textarea class="input" id="health-ctx" rows="7" placeholder="e.g. Recreational baseball player (pitcher). Managing right hip and groin issues — in PT for hip IR and VMO strengthening. Priority: stay active without aggravating hip. Flag any exercise that risks hip impingement or groin strain.">${esc(healthCtx)}</textarea>
         <button class="btn btn-secondary settings-save-btn" id="save-health-ctx">Save</button>
       </div>
 
