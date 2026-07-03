@@ -130,6 +130,9 @@ export async function getRunLogs(limit = 20) {
   const all = await (await db()).getAll('run_logs');
   return all.sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
 }
+export async function deleteRunLog(id) {
+  return (await db()).delete('run_logs', id);
+}
 
 // ─── Walk logs ────────────────────────────────────────────────────────────────
 export async function addWalkLog(walk) {
@@ -138,6 +141,9 @@ export async function addWalkLog(walk) {
 export async function getWalkLogs(limit = 20) {
   const all = await (await db()).getAll('walk_logs');
   return all.sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
+}
+export async function deleteWalkLog(id) {
+  return (await db()).delete('walk_logs', id);
 }
 
 // ─── Seed data ────────────────────────────────────────────────────────────────

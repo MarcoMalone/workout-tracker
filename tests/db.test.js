@@ -4,7 +4,8 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, getSetting, setSetting, addExercise, getExercises,
          addTemplate, getTemplates, saveSession, getSessionsByBodyPart,
-         getLastSessionForExercise, addRunLog, getRunLogs, addWalkLog, getWalkLogs,
+         getLastSessionForExercise, addRunLog, getRunLogs, deleteRunLog,
+         addWalkLog, getWalkLogs, deleteWalkLog,
          seedIfEmpty, _resetForTest } from '../db.js';
 
 beforeEach(async () => {
@@ -66,6 +67,25 @@ test('addRunLog and getRunLogs', async () => {
   expect(runs[0].distanceMiles).toBe(2.5);
 });
 
+test('deleteRunLog removes a run', async () => {
+  await addRunLog({ id: 'r-1', date: '2026-06-15', distanceMiles: 2.5, durationMinutes: 28, paceMinPerMile: 11.2, perceivedEffort: 6, notes: '', bodyPartGroup: 'legs' });
+  await addRunLog({ id: 'r-2', date: '2026-06-16', distanceMiles: 3, durationMinutes: 33, paceMinPerMile: 11, perceivedEffort: 5, notes: '', bodyPartGroup: 'legs' });
+  await deleteRunLog('r-1');
+  const runs = await getRunLogs();
+  expect(runs).toHaveLength(1);
+  expect(runs[0].id).toBe('r-2');
+});
+
+test('addRunLog upserts on matching id (edit round-trip)', async () => {
+  await addRunLog({ id: 'r-1', date: '2026-06-15', distanceMiles: 2.5, durationMinutes: 28, paceMinPerMile: 11.2, perceivedEffort: 6, notes: 'first', bodyPartGroup: 'legs' });
+  await addRunLog({ id: 'r-1', date: '2026-06-20', distanceMiles: 2.5, durationMinutes: 28, paceMinPerMile: 11.2, perceivedEffort: 6, notes: 'edited', workoutContext: 'Recovery', bodyPartGroup: 'legs' });
+  const runs = await getRunLogs();
+  expect(runs).toHaveLength(1);
+  expect(runs[0].date).toBe('2026-06-20');
+  expect(runs[0].notes).toBe('edited');
+  expect(runs[0].workoutContext).toBe('Recovery');
+});
+
 test('addWalkLog and getWalkLogs', async () => {
   const walk = { id: 'w-1', date: '2026-06-18', durationMinutes: 90, speedMph: 2.2, distanceMiles: 3.3, calories: 450, notes: 'good session' };
   await addWalkLog(walk);
@@ -82,4 +102,22 @@ test('getWalkLogs returns newest first', async () => {
   const walks = await getWalkLogs();
   expect(walks[0].date).toBe('2026-06-18');
   expect(walks[1].date).toBe('2026-06-10');
+});
+
+test('deleteWalkLog removes a walk', async () => {
+  await addWalkLog({ id: 'w-1', date: '2026-06-10', durationMinutes: 60, speedMph: 2.2, distanceMiles: 2.2, calories: null, notes: '' });
+  await addWalkLog({ id: 'w-2', date: '2026-06-18', durationMinutes: 90, speedMph: 2.2, distanceMiles: 3.3, calories: null, notes: '' });
+  await deleteWalkLog('w-2');
+  const walks = await getWalkLogs();
+  expect(walks).toHaveLength(1);
+  expect(walks[0].id).toBe('w-1');
+});
+
+test('addWalkLog upserts with editable notes and context tag', async () => {
+  await addWalkLog({ id: 'w-1', date: '2026-06-10', durationMinutes: 60, speedMph: 2.2, distanceMiles: 2.2, calories: null, notes: 'first' });
+  await addWalkLog({ id: 'w-1', date: '2026-06-10', durationMinutes: 60, speedMph: 2.2, distanceMiles: 2.2, calories: null, notes: 'edited', workoutContext: 'Tired' });
+  const walks = await getWalkLogs();
+  expect(walks).toHaveLength(1);
+  expect(walks[0].notes).toBe('edited');
+  expect(walks[0].workoutContext).toBe('Tired');
 });

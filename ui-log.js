@@ -673,6 +673,8 @@ function showWalkForm(el) {
         <input type="number" class="input" id="walk-dist-override" step="0.01" inputmode="decimal" placeholder="leave blank to auto-calculate">
         <label class="form-label">Calories <span class="form-hint">— treadmill estimate</span></label>
         <input type="number" class="input" id="walk-cals" step="1" inputmode="numeric" placeholder="optional">
+        <label class="form-label">Context tag <span class="form-hint">— shows in history</span></label>
+        <input type="text" class="input" id="walk-context" placeholder="e.g. Recovery day, Tired, Full energy">
         <label class="form-label">Notes</label>
         <textarea class="input" id="walk-notes" rows="2" placeholder="How did it go?"></textarea>
         <button class="btn btn-primary btn-full" id="save-walk-btn" style="margin-top:16px">Save Walk</button>
@@ -711,6 +713,7 @@ function showWalkForm(el) {
       speedMph: speed,
       distanceMiles,
       calories: calsVal ? Number(calsVal) : null,
+      workoutContext: el.querySelector('#walk-context').value.trim() || null,
       notes: el.querySelector('#walk-notes').value
     });
     await switchTab('history');
@@ -734,6 +737,8 @@ function showRunForm(el) {
         <label class="form-label">Perceived Effort (1–10)</label>
         <input type="range" id="run-effort" min="1" max="10" value="6">
         <div style="text-align:center; color:var(--accent); font-size:20px; font-weight:700" id="effort-display">6</div>
+        <label class="form-label">Context tag <span class="form-hint">— shows in history</span></label>
+        <input type="text" class="input" id="run-context" placeholder="e.g. Recovery day, Tired, Full energy">
         <label class="form-label">Notes</label>
         <textarea class="input" id="run-notes" rows="2" placeholder="How did it feel?"></textarea>
         <button class="btn btn-primary btn-full" id="save-run-btn" style="margin-top:16px">Save Run</button>
@@ -757,6 +762,7 @@ function showRunForm(el) {
       durationMinutes,
       paceMinPerMile: parseFloat((durationMinutes / dist).toFixed(2)),
       perceivedEffort: Number(el.querySelector('#run-effort').value),
+      workoutContext: el.querySelector('#run-context').value.trim() || null,
       notes: el.querySelector('#run-notes').value,
       bodyPartGroup: 'legs'
     });
