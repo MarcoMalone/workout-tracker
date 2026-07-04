@@ -1,9 +1,59 @@
-import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getAllSessions, deleteTemplate, addTemplate } from './db.js';
+import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate } from './db.js';
 import { switchTab } from './app.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function localDateStr(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Build the Log-home "This Week" bars + activity streak from logged data.
+// Strength days scale by volume; cardio-only days show a short bar. Streak
+// counts consecutive days of any activity ending today (or yesterday if today
+// hasn't been trained yet).
+function computeHomeStats(sessions, runs, walks) {
+  const map = {}; // dateStr -> { vol, strength }
+  const bump = (dateStr, vol, strength) => {
+    if (!dateStr) return;
+    const m = map[dateStr] || (map[dateStr] = { vol: 0, strength: false });
+    m.vol += vol;
+    if (strength) m.strength = true;
+  };
+  for (const s of sessions) {
+    const vol = (s.exercises || []).reduce((a, ex) =>
+      a + ex.sets.reduce((b, st) => b + (st.weight || 0) * (st.reps || 0), 0), 0);
+    bump(s.date, vol, true);
+  }
+  for (const r of runs) bump(r.date, 0, false);
+  for (const w of walks) bump(w.date, 0, false);
+
+  const today = new Date();
+  const dow = today.getDay();               // 0 = Sun
+  const fromMon = dow === 0 ? 6 : dow - 1;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - fromMon);
+  const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const week = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const m = map[localDateStr(d)];
+    week.push({ day: dayLabels[i], vol: m ? m.vol : 0, active: !!m, strength: m ? m.strength : false });
+  }
+  const maxVol = Math.max(1, ...week.map(w => w.vol));
+  const bars = week.map(w => {
+    let h = 0;
+    if (w.vol > 0) h = Math.max(24, Math.round((w.vol / maxVol) * 100));
+    else if (w.active) h = 22;
+    return { day: w.day, h, hot: w.strength };
+  });
+  const weekCount = week.filter(w => w.active).length;
+
+  let streak = 0;
+  const cur = new Date(today);
+  if (!map[localDateStr(cur)]) cur.setDate(cur.getDate() - 1); // today not trained yet is OK
+  while (map[localDateStr(cur)]) { streak++; cur.setDate(cur.getDate() - 1); }
+
+  return { bars, weekCount, streak };
 }
 
 export let activeSession = null;
@@ -30,11 +80,13 @@ export async function renderLogTab(el) {
     renderActiveSession(el);
     return;
   }
-  const [templates, recent] = await Promise.all([getTemplates(), getAllSessions(50)]);
+  const [templates, recent, runs, walks] = await Promise.all([
+    getTemplates(), getAllSessions(200), getRunLogs(60), getWalkLogs(60)
+  ]);
   const lastArms = recent.find(s => s.bodyPartGroup === 'arms');
   const lastLegs = recent.find(s => s.bodyPartGroup === 'legs');
   const lastLine = (lastArms || lastLegs) ? `
-    <p class="section-title" style="margin-bottom:4px;margin-top:12px">Last performed</p>
+    <p class="section-title" style="margin-bottom:6px;margin-top:24px">Last performed</p>
     <div class="last-workout-row">
       ${lastArms ? `<span class="last-chip"><span class="last-chip-label">Arms</span>${esc(lastArms.templateName)} · ${shortDate(lastArms.date)}</span>` : ''}
       ${lastLegs ? `<span class="last-chip"><span class="last-chip-label">Legs</span>${esc(lastLegs.templateName)} · ${shortDate(lastLegs.date)}</span>` : ''}
@@ -42,27 +94,43 @@ export async function renderLogTab(el) {
 
   const coachBanner = _pendingCoachNote
     ? `<div class="coach-pending-banner" id="coach-pending-banner">
-        <span>💡 Coach note ready for <strong>${esc(_pendingCoachNote.bodyPart)}</strong> — tap a template to start</span>
+        <span>Coach note ready for <strong>${esc(_pendingCoachNote.bodyPart)}</strong> — tap a template to start</span>
         <button class="coach-banner-dismiss" id="dismiss-coach-banner">✕</button>
        </div>`
     : '';
 
+  const { bars, weekCount, streak } = computeHomeStats(recent, runs, walks);
+  const streakPill = streak > 0
+    ? `<div class="log-streak">🔥&nbsp;<b>${streak}</b>-day streak</div>` : '';
+  const barsHtml = bars.map(b =>
+    `<div class="week-bar${b.hot ? ' hot' : ''}">${b.h > 0 ? `<span class="fill" style="height:${b.h}%"></span>` : ''}<span class="day">${b.day}</span></div>`
+  ).join('');
+  const now = new Date();
+  const kicker = `${now.toLocaleDateString('en-US', { weekday: 'long' })} · ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  const runIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="4" r="1.7"/><path d="M12 21l1.5-5-3-2.5 1-5 3.5 3 3 .5"/><path d="M5 14l3-.5 1.5 2.5"/></svg>`;
+  const walkIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="1.7"/><path d="M9 21l2-6 3 2v4"/><path d="M11 15l-1-5 4 1 2 3"/></svg>`;
+
   el.innerHTML = `
     <div class="screen">
       <div class="log-home-header">
-        <h1 class="log-date">${formatDate(new Date())}</h1>
-        <p class="log-subtitle">What are we doing today?</p>
+        <div class="log-kicker">${kicker}</div>
+        <h1 class="log-hero">Let's<br><span class="hero-accent">move.</span></h1>
+        ${streakPill}
         ${coachBanner}
-        ${lastLine}
+      </div>
+      <div class="card week-card">
+        <div class="week-hd"><b>This Week</b><span>${weekCount} active ${weekCount === 1 ? 'day' : 'days'}</span></div>
+        <div class="week-bars-wrap"><div class="week-bars">${barsHtml}</div></div>
       </div>
       <div class="log-cardio-row">
-        <button class="btn btn-secondary log-cardio-btn" id="start-run-btn">🏃 Log a Run</button>
-        <button class="btn btn-secondary log-cardio-btn" id="start-walk-btn">🚶 Log a Walk</button>
+        <button class="btn log-cardio-btn cardio-run" id="start-run-btn">${runIcon} Log a Run</button>
+        <button class="btn log-cardio-btn cardio-walk" id="start-walk-btn">${walkIcon} Log a Walk</button>
       </div>
+      ${lastLine}
       <div class="template-section">
         <p class="section-title">Workouts</p>
         <div class="template-list" id="template-list"></div>
-        <button class="btn btn-ghost btn-full" id="new-template-btn" style="margin-top:8px">+ New Template</button>
+        <button class="btn btn-ghost btn-full" id="new-template-btn" style="margin-top:10px">+ New Template</button>
       </div>
     </div>
   `;
