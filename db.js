@@ -146,6 +146,53 @@ export async function deleteWalkLog(id) {
   return (await db()).delete('walk_logs', id);
 }
 
+// ─── Backup / Restore ───────────────────────────────────────────────────────
+const BACKUP_STORES = ['exercise_definitions', 'workout_templates', 'logged_sessions', 'run_logs', 'walk_logs'];
+// Settings that must NEVER leave the device in a backup file (e.g. the API key).
+const SECRET_SETTINGS = ['anthropicApiKey'];
+
+// Snapshot every store into a plain object. app_settings is emitted as a
+// key→value map (it's a keyless store) minus any secrets. The API key is
+// intentionally excluded so a backup file can be shared/stored safely.
+export async function exportAllData() {
+  const d = await db();
+  const data = { app: 'workout-tracker', schema: 2, exportedAt: new Date().toISOString(), stores: {} };
+  for (const s of BACKUP_STORES) data.stores[s] = await d.getAll(s);
+  const settings = {};
+  for (const k of await d.getAllKeys('app_settings')) {
+    if (SECRET_SETTINGS.includes(k)) continue;
+    settings[k] = await d.get('app_settings', k);
+  }
+  data.stores.app_settings = settings;
+  return data;
+}
+
+// Restore a snapshot produced by exportAllData(). Upserts by key (nothing is
+// deleted unless {replace:true}). The API key is never imported. Returns a
+// per-store count of records written.
+export async function importAllData(data, { replace = false } = {}) {
+  if (!data || data.app !== 'workout-tracker' || typeof data.stores !== 'object') {
+    throw new Error('That file is not a valid workout-tracker backup.');
+  }
+  const d = await db();
+  const counts = {};
+  for (const s of BACKUP_STORES) {
+    const arr = Array.isArray(data.stores[s]) ? data.stores[s] : [];
+    if (replace) await d.clear(s);
+    for (const rec of arr) await d.put(s, rec);
+    counts[s] = arr.length;
+  }
+  const settings = (data.stores.app_settings && typeof data.stores.app_settings === 'object') ? data.stores.app_settings : {};
+  let sc = 0;
+  for (const [k, v] of Object.entries(settings)) {
+    if (SECRET_SETTINGS.includes(k)) continue;
+    await d.put('app_settings', v, k);
+    sc++;
+  }
+  counts.app_settings = sc;
+  return counts;
+}
+
 // ─── Seed data ────────────────────────────────────────────────────────────────
 import { SEED_EXERCISES, SEED_TEMPLATES } from './seed-data.js';
 

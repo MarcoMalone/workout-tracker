@@ -5,7 +5,8 @@ import { IDBFactory } from 'fake-indexeddb';
 import { initDB, getSetting, setSetting, addExercise, getExercises,
          addTemplate, getTemplates, saveSession, getSessionsByBodyPart,
          getLastSessionForExercise, addRunLog, getRunLogs, deleteRunLog,
-         addWalkLog, getWalkLogs, deleteWalkLog,
+         addWalkLog, getWalkLogs, deleteWalkLog, getTemplate,
+         exportAllData, importAllData,
          seedIfEmpty, _resetForTest } from '../db.js';
 
 beforeEach(async () => {
@@ -120,4 +121,59 @@ test('addWalkLog upserts with editable notes and context tag', async () => {
   expect(walks).toHaveLength(1);
   expect(walks[0].notes).toBe('edited');
   expect(walks[0].workoutContext).toBe('Tired');
+});
+
+// ─── Backup / Restore ─────────────────────────────────────────────────────────
+async function seedBackupFixture() {
+  await addExercise({ id: 'ex-1', name: 'Curl', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, notes: '' });
+  await addTemplate({ id: 't-1', name: 'Arm A', bodyPartGroup: 'arms', createdAt: 1, exercises: [{ exerciseId: 'ex-1', defaultSets: 3, targetReps: 12, order: 0 }] });
+  await saveSession({ id: 's-1', templateId: 't-1', templateName: 'Arm A', bodyPartGroup: 'arms', date: '2026-06-11', startedAt: 1, finishedAt: 2, preChecklist: {}, postChecklist: {}, sessionNotes: '', exercises: [] });
+  await addRunLog({ id: 'r-1', date: '2026-06-15', distanceMiles: 2.5, durationMinutes: 28, paceMinPerMile: 11.2, perceivedEffort: 6, notes: '', bodyPartGroup: 'legs' });
+  await addWalkLog({ id: 'w-1', date: '2026-06-18', durationMinutes: 90, speedMph: 2.2, distanceMiles: 3.3, calories: 450, notes: '' });
+  await setSetting('healthContext', 'baseball player, hip PT');
+  await setSetting('anthropicApiKey', 'sk-ant-SECRET');
+}
+
+test('exportAllData snapshots every store and excludes the API key', async () => {
+  await seedBackupFixture();
+  const data = await exportAllData();
+  expect(data.app).toBe('workout-tracker');
+  expect(data.stores.logged_sessions).toHaveLength(1);
+  expect(data.stores.run_logs).toHaveLength(1);
+  expect(data.stores.walk_logs).toHaveLength(1);
+  expect(data.stores.workout_templates).toHaveLength(1);
+  // settings are preserved EXCEPT the secret key
+  expect(data.stores.app_settings.healthContext).toBe('baseball player, hip PT');
+  expect(data.stores.app_settings.anthropicApiKey).toBeUndefined();
+  // and the key must not appear anywhere in the serialized backup
+  expect(JSON.stringify(data)).not.toContain('sk-ant-SECRET');
+});
+
+test('importAllData restores a snapshot into an empty database', async () => {
+  await seedBackupFixture();
+  const data = await exportAllData();
+
+  // wipe everything
+  globalThis.indexedDB = new IDBFactory();
+  _resetForTest();
+  await initDB();
+  expect(await getWalkLogs()).toHaveLength(0);
+
+  const counts = await importAllData(data);
+  expect(counts.logged_sessions).toBe(1);
+  expect(await getWalkLogs()).toHaveLength(1);
+  expect(await getRunLogs()).toHaveLength(1);
+  expect((await getTemplate('t-1')).name).toBe('Arm A');
+  expect(await getSetting('healthContext')).toBe('baseball player, hip PT');
+});
+
+test('importAllData never writes an API key, even if the file contains one', async () => {
+  const malicious = { app: 'workout-tracker', stores: { app_settings: { anthropicApiKey: 'sk-ant-INJECTED', healthContext: 'x' } } };
+  await importAllData(malicious);
+  expect(await getSetting('anthropicApiKey')).toBeNull();
+  expect(await getSetting('healthContext')).toBe('x');
+});
+
+test('importAllData rejects a non-backup file', async () => {
+  await expect(importAllData({ foo: 'bar' })).rejects.toThrow(/valid workout-tracker backup/);
 });

@@ -1,4 +1,4 @@
-﻿import { getSetting, setSetting, getExercises, addExercise, deleteExercise, getTemplates, addTemplate, deleteTemplate, getAllSessions, getRunLogs } from './db.js';
+﻿import { getSetting, setSetting, getExercises, addExercise, deleteExercise, getTemplates, addTemplate, deleteTemplate, getAllSessions, getRunLogs, exportAllData, importAllData } from './db.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -60,10 +60,14 @@ export async function renderSettingsTab(el) {
         </div>
       </div>
 
-      <p class="section-title" style="margin-top:20px">Data</p>
+      <p class="section-title" style="margin-top:20px">Data & Backup</p>
       <div class="settings-group card">
-        <button class="btn btn-ghost btn-full" id="export-json-btn">Export JSON Backup</button>
-        <button class="btn btn-ghost btn-full" id="import-csv-btn" style="margin-top:8px">Import from Google Sheets (CSV or Excel)</button>
+        <p class="settings-hint">Your data lives only on this device. Export a backup regularly — restore it on a new phone or after clearing your browser. Your API key is never included in a backup.</p>
+        <button class="btn btn-secondary btn-full" id="export-json-btn">⬇ Export Backup (JSON)</button>
+        <button class="btn btn-ghost btn-full" id="restore-json-btn" style="margin-top:8px">⬆ Restore from Backup</button>
+        <input type="file" id="json-file-input" accept="application/json,.json" class="hidden">
+        <div style="height:1px;background:var(--border);margin:12px 0"></div>
+        <button class="btn btn-ghost btn-full" id="import-csv-btn">Import from Google Sheets (CSV or Excel)</button>
         <input type="file" id="csv-file-input" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
       </div>
     </div>
@@ -125,14 +129,36 @@ export async function renderSettingsTab(el) {
   await renderTemplateLibrary(el.querySelector('#template-library'), el);
   el.querySelector('#add-template-btn').addEventListener('click', () => showTemplateEditor(el, null));
 
-  // Export
+  // Export — full snapshot of every store (API key excluded by exportAllData)
   el.querySelector('#export-json-btn').addEventListener('click', async () => {
-    const [sessions, runs, exercises, templates] = await Promise.all([getAllSessions(1000), getRunLogs(1000), getExercises(), getTemplates()]);
-    const blob = new Blob([JSON.stringify({ sessions, runs, exercises, templates }, null, 2)], { type: 'application/json' });
+    const data = await exportAllData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `workout-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Backup exported');
+  });
+
+  // Restore from a JSON backup
+  el.querySelector('#restore-json-btn').addEventListener('click', () => el.querySelector('#json-file-input').click());
+  el.querySelector('#json-file-input').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    let data;
+    try { data = JSON.parse(await file.text()); }
+    catch { alert('That file is not valid JSON.'); e.target.value = ''; return; }
+    if (!confirm('Restore from this backup? Entries with matching IDs are overwritten; nothing already on this device is deleted.')) { e.target.value = ''; return; }
+    try {
+      const counts = await importAllData(data);
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      showToast(`Restored ${total} records`);
+      await renderSettingsTab(el);
+    } catch (err) {
+      alert(err.message || 'Restore failed.');
+    }
+    e.target.value = '';
   });
 
   el.querySelector('#import-csv-btn').addEventListener('click', () => el.querySelector('#csv-file-input').click());
