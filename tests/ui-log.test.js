@@ -9,7 +9,7 @@ vi.mock('../app.js', () => ({ switchTab: () => {} }));
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog } from '../db.js';
-import { renderLogTab, _resetSessionForTest } from '../ui-log.js';
+import { renderLogTab, computeAsymmetry, _resetSessionForTest } from '../ui-log.js';
 
 const flush = () => new Promise(r => setTimeout(r, 0));
 async function waitFor(cond, tries = 60) {
@@ -120,6 +120,36 @@ test('deleting an exercise keeps the session usable (names stay aligned)', async
   // the first remaining card must be Bravo — NOT Alpha's name shifted onto Bravo's data
   expect(cards[0].querySelector('.ex-name').textContent).toContain('Bravo');
   overlay.remove();
+});
+
+// ── #2 auto-prefill from last session ─────────────────────────────────────────
+test('a new session prefills sets from the last session, not the template default', async () => {
+  // prior session for Alpha at 130 lb (template default is 50)
+  await addExercise({ id: 'ex-a', name: 'Alpha', bodyPartGroup: 'core', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' });
+  await saveSession({
+    id: 's-prev', templateId: 'tpl-x', templateName: 'Test Day', bodyPartGroup: 'core',
+    date: '2026-06-01', startedAt: 1, finishedAt: 2, preChecklist: {}, postChecklist: {}, sessionNotes: '',
+    exercises: [{ exerciseId: 'ex-a', exerciseName: 'Alpha', notes: '', sets: [{ setNumber: 1, weight: 130, reps: 9, seconds: null, side: null, isDropSet: false, parentSetIndex: null }] }]
+  });
+  const overlay = await seedSessionAndStart();
+  const firstWeight = container.querySelector('.exercise-card .w-input');
+  expect(firstWeight.value).toBe('130'); // last time's 130, not the template's 50
+  overlay.remove();
+});
+
+// ── #3 L/R asymmetry ──────────────────────────────────────────────────────────
+test('computeAsymmetry flags a >15% side gap and names the weaker side', () => {
+  const exDef = { isUnilateral: true, isTimed: false, isBodyweight: false };
+  const sessionEx = { sets: [
+    { side: 'L', weight: 40, reps: 10 }, { side: 'R', weight: 50, reps: 10 },
+  ] };
+  expect(computeAsymmetry(sessionEx, exDef)).toEqual({ gap: 20, weaker: 'L' });
+});
+test('computeAsymmetry returns null under 15% and for non-unilateral / one-sided data', () => {
+  const uni = { isUnilateral: true };
+  expect(computeAsymmetry({ sets: [{ side: 'L', weight: 48 }, { side: 'R', weight: 50 }] }, uni)).toBeNull();
+  expect(computeAsymmetry({ sets: [{ side: 'L', weight: 40 }, { side: 'R', weight: 50 }] }, { isUnilateral: false })).toBeNull();
+  expect(computeAsymmetry({ sets: [{ side: 'L', weight: 40 }] }, uni)).toBeNull();
 });
 
 test('discard still works after deleting an exercise', async () => {

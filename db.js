@@ -146,6 +146,21 @@ export async function deleteWalkLog(id) {
   return (await db()).delete('walk_logs', id);
 }
 
+// ─── Readiness log ────────────────────────────────────────────────────────────
+// Stored as a single setting (a date→entry map) — tiny, no migration needed, and
+// it rides along in backups automatically.
+export async function getReadinessLog() {
+  return (await getSetting('readinessLog')) || {};
+}
+export async function getReadiness(dateStr) {
+  return (await getReadinessLog())[dateStr] || null;
+}
+export async function saveReadiness(dateStr, entry) {
+  const log = await getReadinessLog();
+  log[dateStr] = entry;
+  await setSetting('readinessLog', log);
+}
+
 // ─── Backup / Restore ───────────────────────────────────────────────────────
 const BACKUP_STORES = ['exercise_definitions', 'workout_templates', 'logged_sessions', 'run_logs', 'walk_logs'];
 // Settings that must NEVER leave the device in a backup file (e.g. the API key).

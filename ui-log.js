@@ -1,4 +1,5 @@
-import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate } from './db.js';
+import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness } from './db.js';
+import { readinessScore } from './metrics.js';
 import { switchTab } from './app.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -83,8 +84,8 @@ export async function renderLogTab(el) {
     renderActiveSession(el);
     return;
   }
-  const [templates, recent, runs, walks] = await Promise.all([
-    getTemplates(), getAllSessions(200), getRunLogs(60), getWalkLogs(60)
+  const [templates, recent, runs, walks, todayReadiness] = await Promise.all([
+    getTemplates(), getAllSessions(200), getRunLogs(60), getWalkLogs(60), getReadiness(localDateStr())
   ]);
   const lastArms = recent.find(s => s.bodyPartGroup === 'arms');
   const lastLegs = recent.find(s => s.bodyPartGroup === 'legs');
@@ -112,6 +113,15 @@ export async function renderLogTab(el) {
   const kicker = `${now.toLocaleDateString('en-US', { weekday: 'long' })} · ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
   const runIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="4" r="1.7"/><path d="M12 21l1.5-5-3-2.5 1-5 3.5 3 3 .5"/><path d="M5 14l3-.5 1.5 2.5"/></svg>`;
   const walkIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="1.7"/><path d="M9 21l2-6 3 2v4"/><path d="M11 15l-1-5 4 1 2 3"/></svg>`;
+  const readinessCard = todayReadiness
+    ? `<div class="card readiness-card">
+         <div class="rd-info"><span class="rd-label">Readiness</span><span class="rd-sub">logged today</span></div>
+         <div class="rd-right"><span class="rd-score">${readinessScore(todayReadiness)}</span><button class="btn btn-ghost rd-btn" id="readiness-btn">Update</button></div>
+       </div>`
+    : `<div class="card readiness-card">
+         <div class="rd-info"><span class="rd-label">Morning check-in</span><span class="rd-sub">30s — sharpens your coach</span></div>
+         <button class="btn btn-secondary rd-btn" id="readiness-btn">Check in</button>
+       </div>`;
 
   el.innerHTML = `
     <div class="screen">
@@ -125,6 +135,7 @@ export async function renderLogTab(el) {
         <div class="week-hd"><b>This Week</b><span>${weekCount} active ${weekCount === 1 ? 'day' : 'days'}</span></div>
         <div class="week-bars-wrap"><div class="week-bars">${barsHtml}</div></div>
       </div>
+      ${readinessCard}
       <div class="log-cardio-row">
         <button class="btn log-cardio-btn cardio-run" id="start-run-btn">${runIcon} Log a Run</button>
         <button class="btn log-cardio-btn cardio-walk" id="start-walk-btn">${walkIcon} Log a Walk</button>
@@ -170,6 +181,60 @@ export async function renderLogTab(el) {
   });
   el.querySelector('#start-run-btn').addEventListener('click', () => showRunForm(el));
   el.querySelector('#start-walk-btn').addEventListener('click', () => showWalkForm(el));
+  el.querySelector('#readiness-btn')?.addEventListener('click', () => showReadinessCheckin(el));
+}
+
+const RD_METRICS = [
+  { key: 'sleep', label: 'Sleep quality', lo: 'Poor', hi: 'Great' },
+  { key: 'energy', label: 'Energy', lo: 'Drained', hi: 'Fresh' },
+  { key: 'soreness', label: 'Soreness', lo: 'None', hi: 'Very sore' },
+  { key: 'mood', label: 'Mood', lo: 'Low', hi: 'High' },
+];
+
+async function showReadinessCheckin(el) {
+  const existing = await getReadiness(localDateStr());
+  const answers = { sleep: 3, energy: 3, soreness: 2, mood: 3, ...(existing || {}) };
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <div class="modal-sheet">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <h2 class="modal-title" style="margin-bottom:0">Morning Check-In</h2>
+        <button class="modal-dismiss-btn" id="rd-dismiss" aria-label="Dismiss">✕</button>
+      </div>
+      <p class="settings-hint" style="margin-bottom:14px">How ready do you feel? This feeds your coach's pre-workout advice.</p>
+      <div id="rd-rows"></div>
+      <button class="btn btn-primary btn-full" id="rd-save" style="margin-top:16px">Save Check-In</button>
+    </div>
+  `;
+  const rows = overlay.querySelector('#rd-rows');
+  RD_METRICS.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'rd-row';
+    row.innerHTML = `
+      <div class="rd-row-head"><span class="rd-metric">${m.label}</span></div>
+      <div class="rd-scale" data-key="${m.key}">
+        ${[1, 2, 3, 4, 5].map(n => `<button class="rd-pill${answers[m.key] === n ? ' on' : ''}" data-val="${n}">${n}</button>`).join('')}
+      </div>
+      <div class="rd-ends"><span>${m.lo}</span><span>${m.hi}</span></div>`;
+    row.querySelector('.rd-scale').addEventListener('click', e => {
+      const btn = e.target.closest('.rd-pill');
+      if (!btn) return;
+      answers[m.key] = Number(btn.dataset.val);
+      row.querySelectorAll('.rd-pill').forEach(p => p.classList.toggle('on', p === btn));
+    });
+    rows.appendChild(row);
+  });
+  overlay.querySelector('#rd-dismiss').addEventListener('click', () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; });
+  overlay.querySelector('#rd-save').addEventListener('click', async () => {
+    await saveReadiness(localDateStr(), {
+      sleep: answers.sleep, energy: answers.energy, soreness: answers.soreness, mood: answers.mood
+    });
+    overlay.classList.add('hidden');
+    overlay.innerHTML = '';
+    showToast(`Readiness ${readinessScore(answers)}/100 logged`);
+    renderLogTab(el);
+  });
 }
 
 async function renderActiveSession(el) {
@@ -216,6 +281,7 @@ async function renderActiveSession(el) {
     const exDef = await getExercise(ex.exerciseId);
     const prev = await getLastSessionForExercise(ex.exerciseId);
     ex.exerciseName = exDef.name;
+    prefillFromLastSession(ex, exDef, prev); // start from what you actually did last time
     cardsEl.appendChild(buildExerciseCard(i, exDef, prev, ex, el));
   }
   el.querySelector('#finish-btn').addEventListener('click', () => showPostChecklist(el));
@@ -245,6 +311,26 @@ async function renderActiveSession(el) {
   });
 }
 
+// Overwrite a session exercise's sets with the values from its most recent
+// session (matched by set index), once. Runs only on first render (guarded by
+// _prefilled) so it never clobbers edits after a delete/add re-render. Exercises
+// with no history keep their template defaults.
+function prefillFromLastSession(sessionEx, exDef, prev) {
+  if (sessionEx._prefilled) return;
+  sessionEx._prefilled = true;
+  if (!prev) return;
+  sessionEx.sets.forEach((set, si) => {
+    const ps = prev.sets[si];
+    if (!ps) return;
+    if (exDef.isTimed) {
+      if (ps.seconds != null) set.seconds = ps.seconds;
+    } else {
+      if (ps.weight != null) set.weight = ps.weight;
+      if (ps.reps != null) set.reps = ps.reps;
+    }
+  });
+}
+
 function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
   const card = document.createElement('div');
   card.className = 'exercise-card card';
@@ -266,6 +352,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
     </div>
     <div class="ex-prev">Previous: ${esc(prevText)}</div>
     <div class="ex-sets" id="sets-${exIdx}"></div>
+    ${exDef.isUnilateral ? `<div class="asym-chip hidden" id="asym-${exIdx}"></div>` : ''}
     <div class="ex-note-row hidden" id="note-${exIdx}">
       <textarea class="input ex-note-input" placeholder="Note for this exercise..." rows="2"></textarea>
     </div>
@@ -305,9 +392,49 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
       side: null, isDropSet: true, parentSetIndex: parentIdx
     });
     appendSetRow(setsEl, exIdx, newIdx, exDef, prev, true);
+    updateAsym();
   });
 
+  // Live L/R asymmetry flag (unilateral exercises only): recompute as sets/sides change.
+  const asymEl = card.querySelector(`#asym-${exIdx}`);
+  const updateAsym = () => {
+    if (!asymEl) return;
+    const a = computeAsymmetry(sessionEx, exDef);
+    if (a) {
+      asymEl.textContent = `⚠ L/R imbalance — ${a.weaker} side ${a.gap}% lower`;
+      asymEl.classList.remove('hidden');
+    } else {
+      asymEl.classList.add('hidden');
+    }
+  };
+  updateAsym();
+  if (exDef.isUnilateral) {
+    card.addEventListener('input', updateAsym);
+    card.addEventListener('change', updateAsym);
+  }
+
   return card;
+}
+
+// Side-to-side imbalance for a unilateral exercise, from the current session's
+// sets. Uses weight (loaded), reps (bodyweight), or seconds (timed). Returns
+// { gap, weaker } when both sides have data and the gap exceeds 15%, else null.
+export function computeAsymmetry(sessionEx, exDef) {
+  if (!exDef || !exDef.isUnilateral) return null;
+  const metric = exDef.isTimed ? 'seconds' : (exDef.isBodyweight ? 'reps' : 'weight');
+  const sides = { L: [], R: [] };
+  for (const s of sessionEx.sets) {
+    const v = s[metric];
+    if (v != null && (s.side === 'L' || s.side === 'R')) sides[s.side].push(v);
+  }
+  if (!sides.L.length || !sides.R.length) return null;
+  const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+  const l = avg(sides.L), r = avg(sides.R);
+  const hi = Math.max(l, r), lo = Math.min(l, r);
+  if (hi <= 0) return null;
+  const gap = Math.round((1 - lo / hi) * 100);
+  if (gap < 15) return null;
+  return { gap, weaker: l < r ? 'L' : 'R' };
 }
 
 function refreshSets(setsEl, exIdx, exDef, prev) {

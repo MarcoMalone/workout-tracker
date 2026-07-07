@@ -6,7 +6,7 @@ import { initDB, getSetting, setSetting, addExercise, getExercises,
          addTemplate, getTemplates, saveSession, getSessionsByBodyPart,
          getLastSessionForExercise, addRunLog, getRunLogs, deleteRunLog,
          addWalkLog, getWalkLogs, deleteWalkLog, getTemplate,
-         exportAllData, importAllData,
+         exportAllData, importAllData, getReadiness, saveReadiness,
          seedIfEmpty, _resetForTest } from '../db.js';
 
 beforeEach(async () => {
@@ -176,4 +176,23 @@ test('importAllData never writes an API key, even if the file contains one', asy
 
 test('importAllData rejects a non-backup file', async () => {
   await expect(importAllData({ foo: 'bar' })).rejects.toThrow(/valid workout-tracker backup/);
+});
+
+// ─── Readiness ────────────────────────────────────────────────────────────────
+test('saveReadiness / getReadiness round-trip by date', async () => {
+  await saveReadiness('2026-07-07', { sleep: 4, energy: 3, soreness: 2, mood: 4 });
+  expect(await getReadiness('2026-07-07')).toEqual({ sleep: 4, energy: 3, soreness: 2, mood: 4 });
+  expect(await getReadiness('2026-07-06')).toBeNull();
+});
+
+test('readiness log is included in a backup and restores', async () => {
+  await saveReadiness('2026-07-07', { sleep: 4, energy: 3, soreness: 2, mood: 4 });
+  const data = await exportAllData();
+  expect(data.stores.app_settings.readinessLog['2026-07-07'].sleep).toBe(4);
+
+  globalThis.indexedDB = new IDBFactory();
+  _resetForTest();
+  await initDB();
+  await importAllData(data);
+  expect(await getReadiness('2026-07-07')).toEqual({ sleep: 4, energy: 3, soreness: 2, mood: 4 });
 });

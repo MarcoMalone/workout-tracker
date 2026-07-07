@@ -70,6 +70,22 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .week-bar .day { position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 700; color: var(--text-3); }
 .week-bars-wrap { padding-bottom: 22px; }
 
+/* Readiness check-in */
+.readiness-card { margin-top: 12px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rd-info { display: flex; flex-direction: column; gap: 2px; }
+.rd-label { font-size: 13px; font-weight: 800; letter-spacing: 0.02em; }
+.rd-sub { font-size: 12px; color: var(--text-3); }
+.rd-right { display: flex; align-items: center; gap: 14px; }
+.rd-score { font-family: var(--font-mono); font-size: 28px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }
+.rd-btn { min-height: 40px; font-size: 13px; padding: 0 16px; }
+.rd-row { margin-bottom: 16px; }
+.rd-row-head { margin-bottom: 8px; }
+.rd-metric { font-size: 14px; font-weight: 700; }
+.rd-scale { display: flex; gap: 8px; }
+.rd-pill { flex: 1; min-height: 44px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-hi); color: var(--text-2); font-size: 15px; font-weight: 700; cursor: pointer; font-variant-numeric: tabular-nums; }
+.rd-pill.on { background: var(--accent); color: var(--volt-ink); border-color: var(--accent); }
+.rd-ends { display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: var(--text-3); }
+
 .last-workout-row { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
 .last-chip { font-size: 13px; color: var(--text-3); }
 .last-chip-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue); margin-right: 5px; }
@@ -117,6 +133,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .ex-remove-btn { background: none; border: 1px solid rgba(224,82,82,0.3); border-radius: 50%; width: 26px; height: 26px; color: var(--danger); font-size: 13px; cursor: pointer; padding: 0; line-height: 1; opacity: 0.7; }
 .ex-remove-btn:active { background: rgba(224,82,82,0.15); opacity: 1; }
 .ex-prev { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
+.asym-chip { display: block; margin: 10px 0 2px; font-size: 12px; font-weight: 700; color: #e0a72e; background: rgba(224,167,46,0.12); border: 1px solid rgba(224,167,46,0.4); border-radius: var(--r-sm); padding: 7px 11px; }
 .set-row { display: flex; align-items: center; gap: 3px; padding: 6px 0; border-bottom: 1px solid var(--border); overflow: hidden; }
 .set-row.drop-set { padding-left: 12px; border-left: 2px solid var(--accent-dim); }
 .set-row.set-done { opacity: 0.5; }

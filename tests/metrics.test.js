@@ -1,4 +1,20 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore } from '../metrics.js';
+
+// ── readinessScore ────────────────────────────────────────────────────────────
+test('readinessScore: all-best inputs score 100', () => {
+  expect(readinessScore({ sleep: 5, energy: 5, soreness: 1, mood: 5 })).toBe(100);
+});
+test('readinessScore: all-worst inputs score 0', () => {
+  expect(readinessScore({ sleep: 1, energy: 1, soreness: 5, mood: 1 })).toBe(0);
+});
+test('readinessScore: soreness is inverted (more sore lowers the score)', () => {
+  const low = readinessScore({ sleep: 3, energy: 3, soreness: 5, mood: 3 });
+  const high = readinessScore({ sleep: 3, energy: 3, soreness: 1, mood: 3 });
+  expect(high).toBeGreaterThan(low);
+});
+test('readinessScore: neutral midpoint is ~50', () => {
+  expect(readinessScore({ sleep: 3, energy: 3, soreness: 3, mood: 3 })).toBe(50);
+});
 
 // ── calcE1RM ────────────────────────────────────────────────────────────────
 test('calcE1RM: standard set', () => {

@@ -19,10 +19,11 @@ export function buildSessionSummary(session) {
   return lines.join('\n');
 }
 
-export function buildPreWorkoutContext(recentSessions, userNote, healthContext) {
+export function buildPreWorkoutContext(recentSessions, userNote, healthContext, readinessNote = '') {
   const system = healthContext ? `${SYSTEM_BASE}\n\n${healthContext}` : SYSTEM_BASE;
   const sessionBlock = recentSessions.map(buildSessionSummary).join('\n\n');
-  const userMessage = `Recent training sessions:\n\n${sessionBlock}\n\n---\nPre-workout check-in: ${userNote}`;
+  const readinessBlock = readinessNote ? `\n\n${readinessNote}` : '';
+  const userMessage = `Recent training sessions:\n\n${sessionBlock}${readinessBlock}\n\n---\nPre-workout check-in: ${userNote}`;
   return { system, userMessage };
 }
 

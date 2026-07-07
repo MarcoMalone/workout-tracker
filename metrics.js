@@ -1,3 +1,11 @@
+// Morning readiness: four 1-5 subjective inputs → a 0-100 score. Soreness is
+// inverted (less sore = more ready). Sub-5-item wellness questionnaires track
+// fatigue as well as most objective metrics, with zero hardware.
+export function readinessScore({ sleep = 0, energy = 0, soreness = 0, mood = 0 } = {}) {
+  const raw = sleep + energy + mood + (6 - soreness); // range 4..20
+  return Math.round(((raw - 4) / 16) * 100);
+}
+
 export function calcE1RM(weight, reps) {
   if (!weight || !reps || reps > 20) return null;
   if (reps === 1) return weight;

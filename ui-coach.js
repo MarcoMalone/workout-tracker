@@ -1,5 +1,13 @@
-import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting } from './db.js';
+import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness } from './db.js';
 import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary } from './claude-api.js';
+import { readinessScore } from './metrics.js';
+
+const localDateStr = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+function readinessNoteFor(entry) {
+  if (!entry) return '';
+  return `Today's readiness: ${readinessScore(entry)}/100 (sleep ${entry.sleep}/5, energy ${entry.energy}/5, soreness ${entry.soreness}/5, mood ${entry.mood}/5).`;
+}
 import { switchTab } from './app.js';
 import { setPendingCoachNote } from './ui-log.js';
 
@@ -46,8 +54,10 @@ export async function renderCoachTab(el) {
     const note = el.querySelector('#pre-note').value.trim();
     if (!note) { alert('Describe how you are feeling first.'); return; }
     await runCoach(el, '#pre-ask-btn', '#pre-response', async () => {
-      const [recent, health] = await Promise.all([getSessionsByBodyPart(part, 4), getSetting('healthContext')]);
-      return buildPreWorkoutContext(recent, note, health);
+      const [recent, health, readiness] = await Promise.all([
+        getSessionsByBodyPart(part, 4), getSetting('healthContext'), getReadiness(localDateStr())
+      ]);
+      return buildPreWorkoutContext(recent, note, health, readinessNoteFor(readiness));
     }, apiKey);
     const resp = el.querySelector('#pre-response');
     if (!resp.classList.contains('hidden') && !resp.textContent.startsWith('Error:')) {
