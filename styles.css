@@ -266,6 +266,20 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .coach-no-key { padding: 12px 16px; background: var(--surface); border: 1px solid var(--accent-dim); border-radius: var(--r-md); color: var(--text-2); font-size: 14px; margin-bottom: 16px; }
 .coach-copy-btn { display: block; margin-top: 10px; background: none; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 6px 12px; font-size: 12px; font-weight: 700; color: var(--text-3); cursor: pointer; }
 .coach-copy-btn:hover { color: var(--text); border-color: var(--text-3); }
+
+/* Body map / pain logger */
+.bp-toggle { display: flex; gap: 6px; background: var(--surface-hi); padding: 4px; border-radius: 11px; border: 1px solid var(--border); width: fit-content; margin: 0 auto 12px; }
+.bp-tab { border: 0; background: none; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 8px; cursor: pointer; }
+.bp-tab.on { background: var(--navy); color: var(--text); }
+.bp-svg { display: block; width: 150px; max-width: 62%; height: auto; margin: 0 auto; }
+.bp-zone { stroke: var(--surface); stroke-width: 1.5; cursor: pointer; transition: opacity 0.15s; }
+.bp-zone:hover { opacity: 0.82; }
+.bp-active { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 14px; }
+.bp-chip { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 100px; text-transform: capitalize; }
+.bp-chip.bp-mild { background: rgba(242,197,61,0.18); color: #d9ad2e; }
+.bp-chip.bp-mod { background: rgba(229,138,42,0.2); color: #e78a2c; }
+.bp-chip.bp-sev { background: rgba(224,82,82,0.2); color: #e86b6b; }
+.bp-none { font-size: 13px; color: var(--text-3); text-align: center; }
 .export-confirm { text-align: center; color: var(--success); font-weight: 700; margin-top: 8px; }
 .chart-wrap { height: 180px; margin-bottom: 24px; }
 

@@ -1,5 +1,5 @@
-import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress } from './db.js';
-import { readinessScore, goalStreak } from './metrics.js';
+import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress, getPainLog } from './db.js';
+import { readinessScore, goalStreak, painSummary } from './metrics.js';
 import { switchTab } from './app.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -699,12 +699,14 @@ function showToast(msg, duration = 2500) {
 }
 
 async function generateAdjustedTemplate(template, sorenessNote, apiKey) {
-  const [{ buildAdjustedWorkoutTemplate }, exercises] = await Promise.all([
+  const [{ buildAdjustedWorkoutTemplate }, exercises, painLog] = await Promise.all([
     import('./claude-api.js'),
-    getExercises()
+    getExercises(),
+    getPainLog()
   ]);
   const healthContext = await getSetting('healthContext');
-  const adjustments = await buildAdjustedWorkoutTemplate(template, exercises, sorenessNote, healthContext, apiKey);
+  const combinedNote = [painSummary(painLog), sorenessNote].filter(Boolean).join(' ');
+  const adjustments = await buildAdjustedWorkoutTemplate(template, exercises, combinedNote, healthContext, apiKey);
   if (!adjustments || adjustments.length === 0) return null;
 
   const today = new Date();

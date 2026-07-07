@@ -78,6 +78,16 @@ export function computeWeeklyVolume(sessions, exerciseGroupById = {}, today = ne
   return counts;
 }
 
+// One-line summary of active pain regions (level > 0), worst first, for the
+// coach context and AI template adjustment. Empty string when nothing hurts.
+export function painSummary(painLog = {}) {
+  const active = Object.entries(painLog)
+    .filter(([, v]) => v && v.level > 0)
+    .sort((a, b) => b[1].level - a[1].level);
+  if (!active.length) return '';
+  return 'Active pain/soreness: ' + active.map(([region, v]) => `${region} ${v.level}/10${v.note ? ` (${v.note})` : ''}`).join(', ') + '.';
+}
+
 // Detect a stalled lift from a chronological e1RM series (oldest→newest).
 // Stalled when the best estimate is 3+ sessions in the past (no PR since) and
 // there are at least 4 data points. Returns sessions-since-best for the nudge.

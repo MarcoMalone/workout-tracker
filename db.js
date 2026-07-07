@@ -180,6 +180,19 @@ export async function setGoalProgress(goalId, dateStr, count) {
   return setSetting('goalLog', log);
 }
 
+// ─── Pain / body map ──────────────────────────────────────────────────────────
+// Current pain level per body region, stored as a setting (backed up, no
+// migration). painLog: { [region]: { level: 1-10, note, date } }.
+export async function getPainLog() {
+  return (await getSetting('painLog')) || {};
+}
+export async function setPain(region, level, note, dateStr) {
+  const log = await getPainLog();
+  if (level > 0) log[region] = { level, note: note || '', date: dateStr || null };
+  else delete log[region];
+  return setSetting('painLog', log);
+}
+
 // ─── Backup / Restore ───────────────────────────────────────────────────────
 const BACKUP_STORES = ['exercise_definitions', 'workout_templates', 'logged_sessions', 'run_logs', 'walk_logs'];
 // Settings that must NEVER leave the device in a backup file (e.g. the API key).

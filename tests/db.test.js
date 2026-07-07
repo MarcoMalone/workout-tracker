@@ -7,7 +7,7 @@ import { initDB, getSetting, setSetting, addExercise, getExercises,
          getLastSessionForExercise, addRunLog, getRunLogs, deleteRunLog,
          addWalkLog, getWalkLogs, deleteWalkLog, getTemplate,
          exportAllData, importAllData, getReadiness, saveReadiness,
-         getGoals, saveGoals, getGoalLog, setGoalProgress,
+         getGoals, saveGoals, getGoalLog, setGoalProgress, getPainLog, setPain,
          seedIfEmpty, _resetForTest } from '../db.js';
 
 beforeEach(async () => {
@@ -220,4 +220,16 @@ test('setGoalProgress clears a day when the count hits zero', async () => {
   await setGoalProgress('g1', '2026-07-07', 2);
   await setGoalProgress('g1', '2026-07-07', 0);
   expect((await getGoalLog()).g1['2026-07-07']).toBeUndefined();
+});
+
+// ─── Pain / body map ──────────────────────────────────────────────────────────
+test('setPain / getPainLog round-trip; level 0 clears; rides in backup', async () => {
+  await setPain('hips', 6, 'right side', '2026-07-07');
+  expect((await getPainLog()).hips).toEqual({ level: 6, note: 'right side', date: '2026-07-07' });
+  await setPain('hips', 0);
+  expect((await getPainLog()).hips).toBeUndefined();
+
+  await setPain('groin', 3, '', '2026-07-07');
+  const data = await exportAllData();
+  expect(data.stores.app_settings.painLog.groin.level).toBe(3);
 });

@@ -1,6 +1,8 @@
-import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, getGoalLog } from './db.js';
+import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, getGoalLog, getPainLog, setPain } from './db.js';
 import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary } from './claude-api.js';
-import { readinessScore } from './metrics.js';
+import { readinessScore, computeACWR, painSummary } from './metrics.js';
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const localDateStr = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -27,6 +29,11 @@ export async function renderCoachTab(el) {
     <div class="screen">
       <h1 class="tab-title">Coach</h1>
       ${!apiKey ? '<div class="coach-no-key">Add your Anthropic API key in Settings to use the Coach tab.</div>' : ''}
+      <div class="coach-section card" id="body-section">
+        <h2 class="coach-section-title">Body Check-In</h2>
+        <p class="coach-hint">Tap where it hurts — the coach factors active pain into its advice.</p>
+        <div id="body-map"></div>
+      </div>
       <div class="coach-section card" id="pre-section">
         <h2 class="coach-section-title">Pre-Workout Check-In</h2>
         <p class="coach-hint">How are you feeling? Any soreness, tightness, or injuries to flag?</p>
@@ -57,6 +64,8 @@ export async function renderCoachTab(el) {
     </div>
   `;
 
+  renderBodyMap(el.querySelector('#body-map'));
+
   if (!apiKey) return;
 
   el.querySelector('#pre-ask-btn').addEventListener('click', async () => {
@@ -65,10 +74,13 @@ export async function renderCoachTab(el) {
     if (!note) { alert('Describe how you are feeling first.'); return; }
     await runCoach(el, '#pre-ask-btn', '#pre-response', async () => {
       const today = localDateStr();
-      const [recent, health, readiness, goals, goalLog] = await Promise.all([
-        getSessionsByBodyPart(part, 4), getSetting('healthContext'), getReadiness(today), getGoals(), getGoalLog()
+      const [recent, health, readiness, goals, goalLog, painLog, allSessions, runs, walks] = await Promise.all([
+        getSessionsByBodyPart(part, 4), getSetting('healthContext'), getReadiness(today), getGoals(), getGoalLog(), getPainLog(),
+        getAllSessions(200), getRunLogs(50), getWalkLogs(50)
       ]);
-      const statusNote = [readinessNoteFor(readiness), goalsNoteFor(goals, goalLog, today)].filter(Boolean).join('\n\n');
+      const acwr = computeACWR(allSessions, runs, walks);
+      const acwrNote = acwr.hasBaseline ? `Training load (ACWR): ${acwr.ratio.toFixed(2)} — ${acwr.zone} (0.8-1.3 is the safe zone).` : '';
+      const statusNote = [readinessNoteFor(readiness), acwrNote, painSummary(painLog), goalsNoteFor(goals, goalLog, today)].filter(Boolean).join('\n\n');
       return buildPreWorkoutContext(recent, note, health, statusNote);
     }, apiKey);
     const resp = el.querySelector('#pre-response');
@@ -140,4 +152,119 @@ async function runCoach(el, btnSel, respSel, contextFn, apiKey) {
     btn.disabled = false;
     btn.textContent = btn.id === 'pre-ask-btn' ? 'Ask Coach' : 'Get Debrief';
   }
+}
+
+// ── Body map / pain logger ────────────────────────────────────────────────────
+// A blocky mannequin (front/back) — each shape is a tappable region sharing a
+// logical key (both shoulders → "shoulders"). Fill encodes current pain level.
+const BODY = {
+  front: [
+    { region: 'neck', shape: 'circle', cx: 60, cy: 22, r: 13 },
+    { region: 'shoulders', shape: 'rect', x: 28, y: 40, w: 16, h: 14, rx: 5 },
+    { region: 'shoulders', shape: 'rect', x: 76, y: 40, w: 16, h: 14, rx: 5 },
+    { region: 'chest', shape: 'rect', x: 46, y: 40, w: 28, h: 24, rx: 6 },
+    { region: 'arms', shape: 'rect', x: 25, y: 56, w: 13, h: 46, rx: 6 },
+    { region: 'arms', shape: 'rect', x: 82, y: 56, w: 13, h: 46, rx: 6 },
+    { region: 'core', shape: 'rect', x: 47, y: 66, w: 26, h: 28, rx: 6 },
+    { region: 'hips', shape: 'rect', x: 42, y: 96, w: 14, h: 14, rx: 5 },
+    { region: 'hips', shape: 'rect', x: 64, y: 96, w: 14, h: 14, rx: 5 },
+    { region: 'groin', shape: 'rect', x: 53, y: 98, w: 14, h: 12, rx: 5 },
+    { region: 'quads', shape: 'rect', x: 45, y: 112, w: 14, h: 44, rx: 6 },
+    { region: 'quads', shape: 'rect', x: 61, y: 112, w: 14, h: 44, rx: 6 },
+    { region: 'knees', shape: 'rect', x: 45, y: 158, w: 14, h: 12, rx: 5 },
+    { region: 'knees', shape: 'rect', x: 61, y: 158, w: 14, h: 12, rx: 5 },
+    { region: 'shins', shape: 'rect', x: 46, y: 172, w: 12, h: 38, rx: 6 },
+    { region: 'shins', shape: 'rect', x: 62, y: 172, w: 12, h: 38, rx: 6 },
+  ],
+  back: [
+    { region: 'neck', shape: 'circle', cx: 60, cy: 22, r: 13 },
+    { region: 'traps', shape: 'rect', x: 46, y: 37, w: 28, h: 13, rx: 5 },
+    { region: 'shoulders', shape: 'rect', x: 28, y: 42, w: 16, h: 14, rx: 5 },
+    { region: 'shoulders', shape: 'rect', x: 76, y: 42, w: 16, h: 14, rx: 5 },
+    { region: 'upper back', shape: 'rect', x: 46, y: 50, w: 28, h: 22, rx: 6 },
+    { region: 'arms', shape: 'rect', x: 25, y: 56, w: 13, h: 46, rx: 6 },
+    { region: 'arms', shape: 'rect', x: 82, y: 56, w: 13, h: 46, rx: 6 },
+    { region: 'lower back', shape: 'rect', x: 47, y: 74, w: 26, h: 22, rx: 6 },
+    { region: 'glutes', shape: 'rect', x: 44, y: 98, w: 32, h: 16, rx: 6 },
+    { region: 'hamstrings', shape: 'rect', x: 45, y: 116, w: 14, h: 40, rx: 6 },
+    { region: 'hamstrings', shape: 'rect', x: 61, y: 116, w: 14, h: 40, rx: 6 },
+    { region: 'calves', shape: 'rect', x: 46, y: 160, w: 12, h: 44, rx: 6 },
+    { region: 'calves', shape: 'rect', x: 62, y: 160, w: 12, h: 44, rx: 6 },
+  ],
+};
+
+function painBucket(level) { return level >= 7 ? 'sev' : level >= 4 ? 'mod' : level >= 1 ? 'mild' : 'none'; }
+function painFill(level) {
+  return { none: 'var(--surface-hi)', mild: '#f2c53d', mod: '#e58a2a', sev: '#e05252' }[painBucket(level)];
+}
+
+function bodyZonesSVG(view, painLog) {
+  return BODY[view].map(z => {
+    const fill = painFill(painLog[z.region]?.level || 0);
+    const attrs = `class="bp-zone" data-region="${esc(z.region)}" fill="${fill}"`;
+    return z.shape === 'circle'
+      ? `<circle ${attrs} cx="${z.cx}" cy="${z.cy}" r="${z.r}"></circle>`
+      : `<rect ${attrs} x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="${z.rx}"></rect>`;
+  }).join('');
+}
+
+async function renderBodyMap(container, view = 'front') {
+  if (!container) return;
+  const painLog = await getPainLog();
+  const active = Object.entries(painLog).filter(([, v]) => v.level > 0).sort((a, b) => b[1].level - a[1].level);
+  container.innerHTML = `
+    <div class="bp-toggle">
+      <button class="bp-tab${view === 'front' ? ' on' : ''}" data-view="front">Front</button>
+      <button class="bp-tab${view === 'back' ? ' on' : ''}" data-view="back">Back</button>
+    </div>
+    <svg class="bp-svg" viewBox="0 0 120 216" role="img" aria-label="Body map — tap a region to log pain">
+      ${bodyZonesSVG(view, painLog)}
+    </svg>
+    <div class="bp-active">
+      ${active.length
+        ? active.map(([r, v]) => `<span class="bp-chip bp-${painBucket(v.level)}">${esc(r)} ${v.level}/10</span>`).join('')
+        : '<span class="bp-none">Nothing flagged — tap a region if something is bothering you.</span>'}
+    </div>
+  `;
+  container.querySelectorAll('.bp-tab').forEach(b => b.addEventListener('click', () => renderBodyMap(container, b.dataset.view)));
+  container.querySelectorAll('.bp-zone').forEach(z => z.addEventListener('click', () => showPainSheet(container, z.dataset.region, view)));
+}
+
+function showPainSheet(container, region, view) {
+  getPainLog().then(painLog => {
+    const cur = painLog[region] || { level: 0, note: '' };
+    const overlay = document.getElementById('modal-overlay');
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `
+      <div class="modal-sheet">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <h2 class="modal-title" style="margin-bottom:0;text-transform:capitalize">${esc(region)}</h2>
+          <button class="modal-dismiss-btn" id="bp-dismiss" aria-label="Dismiss">✕</button>
+        </div>
+        <p class="coach-hint" style="margin-bottom:12px">How much does it bother you right now?</p>
+        <div style="display:flex;align-items:center;gap:12px">
+          <input type="range" id="bp-level" min="0" max="10" value="${cur.level}" style="flex:1">
+          <span id="bp-val" style="font-family:var(--font-mono);font-size:24px;font-weight:800;width:28px;text-align:right">${cur.level}</span>
+        </div>
+        <label class="form-label" style="margin-top:8px">Note <span class="form-hint">optional — side, quality, when</span></label>
+        <input class="input" id="bp-note" placeholder="e.g. right side, sharp with rotation" value="${esc(cur.note || '')}">
+        <button class="btn btn-primary btn-full" id="bp-save" style="margin-top:16px">Save</button>
+        <button class="btn btn-ghost btn-full" id="bp-clear" style="margin-top:8px">Clear — no pain here</button>
+      </div>
+    `;
+    const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
+    const levelInput = overlay.querySelector('#bp-level');
+    levelInput.addEventListener('input', () => { overlay.querySelector('#bp-val').textContent = levelInput.value; });
+    overlay.querySelector('#bp-dismiss').addEventListener('click', close);
+    overlay.querySelector('#bp-save').addEventListener('click', async () => {
+      await setPain(region, Number(levelInput.value), overlay.querySelector('#bp-note').value.trim(), localDateStr());
+      close();
+      renderBodyMap(container, view);
+    });
+    overlay.querySelector('#bp-clear').addEventListener('click', async () => {
+      await setPain(region, 0);
+      close();
+      renderBodyMap(container, view);
+    });
+  });
 }

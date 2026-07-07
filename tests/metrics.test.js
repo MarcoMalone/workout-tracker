@@ -1,4 +1,17 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary } from '../metrics.js';
+
+// ── painSummary ───────────────────────────────────────────────────────────────
+test('painSummary: empty when nothing hurts', () => {
+  expect(painSummary({})).toBe('');
+  expect(painSummary({ knees: { level: 0 } })).toBe('');
+});
+test('painSummary: lists active regions worst-first with notes', () => {
+  const s = painSummary({ groin: { level: 4, note: 'right' }, hips: { level: 7, note: '' }, knees: { level: 0 } });
+  expect(s).toContain('hips 7/10');
+  expect(s).toContain('groin 4/10 (right)');
+  expect(s.indexOf('hips')).toBeLessThan(s.indexOf('groin'));
+  expect(s).not.toContain('knees');
+});
 
 // ── detectStall ───────────────────────────────────────────────────────────────
 test('detectStall: no PR in the last 3 sessions → stalled', () => {
