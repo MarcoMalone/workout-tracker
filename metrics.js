@@ -78,6 +78,21 @@ export function computeWeeklyVolume(sessions, exerciseGroupById = {}, today = ne
   return counts;
 }
 
+// Detect a stalled lift from a chronological e1RM series (oldest→newest).
+// Stalled when the best estimate is 3+ sessions in the past (no PR since) and
+// there are at least 4 data points. Returns sessions-since-best for the nudge.
+export function detectStall(series) {
+  const vals = series.filter(v => v != null);
+  if (vals.length < 4) return { stalled: false, sinceBest: 0 };
+  const best = Math.max(...vals);
+  let sinceBest = 0;
+  for (let i = vals.length - 1; i >= 0; i--) {
+    if (vals[i] >= best) break;
+    sinceBest++;
+  }
+  return { stalled: sinceBest >= 3, sinceBest, best };
+}
+
 // Consecutive days a daily goal has been met (count >= target), ending today —
 // or yesterday if today isn't met yet, so an untouched today doesn't break it.
 export function goalStreak(logForGoal = {}, target = 1, today = new Date()) {

@@ -1,4 +1,21 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall } from '../metrics.js';
+
+// ── detectStall ───────────────────────────────────────────────────────────────
+test('detectStall: no PR in the last 3 sessions → stalled', () => {
+  const r = detectStall([100, 110, 120, 115, 118, 119]); // best (120) was 3 sessions ago
+  expect(r.stalled).toBe(true);
+  expect(r.sinceBest).toBe(3);
+});
+test('detectStall: a fresh PR on the latest session → not stalled', () => {
+  expect(detectStall([100, 110, 120, 130]).stalled).toBe(false);
+});
+test('detectStall: too little history is never stalled', () => {
+  expect(detectStall([100, 90, 95]).stalled).toBe(false);
+});
+test('detectStall: ignores null entries', () => {
+  const r = detectStall([100, null, 120, null, 115, 118, 119]);
+  expect(r.stalled).toBe(true);
+});
 
 // ── goalStreak ────────────────────────────────────────────────────────────────
 const gb = (t, n) => { const d = new Date(t); d.setDate(t.getDate() - n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };

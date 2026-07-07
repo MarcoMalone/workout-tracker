@@ -340,6 +340,7 @@ async function showReadinessCheckin(el) {
 }
 
 async function renderActiveSession(el) {
+  clearRest();
   el.innerHTML = `
     <div class="screen session-screen">
       <div class="session-header">
@@ -370,6 +371,7 @@ async function renderActiveSession(el) {
       </div>
       <div style="height:80px"></div>
     </div>
+    <div id="rest-timer" class="rest-timer hidden"></div>
     <div class="sticky-finish-bar">
       <button class="btn btn-primary btn-full" id="sticky-finish-btn">Finish Workout</button>
     </div>
@@ -390,6 +392,7 @@ async function renderActiveSession(el) {
   el.querySelector('#sticky-finish-btn').addEventListener('click', () => showPostChecklist(el));
   el.querySelector('#discard-btn').addEventListener('click', () => {
     if (confirm('Discard this workout? All logged data will be lost.')) {
+      clearRest();
       activeSession = null;
       renderLogTab(el);
     }
@@ -608,8 +611,10 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
   }
 
   row.querySelector('.set-check').addEventListener('click', function () {
+    const nowDone = !this.classList.contains('done');
     this.classList.toggle('done');
     row.classList.toggle('set-done');
+    if (nowDone) startRest();
   });
   row.querySelector('.set-remove-btn').addEventListener('click', () => {
     if (activeSession.exercises[exIdx].sets.length <= 1) return;
@@ -618,6 +623,62 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
     refreshSets(setsEl, exIdx, exDef, prev);
   });
   setsEl.appendChild(row);
+}
+
+// ── Rest timer ────────────────────────────────────────────────────────────────
+// Foreground countdown that auto-starts when a set is checked off. Docked above
+// the finish bar; +15s extends, Skip cancels. (iOS PWAs can't fire reliable
+// background notifications, so this is a visible-while-open cue by design.)
+const REST_DEFAULT = 90;
+let restInterval = null;
+let restRemaining = 0;
+
+function startRest() {
+  const bar = document.getElementById('rest-timer');
+  if (!bar) return;
+  restRemaining = REST_DEFAULT;
+  clearInterval(restInterval);
+  bar.classList.remove('hidden', 'rest-done');
+  renderRest(bar);
+  restInterval = setInterval(tickRest, 1000);
+}
+
+function tickRest() {
+  const bar = document.getElementById('rest-timer');
+  if (!bar) { clearInterval(restInterval); restInterval = null; return; } // session left the DOM
+  restRemaining -= 1;
+  if (restRemaining <= 0) {
+    clearInterval(restInterval);
+    restInterval = null;
+    bar.classList.add('rest-done');
+    renderRest(bar, true);
+    if (navigator.vibrate) { try { navigator.vibrate(200); } catch (e) {} }
+    setTimeout(() => {
+      const b = document.getElementById('rest-timer');
+      if (b) { b.classList.add('hidden'); b.classList.remove('rest-done'); b.innerHTML = ''; }
+    }, 4000);
+    return;
+  }
+  renderRest(bar);
+}
+
+function renderRest(bar, done = false) {
+  const secs = Math.max(restRemaining, 0);
+  const label = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  bar.innerHTML = done
+    ? `<span class="rest-label">Rest done — go</span><button class="rest-btn" id="rest-dismiss">Got it</button>`
+    : `<span class="rest-label">Rest ${label}</span><div class="rest-actions"><button class="rest-btn" id="rest-add">+15s</button><button class="rest-btn rest-skip" id="rest-skip">Skip</button></div>`;
+  bar.querySelector('#rest-add')?.addEventListener('click', () => { restRemaining += 15; renderRest(bar); });
+  bar.querySelector('#rest-skip')?.addEventListener('click', clearRest);
+  bar.querySelector('#rest-dismiss')?.addEventListener('click', clearRest);
+}
+
+function clearRest() {
+  clearInterval(restInterval);
+  restInterval = null;
+  restRemaining = 0;
+  const bar = document.getElementById('rest-timer');
+  if (bar) { bar.classList.add('hidden'); bar.classList.remove('rest-done'); bar.innerHTML = ''; }
 }
 
 function formatDate(d) {
@@ -807,6 +868,7 @@ function startSession(el, template, answers, sorenessNote = '') {
 }
 
 async function showPostChecklist(el) {
+  clearRest();
   const raw = await getSetting('postChecklist');
   const items = raw ?? ['Static stretches done?', 'Hydrated?', 'Anything to note for next time?'];
   const isArmDay = activeSession?.bodyPartGroup === 'arms';

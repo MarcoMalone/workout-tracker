@@ -166,6 +166,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .step-btn:active { background: var(--navy); color: var(--text); }
 .set-remove-btn { width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(224,82,82,0.35); background: transparent; color: var(--danger); font-size: 12px; cursor: pointer; flex-shrink: 0; padding: 0; line-height: 1; opacity: 0.65; margin-left: 1px; }
 .set-remove-btn:active { background: rgba(224,82,82,0.15); opacity: 1; }
+.rest-timer { position: fixed; bottom: calc(var(--nav-h) + var(--safe-b) + 6px); left: 12px; right: 12px; z-index: 95; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: var(--surface-hi); border: 1px solid var(--accent); border-radius: var(--r-md); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.rest-timer.rest-done { background: var(--success); border-color: var(--success); color: #06110b; }
+.rest-label { font-family: var(--font-mono); font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rest-actions { display: flex; gap: 8px; }
+.rest-btn { min-height: 38px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 700; padding: 0 14px; cursor: pointer; }
+.rest-btn.rest-skip { color: var(--text-2); }
+.rest-timer.rest-done .rest-btn { background: rgba(0,0,0,0.15); border-color: transparent; color: #06110b; }
+
 .sticky-finish-bar { position: fixed; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); left: 0; right: 0; padding: 8px 16px 4px; background: linear-gradient(to bottom, transparent, var(--bg) 40%); z-index: 90; pointer-events: none; }
 .sticky-finish-bar .btn { pointer-events: all; box-shadow: 0 6px 20px rgba(0,0,0,0.55); }
 .ex-actions { display: flex; gap: 8px; margin-top: 10px; }
@@ -237,6 +245,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .vol-fill.v-in { background: var(--success); }
 .vol-fill.v-over { background: #d99a1f; }
 .vol-count { width: 26px; text-align: right; font-family: var(--font-mono); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stall-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.stall-name { font-size: 14px; font-weight: 700; }
+.stall-meta { font-family: var(--font-mono); font-size: 12px; color: #d99a1f; white-space: nowrap; }
+.stall-tip { font-size: 12.5px; color: var(--text-2); line-height: 1.45; margin-top: 10px; }
 
 /* Progress tab */
 .seg-control { display: flex; background: var(--surface); border-radius: var(--r-md); padding: 4px; margin-bottom: 20px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); }

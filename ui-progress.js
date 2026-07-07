@@ -1,5 +1,5 @@
 import { getRunLogs, getWalkLogs, getAllSessions, getExercises } from './db.js';
-import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume } from './metrics.js';
+import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall } from './metrics.js';
 
 const CHART_COLORS = { line: '#F3A64E', vol: 'rgba(243,166,78,0.3)', run: '#4CAF7D', walk: '#5BA4E0', grid: '#2A3F58', text: '#8EA3B8' };
 // Arms=purple, Legs=blue, Core=green, PT=orange, Run=coral, Walk=teal
@@ -32,11 +32,13 @@ export async function renderProgressTab(el) {
   const [allSessions, runs, walks, exercises] = await Promise.all([getAllSessions(200), getRunLogs(50), getWalkLogs(50), getExercises()]);
 
   const exGroupById = {};
-  for (const ex of exercises) exGroupById[ex.id] = ex.bodyPartGroup;
+  const exNameById = {};
+  for (const ex of exercises) { exGroupById[ex.id] = ex.bodyPartGroup; exNameById[ex.id] = ex.name; }
   renderProgressSummary(
     el.querySelector('#progress-summary'),
     computeACWR(allSessions, runs, walks),
-    computeWeeklyVolume(allSessions, exGroupById)
+    computeWeeklyVolume(allSessions, exGroupById),
+    computeStalls(allSessions, exNameById)
   );
 
   const activityByDate = buildActivityByDate(allSessions, runs, walks);
@@ -65,8 +67,27 @@ export async function renderProgressTab(el) {
   });
 }
 
-// ACWR training-load gauge + weekly sets-per-group volume board.
-function renderProgressSummary(container, acwr, volume) {
+// Scan every weighted exercise's e1RM history for stalls (no recent PR).
+function computeStalls(sessions, exNameById) {
+  const byEx = {};
+  const sorted = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
+  for (const s of sorted) {
+    for (const ex of (s.exercises || [])) {
+      const e = getBestE1RM(ex.sets || []);
+      if (e == null) continue;
+      (byEx[ex.exerciseId] || (byEx[ex.exerciseId] = [])).push(e);
+    }
+  }
+  const stalls = [];
+  for (const [exId, series] of Object.entries(byEx)) {
+    const st = detectStall(series);
+    if (st.stalled) stalls.push({ name: exNameById[exId] || exId, sinceBest: st.sinceBest });
+  }
+  return stalls.sort((a, b) => b.sinceBest - a.sinceBest).slice(0, 5);
+}
+
+// ACWR training-load gauge + weekly sets-per-group volume board + stall watch.
+function renderProgressSummary(container, acwr, volume, stalls = []) {
   if (!container) return;
 
   let acwrBody;
@@ -125,7 +146,13 @@ function renderProgressSummary(container, acwr, volume) {
     <div class="card summary-card">
       <div class="sum-head"><b>This Week's Volume</b><span>hard sets · target ${LOW}–${HIGH}</span></div>
       ${volRows}
-    </div>`;
+    </div>
+    ${stalls.length ? `
+    <div class="card summary-card">
+      <div class="sum-head"><b>Lifts to Watch</b><span>no recent PR</span></div>
+      ${stalls.map(s => `<div class="stall-row"><span class="stall-name">${esc(s.name)}</span><span class="stall-meta">${s.sinceBest} sessions since PR</span></div>`).join('')}
+      <p class="stall-tip">Plateaued lifts often respond to a lighter deload week or swapping in a variation.</p>
+    </div>` : ''}`;
 }
 
 function buildActivityByDate(sessions, runs, walks) {
