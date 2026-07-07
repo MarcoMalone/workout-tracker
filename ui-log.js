@@ -58,6 +58,9 @@ function computeHomeStats(sessions, runs, walks) {
 
 export let activeSession = null;
 
+// Test-only: reset module-level session state between test cases.
+export function _resetSessionForTest() { activeSession = null; }
+
 let _pendingCoachNote = null;
 export function setPendingCoachNote(note, bodyPart) {
   _pendingCoachNote = { note, bodyPart };
@@ -170,7 +173,6 @@ export async function renderLogTab(el) {
 }
 
 async function renderActiveSession(el) {
-  const template = await getTemplate(activeSession.templateId);
   el.innerHTML = `
     <div class="screen session-screen">
       <div class="session-header">
@@ -205,18 +207,15 @@ async function renderActiveSession(el) {
       <button class="btn btn-primary btn-full" id="sticky-finish-btn">Finish Workout</button>
     </div>
   `;
+  // Iterate the session's own exercise list (the source of truth) — never the
+  // original template, which drifts out of sync the moment an exercise is
+  // deleted or added. Each card resolves its own definition by exerciseId.
   const cardsEl = el.querySelector('#exercise-cards');
-  for (let i = 0; i < template.exercises.length; i++) {
-    const tplEx = template.exercises[i];
-    const exDef = await getExercise(tplEx.exerciseId);
-    const prev = await getLastSessionForExercise(tplEx.exerciseId);
-    activeSession.exercises[i].exerciseName = exDef.name;
-    cardsEl.appendChild(buildExerciseCard(i, exDef, prev, activeSession.exercises[i], el));
-  }
-  for (let i = template.exercises.length; i < activeSession.exercises.length; i++) {
+  for (let i = 0; i < activeSession.exercises.length; i++) {
     const ex = activeSession.exercises[i];
     const exDef = await getExercise(ex.exerciseId);
     const prev = await getLastSessionForExercise(ex.exerciseId);
+    ex.exerciseName = exDef.name;
     cardsEl.appendChild(buildExerciseCard(i, exDef, prev, ex, el));
   }
   el.querySelector('#finish-btn').addEventListener('click', () => showPostChecklist(el));
