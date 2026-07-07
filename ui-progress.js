@@ -1,5 +1,5 @@
-import { getRunLogs, getWalkLogs, getAllSessions } from './db.js';
-import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap } from './metrics.js';
+import { getRunLogs, getWalkLogs, getAllSessions, getExercises } from './db.js';
+import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume } from './metrics.js';
 
 const CHART_COLORS = { line: '#F3A64E', vol: 'rgba(243,166,78,0.3)', run: '#4CAF7D', walk: '#5BA4E0', grid: '#2A3F58', text: '#8EA3B8' };
 // Arms=purple, Legs=blue, Core=green, PT=orange, Run=coral, Walk=teal
@@ -16,6 +16,7 @@ export async function renderProgressTab(el) {
     <div class="screen">
       <h1 class="tab-title">Progress</h1>
       <div id="layer-a-heatmap"></div>
+      <div id="progress-summary"></div>
       <div class="seg-control" id="body-part-seg">
         <button class="seg-btn active" data-part="arms">Arms</button>
         <button class="seg-btn" data-part="legs">Legs</button>
@@ -28,7 +29,15 @@ export async function renderProgressTab(el) {
     </div>
   `;
 
-  const [allSessions, runs, walks] = await Promise.all([getAllSessions(200), getRunLogs(50), getWalkLogs(50)]);
+  const [allSessions, runs, walks, exercises] = await Promise.all([getAllSessions(200), getRunLogs(50), getWalkLogs(50), getExercises()]);
+
+  const exGroupById = {};
+  for (const ex of exercises) exGroupById[ex.id] = ex.bodyPartGroup;
+  renderProgressSummary(
+    el.querySelector('#progress-summary'),
+    computeACWR(allSessions, runs, walks),
+    computeWeeklyVolume(allSessions, exGroupById)
+  );
 
   const activityByDate = buildActivityByDate(allSessions, runs, walks);
   const multiByDate = buildMultiActivityByDate(allSessions, runs, walks);
@@ -54,6 +63,69 @@ export async function renderProgressTab(el) {
     container.innerHTML = '';
     await renderBodyPart(container, currentPart, allSessions, runs, walks);
   });
+}
+
+// ACWR training-load gauge + weekly sets-per-group volume board.
+function renderProgressSummary(container, acwr, volume) {
+  if (!container) return;
+
+  let acwrBody;
+  if (!acwr.hasBaseline) {
+    acwrBody = `<div class="acwr-top">
+        <div class="acwr-num muted">—</div>
+        <div class="acwr-readout"><b>Building baseline</b><span>Keep logging — this needs ~4 weeks of history to gauge load safely.</span></div>
+      </div>`;
+  } else {
+    const meta = {
+      low:     { word: 'Detraining risk',   cls: 'z-low',     msg: 'Load has dropped off — a little more volume is fine.' },
+      optimal: { word: 'Optimal',           cls: 'z-optimal', msg: 'Acute load sits in the safe range vs your recent norm.' },
+      caution: { word: 'Ramping fast',      cls: 'z-caution', msg: 'Load is climbing quickly — hold steady rather than adding.' },
+      high:    { word: 'Spike — high risk', cls: 'z-high',    msg: 'Sharp jump vs baseline. Back off to protect against injury.' },
+    }[acwr.zone];
+    const pos = Math.min(acwr.ratio, 2) / 2 * 100;
+    const tip = `ACWR ${acwr.ratio.toFixed(2)} — acute ${acwr.acute} min / chronic ${acwr.chronicWeekly} min per week`;
+    acwrBody = `
+      <div class="acwr-top">
+        <div class="acwr-num ${meta.cls}">${acwr.ratio.toFixed(2)}</div>
+        <div class="acwr-readout"><b class="${meta.cls}">${meta.word}</b><span>${meta.msg}</span></div>
+      </div>
+      <div class="acwr-track" title="${esc(tip)}">
+        <span class="acwr-zone z-low" style="flex:0.8"></span>
+        <span class="acwr-zone z-optimal" style="flex:0.5"></span>
+        <span class="acwr-zone z-caution" style="flex:0.2"></span>
+        <span class="acwr-zone z-high" style="flex:0.5"></span>
+        <span class="acwr-marker" style="left:${pos}%"></span>
+      </div>
+      <div class="acwr-legend">Sweet spot 0.8–1.3 · you're at ${acwr.ratio.toFixed(2)}</div>`;
+  }
+
+  const LOW = 10, HIGH = 20;
+  const groups = [['arms', 'Arms'], ['legs', 'Legs'], ['core', 'Core']];
+  const scaleMax = Math.max(HIGH + 4, ...groups.map(([g]) => volume[g]));
+  const statusOf = c => c < LOW ? { cls: 'v-under', word: 'below target' } : c <= HIGH ? { cls: 'v-in', word: 'in range' } : { cls: 'v-over', word: 'high' };
+  const volRows = groups.map(([g, label]) => {
+    const c = volume[g];
+    const st = statusOf(c);
+    const tip = `${label}: ${c} hard sets this week — ${st.word} (target ${LOW}–${HIGH})`;
+    return `<div class="vol-row" title="${esc(tip)}">
+      <span class="vol-label">${label}</span>
+      <div class="vol-track">
+        <span class="vol-band" style="left:${LOW / scaleMax * 100}%;right:${(1 - HIGH / scaleMax) * 100}%"></span>
+        <span class="vol-fill ${st.cls}" style="width:${c > 0 ? Math.max(c / scaleMax * 100, 4) : 0}%"></span>
+      </div>
+      <span class="vol-count">${c}</span>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="card summary-card">
+      <div class="sum-head"><b>Training Load</b><span>7-day vs 28-day</span></div>
+      ${acwrBody}
+    </div>
+    <div class="card summary-card">
+      <div class="sum-head"><b>This Week's Volume</b><span>hard sets · target ${LOW}–${HIGH}</span></div>
+      ${volRows}
+    </div>`;
 }
 
 function buildActivityByDate(sessions, runs, walks) {

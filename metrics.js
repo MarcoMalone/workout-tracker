@@ -6,6 +6,78 @@ export function readinessScore({ sleep = 0, energy = 0, soreness = 0, mood = 0 }
   return Math.round(((raw - 4) / 16) * 100);
 }
 
+const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Training load for a strength session, in minutes. Uses real elapsed time when
+// it looks sane; falls back to a nominal 40 min for imported/edited sessions
+// that lack reliable timestamps.
+export function sessionLoadMinutes(s) {
+  if (s.startedAt && s.finishedAt) {
+    const min = (s.finishedAt - s.startedAt) / 60000;
+    if (min >= 1 && min <= 240) return Math.round(min);
+  }
+  return 40;
+}
+
+// Acute:Chronic Workload Ratio using training minutes as a transparent external
+// load. acute = last 7 days total; chronic = 28-day average week (coupled).
+// ratio in 0.8-1.3 is the evidence-backed "sweet spot"; <0.8 detraining, >1.5
+// spike/injury-risk. Returns hasBaseline:false until ~4 weeks of history exist.
+export function computeACWR(sessions, runs, walks, today = new Date()) {
+  const load = {};
+  const add = (date, mins) => { if (date && mins > 0) load[date] = (load[date] || 0) + mins; };
+  for (const s of sessions) add(s.date, sessionLoadMinutes(s));
+  for (const r of runs) add(r.date, Math.round(r.durationMinutes || 0));
+  for (const w of walks) add(w.date, Math.round(w.durationMinutes || 0));
+
+  const sumDays = (offset, count) => {
+    let sum = 0;
+    for (let i = 0; i < count; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - offset - i);
+      sum += load[dayKey(d)] || 0;
+    }
+    return sum;
+  };
+  const acute = sumDays(0, 7);
+  const chronicWeekly = sumDays(0, 28) / 4;
+  const priorWindow = sumDays(7, 21);            // days 8-28 must have data to trust a baseline
+  const hasBaseline = priorWindow > 0 && chronicWeekly > 0;
+  const ratio = hasBaseline ? acute / chronicWeekly : null;
+  let zone = 'baseline';
+  if (ratio != null) {
+    if (ratio < 0.8) zone = 'low';
+    else if (ratio <= 1.3) zone = 'optimal';
+    else if (ratio <= 1.5) zone = 'caution';
+    else zone = 'high';
+  }
+  return { acute, chronicWeekly: Math.round(chronicWeekly), ratio, zone, hasBaseline };
+}
+
+// Hard-set counts landed on each body-part group in the current week (Mon-Sun).
+// Each set counts if any of weight/reps/seconds was logged. Group is taken from
+// the exercise definition, falling back to the session's group.
+export function computeWeeklyVolume(sessions, exerciseGroupById = {}, today = new Date()) {
+  const dow = today.getDay();
+  const fromMon = dow === 0 ? 6 : dow - 1;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - fromMon);
+  const weekKeys = new Set();
+  for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); weekKeys.add(dayKey(d)); }
+  const counts = { arms: 0, legs: 0, core: 0 };
+  for (const s of sessions) {
+    if (!weekKeys.has(s.date)) continue;
+    for (const ex of (s.exercises || [])) {
+      const group = exerciseGroupById[ex.exerciseId] || s.bodyPartGroup;
+      if (!(group in counts)) continue;
+      for (const set of ex.sets) {
+        if (set.reps != null || set.seconds != null || set.weight != null) counts[group]++;
+      }
+    }
+  }
+  return counts;
+}
+
 export function calcE1RM(weight, reps) {
   if (!weight || !reps || reps > 20) return null;
   if (reps === 1) return weight;

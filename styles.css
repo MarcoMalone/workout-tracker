@@ -190,6 +190,37 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .session-time-input { background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-size: 14px; padding: 6px 8px; height: 36px; font-family: var(--font); }
 .session-time-input:focus { outline: none; border-color: var(--blue); }
 
+/* Progress summary — training load (ACWR) + weekly volume board */
+.summary-card { margin-bottom: 12px; padding: 16px 18px; }
+.sum-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+.sum-head b { font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+.sum-head span { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.acwr-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.acwr-num { font-family: var(--font-mono); font-size: 40px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.acwr-num.muted { color: var(--text-3); }
+.acwr-readout { display: flex; flex-direction: column; gap: 3px; }
+.acwr-readout b { font-size: 14px; font-weight: 800; }
+.acwr-readout span { font-size: 12.5px; color: var(--text-2); line-height: 1.4; }
+.acwr-track { position: relative; display: flex; gap: 2px; height: 12px; }
+.acwr-zone { border-radius: 2px; }
+.acwr-zone.z-low { background: rgba(90,166,245,0.5); }
+.acwr-zone.z-optimal { background: rgba(82,199,133,0.65); }
+.acwr-zone.z-caution { background: rgba(224,167,46,0.6); }
+.acwr-zone.z-high { background: rgba(224,82,82,0.6); }
+.acwr-marker { position: absolute; top: -3px; bottom: -3px; width: 3px; background: var(--text); border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 0 2px var(--surface); }
+.acwr-legend { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); margin-top: 8px; }
+.z-low { color: #5aa6f5; } .z-optimal { color: var(--success); } .z-caution { color: #d99a1f; } .z-high { color: var(--danger); }
+.vol-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.vol-row:last-child { margin-bottom: 0; }
+.vol-label { width: 44px; font-size: 13px; font-weight: 700; }
+.vol-track { position: relative; flex: 1; height: 16px; background: var(--surface-hi); border-radius: 100px; overflow: hidden; }
+.vol-band { position: absolute; top: 0; bottom: 0; background: rgba(82,199,133,0.14); border-left: 1px dashed rgba(82,199,133,0.55); border-right: 1px dashed rgba(82,199,133,0.55); }
+.vol-fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 100px; }
+.vol-fill.v-under { background: var(--text-3); }
+.vol-fill.v-in { background: var(--success); }
+.vol-fill.v-over { background: #d99a1f; }
+.vol-count { width: 26px; text-align: right; font-family: var(--font-mono); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
 /* Progress tab */
 .seg-control { display: flex; background: var(--surface); border-radius: var(--r-md); padding: 4px; margin-bottom: 20px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); }
 .seg-control::-webkit-scrollbar { display: none; }

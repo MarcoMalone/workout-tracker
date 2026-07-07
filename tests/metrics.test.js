@@ -1,4 +1,49 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume } from '../metrics.js';
+
+const dk = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function walksBack(today, count, minutes, offset = 0) {
+  const out = [];
+  for (let i = offset; i < offset + count; i++) { const d = new Date(today); d.setDate(today.getDate() - i); out.push({ date: dk(d), durationMinutes: minutes }); }
+  return out;
+}
+
+// ── computeACWR ───────────────────────────────────────────────────────────────
+test('computeACWR: no history → building baseline, null ratio', () => {
+  const a = computeACWR([], [], [], new Date(2026, 6, 8));
+  expect(a.hasBaseline).toBe(false);
+  expect(a.ratio).toBeNull();
+});
+test('computeACWR: steady 4-week load → ~1.0, optimal', () => {
+  const today = new Date(2026, 6, 8);
+  const a = computeACWR([], [], walksBack(today, 28, 60), today);
+  expect(a.hasBaseline).toBe(true);
+  expect(a.ratio).toBeCloseTo(1.0, 1);
+  expect(a.zone).toBe('optimal');
+});
+test('computeACWR: heavy recent week over a light base → high risk', () => {
+  const today = new Date(2026, 6, 8);
+  const walks = [...walksBack(today, 7, 120), ...walksBack(today, 21, 20, 7)];
+  const a = computeACWR([], [], walks, today);
+  expect(a.ratio).toBeGreaterThan(1.5);
+  expect(a.zone).toBe('high');
+});
+
+// ── computeWeeklyVolume ───────────────────────────────────────────────────────
+test('computeWeeklyVolume: counts performed sets by exercise group, in-week only', () => {
+  const today = new Date(2026, 6, 8); // Wed → week of Mon Jul 6
+  const exGroup = { 'ex-a': 'arms', 'ex-b': 'legs' };
+  const sessions = [
+    { date: '2026-07-07', bodyPartGroup: 'arms', exercises: [
+      { exerciseId: 'ex-a', sets: [{ weight: 50, reps: 10 }, { weight: 50, reps: 10 }, { weight: null, reps: null, seconds: null }] },
+      { exerciseId: 'ex-b', sets: [{ weight: 100, reps: 8 }] },
+    ] },
+    { date: '2026-06-01', bodyPartGroup: 'arms', exercises: [{ exerciseId: 'ex-a', sets: [{ weight: 50, reps: 10 }] }] }, // out of week
+  ];
+  const v = computeWeeklyVolume(sessions, exGroup, today);
+  expect(v.arms).toBe(2); // 2 performed, empty set ignored
+  expect(v.legs).toBe(1);
+  expect(v.core).toBe(0);
+});
 
 // ── readinessScore ────────────────────────────────────────────────────────────
 test('readinessScore: all-best inputs score 100', () => {
