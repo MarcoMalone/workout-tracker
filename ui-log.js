@@ -1,5 +1,6 @@
 import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, setSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress, getPainLog } from './db.js';
 import { readinessScore, goalStreak, painSummary } from './metrics.js';
+import { showHelpCenter } from './ui-help.js';
 import { switchTab } from './app.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -126,6 +127,7 @@ export async function renderLogTab(el) {
   el.innerHTML = `
     <div class="screen">
       <div class="log-home-header">
+        <button class="help-fab" id="help-btn" aria-label="Help and FAQ">?</button>
         <div class="log-kicker">${kicker}</div>
         <h1 class="log-hero">Let's<br><span class="hero-accent">move.</span></h1>
         ${streakPill}
@@ -183,6 +185,7 @@ export async function renderLogTab(el) {
   el.querySelector('#start-run-btn').addEventListener('click', () => showRunForm(el));
   el.querySelector('#start-walk-btn').addEventListener('click', () => showWalkForm(el));
   el.querySelector('#readiness-btn')?.addEventListener('click', () => showReadinessCheckin(el));
+  el.querySelector('#help-btn')?.addEventListener('click', () => showHelpCenter());
   renderGoalsSection(el.querySelector('#daily-goals'), el);
 }
 

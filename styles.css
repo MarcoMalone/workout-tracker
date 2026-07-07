@@ -46,7 +46,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .section-title { font-size: 12px; font-weight: 800; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 8px; }
 
 /* Log tab */
-.log-home-header { padding: 20px 0 4px; }
+.log-home-header { padding: 20px 0 4px; position: relative; }
+.help-fab { position: absolute; top: 8px; right: 0; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 17px; font-weight: 800; cursor: pointer; padding: 0; line-height: 1; z-index: 2; }
+.help-fab:hover { color: var(--text); border-color: var(--text-3); }
+/* Help Center FAQ */
+.faq-item { border-bottom: 1px solid var(--border); }
+.faq-q { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: none; border: none; color: var(--text); font: inherit; font-size: 14px; font-weight: 700; text-align: left; padding: 13px 0; cursor: pointer; }
+.faq-caret { color: var(--text-3); transition: transform 0.15s; flex-shrink: 0; }
+.faq-q.open .faq-caret { transform: rotate(180deg); }
+.faq-a { font-size: 13.5px; color: var(--text-2); line-height: 1.55; padding: 0 0 13px; }
 .log-kicker { font-size: 12px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); }
 .log-hero { font-size: 50px; line-height: 0.9; font-weight: 900; letter-spacing: -0.04em; text-transform: uppercase; margin: 8px 0 0; }
 .log-hero .hero-accent { color: var(--accent); }
@@ -119,10 +127,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .template-card:active { transform: scale(0.99); border-color: var(--text-3); }
 .template-name { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; color: var(--text); }
 .template-tag { font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
-.tag-arms { background: #6a4bff; color: #fff; }
-.tag-legs { background: #1f74d0; color: #fff; }
-.tag-core { background: #12a05f; color: #fff; }
-.tag-pt { background: var(--accent); color: var(--volt-ink); }
+/* Body-part tags — monochrome + volt, in-theme and auto-adapting to light/dark */
+.tag-arms { background: var(--accent); color: var(--volt-ink); }
+.tag-legs { background: var(--text); color: var(--bg); }
+.tag-core { background: var(--surface-hi); color: var(--text-2); border: 1px solid var(--border); }
+.tag-pt { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.add-ex-pick { text-align: left; gap: 10px; }
+.add-ex-pick .template-name { flex: 1; min-width: 0; text-align: left; }
 .tpl-card-right { display: flex; align-items: center; gap: 8px; }
 .tpl-duration { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
 .tpl-gear-btn { background: none; border: none; padding: 4px 2px; font-size: 16px; color: var(--text-3); cursor: pointer; line-height: 1; border-radius: 4px; }
@@ -220,6 +231,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .sum-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
 .sum-head b { font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
 .sum-head span { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.sum-right { display: flex; align-items: center; gap: 8px; }
+.sum-help { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-hi); color: var(--text-2); font-size: 12px; font-weight: 800; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
+.sum-help:hover { color: var(--text); border-color: var(--text-3); }
+.sum-explain { font-size: 12.5px; color: var(--text-2); line-height: 1.5; background: var(--surface-hi); border-radius: var(--r-sm); padding: 12px 14px; margin-bottom: 14px; }
 .acwr-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 .acwr-num { font-family: var(--font-mono); font-size: 40px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 .acwr-num.muted { color: var(--text-3); }
@@ -246,8 +261,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .vol-fill.v-over { background: #d99a1f; }
 .vol-count { width: 26px; text-align: right; font-family: var(--font-mono); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stall-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); }
-.stall-name { font-size: 14px; font-weight: 700; }
-.stall-meta { font-family: var(--font-mono); font-size: 12px; color: #d99a1f; white-space: nowrap; }
+.stall-name { font-size: 14px; font-weight: 700; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.stall-meta { font-family: var(--font-mono); font-size: 12px; color: #d99a1f; white-space: nowrap; flex-shrink: 0; }
 .stall-tip { font-size: 12.5px; color: var(--text-2); line-height: 1.45; margin-top: 10px; }
 
 /* Progress tab */
@@ -295,6 +310,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .settings-label { font-size: 13px; color: var(--text-2); }
 .settings-hint { font-size: 12px; color: var(--text-3); margin: 2px 0 8px; line-height: 1.45; }
 .settings-save-btn { min-height: 40px; font-size: 14px; align-self: flex-end; }
+.collapse-toggle { width: 100%; background: none; border: none; color: var(--text-2); font-size: 13px; font-weight: 700; padding: 12px 0 2px; cursor: pointer; }
+.collapse-toggle:hover { color: var(--text); }
 .lib-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .lib-row:last-child { border-bottom: none; }
 .cl-row { display: flex; gap: 8px; margin-bottom: 8px; }
@@ -378,7 +395,3 @@ body.light #bottom-nav { background: var(--surface); border-top: 1px solid var(-
 body.light #bottom-nav::before { opacity: 0.4; }
 body.light .cardio-run { background: var(--text); color: var(--surface); }
 body.light .log-streak { color: #0b0c0e; }
-body.light .tag-arms { background: #ede8ff; color: #4a2fc0; }
-body.light .tag-legs { background: #d8ecff; color: #0a5aa8; }
-body.light .tag-core { background: #d4f2e2; color: #0a6c3e; }
-body.light .tag-pt { background: var(--accent); color: var(--volt-ink); }

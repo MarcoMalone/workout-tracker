@@ -67,21 +67,27 @@ export async function renderProgressTab(el) {
   });
 }
 
+const prettyName = id => (id || '').replace(/^ex-/, '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
 // Scan every weighted exercise's e1RM history for stalls (no recent PR).
 function computeStalls(sessions, exNameById) {
   const byEx = {};
+  const nameById = {};
   const sorted = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
   for (const s of sorted) {
     for (const ex of (s.exercises || [])) {
       const e = getBestE1RM(ex.sets || []);
       if (e == null) continue;
       (byEx[ex.exerciseId] || (byEx[ex.exerciseId] = [])).push(e);
+      // Prefer the exercise-library name, then the session's stored name, then a
+      // prettified id — so CSV-imported ids don't show as "single-arm-lateral-raise".
+      if (!nameById[ex.exerciseId]) nameById[ex.exerciseId] = exNameById[ex.exerciseId] || ex.exerciseName || prettyName(ex.exerciseId);
     }
   }
   const stalls = [];
   for (const [exId, series] of Object.entries(byEx)) {
     const st = detectStall(series);
-    if (st.stalled) stalls.push({ name: exNameById[exId] || exId, sinceBest: st.sinceBest });
+    if (st.stalled) stalls.push({ name: (nameById[exId] || '').replace(/_/g, ' '), sinceBest: st.sinceBest });
   }
   return stalls.sort((a, b) => b.sinceBest - a.sinceBest).slice(0, 5);
 }
@@ -89,6 +95,8 @@ function computeStalls(sessions, exNameById) {
 // ACWR training-load gauge + weekly sets-per-group volume board + stall watch.
 function renderProgressSummary(container, acwr, volume, stalls = []) {
   if (!container) return;
+  const acwrHelp = `Acute:Chronic Workload Ratio. "Acute" is your training load over the last 7 days; "chronic" is your typical week, averaged over the last 28 days. The ratio compares them — about 1.0 means this week matches your recent norm. 0.8–1.3 is the safe zone; spiking well above ~1.3–1.5 is when injury risk tends to climb, and under 0.8 you may be detraining. Load here = total training minutes (lifting + cardio).`;
+  const volHelp = `How many hard sets each muscle group got this week (Mon–Sun) — a set counts once you log weight, reps, or seconds. The green band marks a rough 10–20 sets/week guideline for building muscle: below it you may be undertraining a group, above it may be more than you can recover from.`;
 
   let acwrBody;
   if (!acwr.hasBaseline) {
@@ -140,11 +148,13 @@ function renderProgressSummary(container, acwr, volume, stalls = []) {
 
   container.innerHTML = `
     <div class="card summary-card">
-      <div class="sum-head"><b>Training Load</b><span>7-day vs 28-day</span></div>
+      <div class="sum-head"><b>Training Load</b><div class="sum-right"><span>7-day vs 28-day</span><button class="sum-help" data-help="acwr" aria-label="What is this?">?</button></div></div>
+      <div class="sum-explain hidden" id="explain-acwr">${acwrHelp}</div>
       ${acwrBody}
     </div>
     <div class="card summary-card">
-      <div class="sum-head"><b>This Week's Volume</b><span>hard sets · target ${LOW}–${HIGH}</span></div>
+      <div class="sum-head"><b>This Week's Volume</b><div class="sum-right"><span>hard sets · target ${LOW}–${HIGH}</span><button class="sum-help" data-help="vol" aria-label="What is this?">?</button></div></div>
+      <div class="sum-explain hidden" id="explain-vol">${volHelp}</div>
       ${volRows}
     </div>
     ${stalls.length ? `
@@ -153,6 +163,10 @@ function renderProgressSummary(container, acwr, volume, stalls = []) {
       ${stalls.map(s => `<div class="stall-row"><span class="stall-name">${esc(s.name)}</span><span class="stall-meta">${s.sinceBest} sessions since PR</span></div>`).join('')}
       <p class="stall-tip">Plateaued lifts often respond to a lighter deload week or swapping in a variation.</p>
     </div>` : ''}`;
+
+  container.querySelectorAll('.sum-help').forEach(btn => btn.addEventListener('click', () => {
+    container.querySelector('#explain-' + btn.dataset.help)?.classList.toggle('hidden');
+  }));
 }
 
 function buildActivityByDate(sessions, runs, walks) {

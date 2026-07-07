@@ -1,6 +1,31 @@
 ﻿import { getSetting, setSetting, getExercises, addExercise, deleteExercise, getTemplates, addTemplate, deleteTemplate, getAllSessions, getRunLogs, exportAllData, importAllData } from './db.js';
+import { showHelpCenter } from './ui-help.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const COLLAPSE_LIMIT = 3;
+let exLibExpanded = false;
+let tplLibExpanded = false;
+
+// Hide rows beyond the limit (kept in the DOM so their inputs still save) and
+// append a Show all / Show fewer toggle. Used for the editable checklists.
+function collapseRows(container, rowSelector, limit = COLLAPSE_LIMIT) {
+  const rows = container.querySelectorAll(rowSelector);
+  if (rows.length <= limit) return;
+  rows.forEach((r, i) => { if (i >= limit) r.style.display = 'none'; });
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'collapse-toggle';
+  let expanded = false;
+  const label = () => { btn.textContent = expanded ? 'Show fewer ▴' : `Show all ${rows.length} ▾`; };
+  btn.addEventListener('click', () => {
+    expanded = !expanded;
+    rows.forEach((r, i) => { if (i >= limit) r.style.display = expanded ? '' : 'none'; });
+    label();
+  });
+  label();
+  container.appendChild(btn);
+}
 
 export async function renderSettingsTab(el) {
   const [apiKey, healthCtx, preCL, postCL] = await Promise.all([
@@ -10,6 +35,8 @@ export async function renderSettingsTab(el) {
   el.innerHTML = `
     <div class="screen">
       <h1 class="tab-title">Settings</h1>
+
+      <button class="btn btn-ghost btn-full" id="open-help-center" style="margin-bottom:18px">❓ Help Center &amp; FAQ</button>
 
       <p class="section-title">Coach</p>
       <div class="settings-group card">
@@ -73,6 +100,7 @@ export async function renderSettingsTab(el) {
     </div>
   `;
 
+  el.querySelector('#open-help-center').addEventListener('click', () => showHelpCenter());
   el.querySelector('#save-api-key').addEventListener('click', async () => {
     await setSetting('anthropicApiKey', el.querySelector('#api-key-input').value.trim());
     showToast('API key saved');
@@ -187,28 +215,36 @@ function renderChecklistEditor(container, items, prefix) {
   container.querySelectorAll('.cl-remove-btn').forEach(btn => {
     btn.addEventListener('click', () => { items.splice(Number(btn.dataset.idx), 1); renderChecklistEditor(container, items, prefix); });
   });
+  collapseRows(container, '.cl-row');
 }
 
 async function renderExerciseLibrary(container) {
   const exercises = await getExercises();
-  container.innerHTML = exercises.length === 0 ? '<p style="color:var(--text-3);padding:12px">No exercises yet</p>'
-    : exercises.map(ex => `<div class="lib-row"><span>${esc(ex.name)} <span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></span><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px" data-id="${esc(ex.id)}">Delete</button></div>`).join('');
+  if (exercises.length === 0) { container.innerHTML = '<p style="color:var(--text-3);padding:12px">No exercises yet</p>'; return; }
+  const shown = exLibExpanded ? exercises : exercises.slice(0, COLLAPSE_LIMIT);
+  const rowHtml = ex => `<div class="lib-row"><span>${esc(ex.name)} <span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></span><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px" data-id="${esc(ex.id)}">Delete</button></div>`;
+  container.innerHTML = shown.map(rowHtml).join('')
+    + (exercises.length > COLLAPSE_LIMIT ? `<button type="button" class="collapse-toggle" id="ex-lib-toggle">${exLibExpanded ? 'Show fewer ▴' : `Show all ${exercises.length} ▾`}</button>` : '');
   container.querySelectorAll('.lib-del-btn').forEach(btn => {
     btn.addEventListener('click', async () => { await deleteExercise(btn.dataset.id); await renderExerciseLibrary(container); });
   });
+  container.querySelector('#ex-lib-toggle')?.addEventListener('click', () => { exLibExpanded = !exLibExpanded; renderExerciseLibrary(container); });
 }
 
 async function renderTemplateLibrary(container, el) {
   const templates = await getTemplates();
-  container.innerHTML = templates.length === 0 ? '<p style="color:var(--text-3);padding:12px">No templates yet</p>'
-    : templates.map(t => `<div class="lib-row"><span>${esc(t.name)} <span class="template-tag tag-${esc(t.bodyPartGroup)}">${esc(t.bodyPartGroup)}</span></span><div style="display:flex;gap:4px"><button class="btn btn-ghost lib-edit-btn" style="min-height:36px;font-size:13px" data-id="${esc(t.id)}">Edit</button><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px;color:var(--danger)" data-id="${esc(t.id)}">Del</button></div></div>`).join('');
+  if (templates.length === 0) { container.innerHTML = '<p style="color:var(--text-3);padding:12px">No templates yet</p>'; return; }
+  const shown = tplLibExpanded ? templates : templates.slice(0, COLLAPSE_LIMIT);
+  const rowHtml = t => `<div class="lib-row"><span>${esc(t.name)} <span class="template-tag tag-${esc(t.bodyPartGroup)}">${esc(t.bodyPartGroup)}</span></span><div style="display:flex;gap:4px"><button class="btn btn-ghost lib-edit-btn" style="min-height:36px;font-size:13px" data-id="${esc(t.id)}">Edit</button><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px;color:var(--danger)" data-id="${esc(t.id)}">Del</button></div></div>`;
+  container.innerHTML = shown.map(rowHtml).join('')
+    + (templates.length > COLLAPSE_LIMIT ? `<button type="button" class="collapse-toggle" id="tpl-lib-toggle">${tplLibExpanded ? 'Show fewer ▴' : `Show all ${templates.length} ▾`}</button>` : '');
   container.querySelectorAll('.lib-del-btn').forEach(btn => {
     btn.addEventListener('click', async () => { if (confirm('Delete this template?')) { await deleteTemplate(btn.dataset.id); await renderTemplateLibrary(container, el); } });
   });
-  const allTemplates = await getTemplates();
   container.querySelectorAll('.lib-edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => { const tpl = allTemplates.find(t => t.id === btn.dataset.id); if (tpl) showTemplateEditor(el, tpl); });
+    btn.addEventListener('click', () => { const tpl = templates.find(t => t.id === btn.dataset.id); if (tpl) showTemplateEditor(el, tpl); });
   });
+  container.querySelector('#tpl-lib-toggle')?.addEventListener('click', () => { tplLibExpanded = !tplLibExpanded; renderTemplateLibrary(container, el); });
 }
 
 function showExerciseForm(el, existing) {
