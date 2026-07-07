@@ -200,43 +200,70 @@ async function runCoach(el, btnSel, respSel, contextFn, apiKey) {
 }
 
 // ── Body map / pain logger ────────────────────────────────────────────────────
-// A blocky mannequin (front/back) — each shape is a tappable region sharing a
-// logical key (both shoulders → "shoulders"). Fill encodes current pain level.
+// A blocky mannequin (front/back). Each shape is a tappable region; lateral
+// shapes carry a body-side (L/R) so they log as e.g. "R forearm". Fill encodes
+// current pain level. Front faces the viewer (viewer-left = body Right); back
+// faces away (viewer-left = body Left) — hence the L/R labels flip per view.
 const BODY = {
   front: [
-    { region: 'neck', shape: 'circle', cx: 60, cy: 22, r: 13 },
-    { region: 'shoulders', shape: 'rect', x: 28, y: 40, w: 16, h: 14, rx: 5 },
-    { region: 'shoulders', shape: 'rect', x: 76, y: 40, w: 16, h: 14, rx: 5 },
-    { region: 'chest', shape: 'rect', x: 46, y: 40, w: 28, h: 24, rx: 6 },
-    { region: 'arms', shape: 'rect', x: 25, y: 56, w: 13, h: 46, rx: 6 },
-    { region: 'arms', shape: 'rect', x: 82, y: 56, w: 13, h: 46, rx: 6 },
-    { region: 'core', shape: 'rect', x: 47, y: 66, w: 26, h: 28, rx: 6 },
-    { region: 'hips', shape: 'rect', x: 42, y: 96, w: 14, h: 14, rx: 5 },
-    { region: 'hips', shape: 'rect', x: 64, y: 96, w: 14, h: 14, rx: 5 },
-    { region: 'groin', shape: 'rect', x: 53, y: 98, w: 14, h: 12, rx: 5 },
-    { region: 'quads', shape: 'rect', x: 45, y: 112, w: 14, h: 44, rx: 6 },
-    { region: 'quads', shape: 'rect', x: 61, y: 112, w: 14, h: 44, rx: 6 },
-    { region: 'knees', shape: 'rect', x: 45, y: 158, w: 14, h: 12, rx: 5 },
-    { region: 'knees', shape: 'rect', x: 61, y: 158, w: 14, h: 12, rx: 5 },
-    { region: 'shins', shape: 'rect', x: 46, y: 172, w: 12, h: 38, rx: 6 },
-    { region: 'shins', shape: 'rect', x: 62, y: 172, w: 12, h: 38, rx: 6 },
+    { region: 'neck', shape: 'circle', cx: 60, cy: 20, r: 13 },
+    { region: 'shoulder', side: 'R', shape: 'rect', x: 27, y: 38, w: 15, h: 12, rx: 5 },
+    { region: 'shoulder', side: 'L', shape: 'rect', x: 78, y: 38, w: 15, h: 12, rx: 5 },
+    { region: 'chest', shape: 'rect', x: 45, y: 40, w: 30, h: 24, rx: 6 },
+    { region: 'bicep', side: 'R', shape: 'rect', x: 24, y: 50, w: 13, h: 20, rx: 5 },
+    { region: 'bicep', side: 'L', shape: 'rect', x: 83, y: 50, w: 13, h: 20, rx: 5 },
+    { region: 'elbow', side: 'R', shape: 'rect', x: 24, y: 70, w: 13, h: 9, rx: 4 },
+    { region: 'elbow', side: 'L', shape: 'rect', x: 83, y: 70, w: 13, h: 9, rx: 4 },
+    { region: 'forearm', side: 'R', shape: 'rect', x: 24, y: 79, w: 13, h: 22, rx: 5 },
+    { region: 'forearm', side: 'L', shape: 'rect', x: 83, y: 79, w: 13, h: 22, rx: 5 },
+    { region: 'wrist', side: 'R', shape: 'rect', x: 25, y: 101, w: 11, h: 9, rx: 4 },
+    { region: 'wrist', side: 'L', shape: 'rect', x: 84, y: 101, w: 11, h: 9, rx: 4 },
+    { region: 'core', shape: 'rect', x: 47, y: 66, w: 26, h: 26, rx: 6 },
+    { region: 'hip', side: 'R', shape: 'rect', x: 42, y: 94, w: 14, h: 14, rx: 5 },
+    { region: 'hip', side: 'L', shape: 'rect', x: 64, y: 94, w: 14, h: 14, rx: 5 },
+    { region: 'groin', shape: 'rect', x: 53, y: 97, w: 14, h: 12, rx: 5 },
+    { region: 'quad', side: 'R', shape: 'rect', x: 45, y: 112, w: 14, h: 42, rx: 6 },
+    { region: 'quad', side: 'L', shape: 'rect', x: 61, y: 112, w: 14, h: 42, rx: 6 },
+    { region: 'knee', side: 'R', shape: 'rect', x: 45, y: 154, w: 14, h: 11, rx: 5 },
+    { region: 'knee', side: 'L', shape: 'rect', x: 61, y: 154, w: 14, h: 11, rx: 5 },
+    { region: 'shin', side: 'R', shape: 'rect', x: 46, y: 167, w: 12, h: 40, rx: 6 },
+    { region: 'shin', side: 'L', shape: 'rect', x: 62, y: 167, w: 12, h: 40, rx: 6 },
+    { region: 'ankle', side: 'R', shape: 'rect', x: 46, y: 207, w: 12, h: 9, rx: 4 },
+    { region: 'ankle', side: 'L', shape: 'rect', x: 62, y: 207, w: 12, h: 9, rx: 4 },
+    { region: 'foot', side: 'R', shape: 'rect', x: 43, y: 217, w: 16, h: 12, rx: 4 },
+    { region: 'foot', side: 'L', shape: 'rect', x: 61, y: 217, w: 16, h: 12, rx: 4 },
   ],
   back: [
-    { region: 'neck', shape: 'circle', cx: 60, cy: 22, r: 13 },
-    { region: 'traps', shape: 'rect', x: 46, y: 37, w: 28, h: 13, rx: 5 },
-    { region: 'shoulders', shape: 'rect', x: 28, y: 42, w: 16, h: 14, rx: 5 },
-    { region: 'shoulders', shape: 'rect', x: 76, y: 42, w: 16, h: 14, rx: 5 },
-    { region: 'upper back', shape: 'rect', x: 46, y: 50, w: 28, h: 22, rx: 6 },
-    { region: 'arms', shape: 'rect', x: 25, y: 56, w: 13, h: 46, rx: 6 },
-    { region: 'arms', shape: 'rect', x: 82, y: 56, w: 13, h: 46, rx: 6 },
-    { region: 'lower back', shape: 'rect', x: 47, y: 74, w: 26, h: 22, rx: 6 },
-    { region: 'glutes', shape: 'rect', x: 44, y: 98, w: 32, h: 16, rx: 6 },
-    { region: 'hamstrings', shape: 'rect', x: 45, y: 116, w: 14, h: 40, rx: 6 },
-    { region: 'hamstrings', shape: 'rect', x: 61, y: 116, w: 14, h: 40, rx: 6 },
-    { region: 'calves', shape: 'rect', x: 46, y: 160, w: 12, h: 44, rx: 6 },
-    { region: 'calves', shape: 'rect', x: 62, y: 160, w: 12, h: 44, rx: 6 },
+    { region: 'neck', shape: 'circle', cx: 60, cy: 20, r: 13 },
+    { region: 'traps', shape: 'rect', x: 46, y: 36, w: 28, h: 12, rx: 5 },
+    { region: 'shoulder', side: 'L', shape: 'rect', x: 27, y: 40, w: 15, h: 12, rx: 5 },
+    { region: 'shoulder', side: 'R', shape: 'rect', x: 78, y: 40, w: 15, h: 12, rx: 5 },
+    { region: 'upper back', shape: 'rect', x: 46, y: 48, w: 28, h: 22, rx: 6 },
+    { region: 'tricep', side: 'L', shape: 'rect', x: 24, y: 52, w: 13, h: 20, rx: 5 },
+    { region: 'tricep', side: 'R', shape: 'rect', x: 83, y: 52, w: 13, h: 20, rx: 5 },
+    { region: 'elbow', side: 'L', shape: 'rect', x: 24, y: 72, w: 13, h: 9, rx: 4 },
+    { region: 'elbow', side: 'R', shape: 'rect', x: 83, y: 72, w: 13, h: 9, rx: 4 },
+    { region: 'forearm', side: 'L', shape: 'rect', x: 24, y: 81, w: 13, h: 22, rx: 5 },
+    { region: 'forearm', side: 'R', shape: 'rect', x: 83, y: 81, w: 13, h: 22, rx: 5 },
+    { region: 'wrist', side: 'L', shape: 'rect', x: 25, y: 103, w: 11, h: 9, rx: 4 },
+    { region: 'wrist', side: 'R', shape: 'rect', x: 84, y: 103, w: 11, h: 9, rx: 4 },
+    { region: 'lower back', shape: 'rect', x: 47, y: 72, w: 26, h: 22, rx: 6 },
+    { region: 'glutes', shape: 'rect', x: 44, y: 96, w: 32, h: 16, rx: 6 },
+    { region: 'hamstring', side: 'L', shape: 'rect', x: 45, y: 114, w: 14, h: 40, rx: 6 },
+    { region: 'hamstring', side: 'R', shape: 'rect', x: 61, y: 114, w: 14, h: 40, rx: 6 },
+    { region: 'knee', side: 'L', shape: 'rect', x: 45, y: 154, w: 14, h: 10, rx: 5 },
+    { region: 'knee', side: 'R', shape: 'rect', x: 61, y: 154, w: 14, h: 10, rx: 5 },
+    { region: 'calf', side: 'L', shape: 'rect', x: 46, y: 166, w: 12, h: 40, rx: 6 },
+    { region: 'calf', side: 'R', shape: 'rect', x: 62, y: 166, w: 12, h: 40, rx: 6 },
+    { region: 'ankle', side: 'L', shape: 'rect', x: 46, y: 206, w: 12, h: 9, rx: 4 },
+    { region: 'ankle', side: 'R', shape: 'rect', x: 62, y: 206, w: 12, h: 9, rx: 4 },
+    { region: 'heel', side: 'L', shape: 'rect', x: 43, y: 216, w: 16, h: 12, rx: 4 },
+    { region: 'heel', side: 'R', shape: 'rect', x: 61, y: 216, w: 16, h: 12, rx: 4 },
   ],
 };
+
+// The stored/coach-facing key for a zone, e.g. "R forearm" or "chest".
+const zoneKey = z => z.side ? `${z.side} ${z.region}` : z.region;
 
 function painBucket(level) { return level >= 7 ? 'sev' : level >= 4 ? 'mod' : level >= 1 ? 'mild' : 'none'; }
 function painFill(level) {
@@ -245,8 +272,9 @@ function painFill(level) {
 
 function bodyZonesSVG(view, painLog) {
   return BODY[view].map(z => {
-    const fill = painFill(painLog[z.region]?.level || 0);
-    const attrs = `class="bp-zone" data-region="${esc(z.region)}" fill="${fill}"`;
+    const k = zoneKey(z);
+    const fill = painFill(painLog[k]?.level || 0);
+    const attrs = `class="bp-zone" data-region="${esc(k)}" fill="${fill}"`;
     return z.shape === 'circle'
       ? `<circle ${attrs} cx="${z.cx}" cy="${z.cy}" r="${z.r}"></circle>`
       : `<rect ${attrs} x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="${z.rx}"></rect>`;
@@ -262,7 +290,9 @@ async function renderBodyMap(container, view = 'front') {
       <button class="bp-tab${view === 'front' ? ' on' : ''}" data-view="front">Front</button>
       <button class="bp-tab${view === 'back' ? ' on' : ''}" data-view="back">Back</button>
     </div>
-    <svg class="bp-svg" viewBox="0 0 120 216" role="img" aria-label="Body map — tap a region to log pain">
+    <svg class="bp-svg" viewBox="0 0 120 236" role="img" aria-label="Body map — tap a region to log pain">
+      <text class="bp-lr" x="18" y="34">${view === 'front' ? 'R' : 'L'}</text>
+      <text class="bp-lr" x="102" y="34">${view === 'front' ? 'L' : 'R'}</text>
       ${bodyZonesSVG(view, painLog)}
     </svg>
     <div class="bp-active">

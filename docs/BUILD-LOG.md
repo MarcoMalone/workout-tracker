@@ -1,0 +1,209 @@
+# Workout Tracker — Build Log & Process Notes
+
+A running record of how this app was built with Claude Code: what got made, why,
+and — more usefully for next time — *how* the collaboration worked. Written so it
+can double as raw material for a future write-up.
+
+---
+
+## What the app is
+
+A personal, phone-first **workout tracker PWA**. Deliberately constrained:
+
+- **Vanilla JS + IndexedDB** (`idb`), **no backend**, single user, offline via a
+  service worker, hosted on GitHub Pages.
+- Tabs: **Log · History · Progress · Coach · Settings**.
+- An optional **Claude coach** (the user supplies their own API key) that reads the
+  training data and gives pre-workout / post-workout guidance.
+- Owner context: a baseball player whose priorities are **(1) injury prevention**
+  (hip/groin PT) and **(2) getting stronger** — which shaped nearly every feature
+  decision.
+
+Those constraints are the backbone of the whole thing: every feature has to work
+in vanilla JS against IndexedDB, stay fast on a phone, and survive offline.
+
+---
+
+## The working method (the part worth remembering)
+
+A few habits made this productive and are worth repeating:
+
+1. **Design before code, but only as much as the task needs.** New features started
+   with a short design pass (the visual overhaul got three full mockups to react to;
+   small features got a one-paragraph plan). Decisions were made *explicitly* and
+   written down, not left implicit.
+
+2. **Show options, don't guess taste.** The UI overhaul was pitched as **three
+   distinct directions** (Lab / Refined / Kinetic) in a single interactive artifact
+   with a working light/dark toggle. Picking from real mockups beat describing
+   aesthetics in the abstract. (Kinetic won.)
+
+3. **Research fanned out, then synthesized.** The feature roadmap came from a
+   **5-agent parallel research workflow** — five researchers each took a lens
+   (logging UX, analytics, programming intelligence, retention, recovery/rehab),
+   did real web research on Strong/Hevy/Fitbod/Whoop/etc., and an aggregator merged
+   it into a tiered, *tailored* roadmap (top-5, quick wins / high-value / big bets,
+   a deliberately-skip list, and a suggested first sprint). That roadmap drove
+   everything after.
+
+4. **Bugs got systematic debugging, not guesses.** The "everything breaks after I
+   delete an exercise" report was traced to a single root cause (a render loop
+   indexing a stale template), reproduced with a **failing test first**, then fixed.
+   One root cause explained four separate symptoms.
+
+5. **Tests grew with every change.** Pure logic (scoring, ACWR, streaks, stall
+   detection, parsers) got unit tests; UI flows got **jsdom integration tests** that
+   mount the real render functions and assert against a fake IndexedDB. The suite
+   went from **39 → 84 tests**, all green, and caught real bugs before they shipped
+   (e.g. a collapsed-bar CSS bug, the delete-crash).
+
+6. **"Keep going" batches.** Once the roadmap existed, work proceeded in coherent
+   multi-feature batches — build, test, commit, push, then a written rundown — with
+   the user testing at natural stopping points rather than after each change.
+
+7. **Honesty about limits.** Where something couldn't be verified here (real Claude
+   API calls need the user's key; pixel-level looks need a browser), that was stated
+   plainly rather than claimed. Deferred features (e.g. a volume-shaded muscle
+   heatmap) were flagged as *blocked on a prerequisite* instead of shipped weak.
+
+**Delivery constraints that stayed constant:** every feature is buildable in vanilla
+JS against IndexedDB; new persistent data is stored as **settings** wherever possible
+so it rides along in backups with **no schema migration**; the **API key is never**
+written to source or included in a backup.
+
+---
+
+## Timeline (this build series)
+
+Commits are on branch `fix/normname-hyphen`, pushed to `master`. Service-worker
+cache version bumped each release so clients update.
+
+| Commit | What shipped |
+|---|---|
+| `d23f661` | **Walk/Run editing parity** — history detail for walks/runs got edit-date, editable notes, context tag, delete (matching strength/PT). Consolidated two read-only views into one `showCardioDetail`. |
+| `dcdab38` | **First jsdom integration test** — mounts the real history UI and asserts edits persist to IndexedDB. |
+| `e1b8cf5` | **Kinetic reskin** — full visual overhaul from the chosen direction: near-black + volt-lime, heavy display type, chunkier cards; rebuilt the Log home (hero, streak, "This Week" bars, RUN/WALK). Retheme driven entirely from the CSS token layer, both light and dark. |
+| `6c9d3a5` | **Session-delete crash fix** — root-caused + regression-tested; resolved delete / add / discard / "can't edit a trimmed PT session" in one fix. |
+| `6e0c4c9` | **Backup & Restore** — full JSON export/import of every store; API key excluded (enforced by a test). The roadmap's #1 pick — the data had no safety net. |
+| `a892d01` | **Sprint items 2–4** — auto-prefill sets from last session; live **L/R asymmetry flag**; **morning readiness check-in** wired into the coach. |
+| `a9ca2fb` | **ACWR training-load gauge** + **weekly sets-per-muscle volume board** on Progress. |
+| `e4be81d` | **Daily Goals** — habit + quantity goals with per-goal streaks; coach made goal-aware. |
+| `ccc5731` | **Auto-start rest timer** + **stalled-lift/deload detection** ("Lifts to Watch"). |
+| `6375f41` | **Body-map pain logger** (tappable front/back figure) + **recovery-aware coach** (readiness + ACWR + active pain fold into pre-workout advice and the AI template adjustment). |
+| `a1e6f1e` | **Goal Coach** (AI proposes daily goals, one-tap add) + **per-exercise rest defaults**. |
+| _(this batch)_ | Body-map detail expansion (arm segments: bicep/tricep, elbow, forearm, wrist; feet/ankles), side-specific regions with L/R labels. |
+
+Earlier phases (pre–`d23f661`) built the core app: templates, logging (unilateral /
+bodyweight / timed / drop sets), pre/post checklists, run/walk logging, the Claude
+coach, the Progress charts + 12-week heatmap, CSV import, and a multi-user Coach
+Profile.
+
+---
+
+## The feature set, by area
+
+**Logging (Log tab)**
+- Template-based sessions; per-set weight/reps/seconds; unilateral L/R, drop sets,
+  bodyweight and timed exercises; per-exercise + session notes; 5-star rating;
+  editable date/time.
+- **Auto-prefill** each set from what you actually did last time (progressive
+  overload), falling back to the template default for new lifts.
+- **Live L/R asymmetry flag** on unilateral lifts (>15% side gap → caution chip).
+- **Auto-start rest timer** with per-exercise remembered rest (−15/+15, persisted).
+- Log home: date hero, activity **streak**, **"This Week"** load bars, **readiness
+  check-in** card, **Daily Goals**, quick RUN/WALK.
+
+**History**
+- Unified list; full editable detail for strength/PT **and** walks/runs (date,
+  notes, context tag, delete).
+
+**Progress**
+- 12-week consistency heatmap; per-exercise e1RM charts with PR detection; PR board.
+- **Training Load (ACWR)** gauge — 7-day vs 28-day training minutes, 0.8–1.3 sweet
+  spot, plain-English readout, "building baseline" until ~4 weeks of history.
+- **Weekly volume board** — hard sets per arms/legs/core vs a 10–20 target band.
+- **Lifts to Watch** — flags weighted lifts with no PR in 3+ sessions.
+
+**Coach**
+- Pre-workout check-in and post-workout debrief via the Claude API.
+- **Recovery-aware context**: readiness + ACWR + active pain + goals all feed the
+  pre-workout advice, and active pain feeds the AI soreness-adjusted template.
+- **Body Check-In**: tappable front/back body map to log pain 0–10 by region.
+- **Goal Coach**: proposes 2–3 daily goals from your data; one-tap to add.
+- Training-summary export to clipboard.
+
+**Data / platform**
+- Backup & Restore (key excluded); CSV/Sheets import; light + dark; offline PWA.
+
+---
+
+## Design decisions & tradeoffs (the honest list)
+
+- **Kinetic over Refined/Lab** — the user wanted energy; a bold athletic identity
+  fit a training app and their taste. System-available fonts (Segoe/Bahnschrift/
+  Consolas) were used because the artifact sandbox blocks web-font CDNs and, for the
+  real app, they render identically on the user's Windows machine.
+- **Settings-as-storage** for readiness, goals, pain, rest defaults — chosen over new
+  IndexedDB stores so there's no migration and everything is captured by backups.
+- **Training *minutes* as the ACWR load** — not sRPE. The app doesn't reliably
+  capture session RPE, so duration is a transparent, honest external-load proxy.
+  Labeled as such.
+- **Volume board at 3 broad groups** (arms/legs/core) — the exercise model only
+  carries `bodyPartGroup`, so a fine-grained per-muscle board (or a volume-shaded
+  heatmap) is **blocked on muscle-tagging exercises**. Shipped the honest coarse
+  version rather than a misleading fine one.
+- **Manual pain/goal logging**, not auto-detection — universal and simple; auto-
+  completing goals from logged sets and pain history/trends are noted follow-ups.
+- **Rest timer is foreground-only** — iOS PWAs can't fire reliable background
+  notifications, so it's a visible-while-open cue by design, not a broken promise.
+- **Pain map is a blocky schematic**, not anatomical art — intentional given the
+  Kinetic look and to keep the SVG hand-maintainable; regions are side-specific
+  (e.g. "R forearm").
+
+---
+
+## Where injury *history* and context live (a recurring question)
+
+The app feeds the coach several things; knowing which to use avoids confusion:
+
+- **Right now / acute** (e.g. "hip's sore today") → the **Body Check-In** pain map
+  and/or the **pre-workout note**. Flows into that session's advice and the AI
+  template adjustment. The pre-workout note is *per-session and not saved*.
+- **Ongoing limitation** (e.g. "rehabbing a forearm strain — avoid direct arm work
+  for 1–2 weeks") → the **Coach Profile** (Settings). It's a persistent system prompt
+  injected into *every* coach request, so the coach carries that context day to day.
+  This is where "why I've skipped arms" belongs.
+- **Full injury history / timeline** → currently **not stored structurally** in the
+  app. That lives in the external Claude project until/unless an in-app **injury log**
+  is added (a candidate feature: dated entries that feed the coach and annotate the
+  body map).
+
+---
+
+## Testing
+
+- Framework: **vitest**, with `fake-indexeddb` for the DB layer and a per-file
+  **jsdom** environment for UI render tests. Aliases resolve the `esm.sh` `idb` import
+  and the vendored Anthropic SDK.
+- Coverage grew **39 → 84 tests**. Pure logic is unit-tested (e1RM, ACWR, weekly
+  volume, readiness score, goal/activity streaks, stall detection, pain summary, the
+  goal-suggestion parser). UI flows have integration tests that mount real render
+  functions (history editing, Log-home render + goal increment, the delete-crash
+  regression).
+- Every batch ran the full suite green before commit; `node --check` guarded syntax
+  on changed modules.
+
+---
+
+## What's next (not yet built)
+
+- **Muscle-tag exercises** → unlocks a real volume-shaded muscle heatmap.
+- **Pain history / trends** — per-region sparklines, "days since pain-free."
+- **In-app injury log** — dated injuries that persist to the coach and the body map.
+- Polish: onboarding wizard, achievements/badges, a shareable monthly "Wrapped" card,
+  auto-detecting goal completion from logged data.
+
+---
+
+*This log is maintained alongside the code. Update it when a batch ships so the
+process stays legible.*
