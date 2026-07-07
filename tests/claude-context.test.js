@@ -1,5 +1,20 @@
 // tests/claude-context.test.js
-import { buildSessionSummary, buildExportSummary } from '../claude-api.js';
+import { buildSessionSummary, buildExportSummary, parseGoalSuggestions } from '../claude-api.js';
+
+// ── parseGoalSuggestions ──────────────────────────────────────────────────────
+test('parseGoalSuggestions: parses a JSON array, clamps target, keeps unit/why', () => {
+  const out = parseGoalSuggestions('[{"title":"Dead hangs","target":3,"unit":"hangs","why":"grip"}]');
+  expect(out).toEqual([{ title: 'Dead hangs', target: 3, unit: 'hangs', why: 'grip' }]);
+});
+test('parseGoalSuggestions: tolerates prose around the array and coerces target to >=1', () => {
+  const out = parseGoalSuggestions('Sure! Here you go:\n[{"title":"PT","target":0}]\nHope that helps.');
+  expect(out).toEqual([{ title: 'PT', target: 1, unit: '', why: '' }]);
+});
+test('parseGoalSuggestions: drops entries without a title and returns [] on garbage', () => {
+  expect(parseGoalSuggestions('[{"target":3},{"title":"  "}]')).toEqual([]);
+  expect(parseGoalSuggestions('no json here')).toEqual([]);
+  expect(parseGoalSuggestions('')).toEqual([]);
+});
 
 const SAMPLE_SESSION = {
   date: '2026-06-11', templateName: 'Arm A', bodyPartGroup: 'arms', sessionNotes: 'felt strong',

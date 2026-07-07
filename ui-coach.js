@@ -1,5 +1,5 @@
-import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, getGoalLog, getPainLog, setPain } from './db.js';
-import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary } from './claude-api.js';
+import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, saveGoals, getGoalLog, getPainLog, setPain } from './db.js';
+import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary, buildSessionSummary, buildGoalSuggestions } from './claude-api.js';
 import { readinessScore, computeACWR, painSummary } from './metrics.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -54,6 +54,12 @@ export async function renderCoachTab(el) {
         <textarea class="input coach-input" id="post-note" rows="2" placeholder="Anything specific you want feedback on? (optional)" ${!apiKey ? 'disabled' : ''}></textarea>
         <button class="btn btn-secondary btn-full" id="post-ask-btn" ${!apiKey ? 'disabled' : ''}>Get Debrief</button>
         <div class="coach-response hidden" id="post-response"></div>
+      </div>
+      <div class="coach-section card" id="goal-coach-section">
+        <h2 class="coach-section-title">Goal Coach</h2>
+        <p class="coach-hint">Get daily-goal ideas based on your training, profile, and any flagged pain — add the ones you like.</p>
+        <button class="btn btn-secondary btn-full" id="suggest-goals-btn" ${!apiKey ? 'disabled' : ''}>Suggest daily goals</button>
+        <div class="coach-response hidden" id="goal-suggestions"></div>
       </div>
       <div class="coach-section card" id="export-section">
         <h2 class="coach-section-title">Update My Health Project</h2>
@@ -118,6 +124,45 @@ export async function renderCoachTab(el) {
     const confirm = el.querySelector('#export-confirm');
     confirm.classList.remove('hidden');
     setTimeout(() => confirm.classList.add('hidden'), 3000);
+  });
+
+  el.querySelector('#suggest-goals-btn').addEventListener('click', async () => {
+    const btn = el.querySelector('#suggest-goals-btn');
+    const out = el.querySelector('#goal-suggestions');
+    btn.disabled = true;
+    btn.textContent = 'Thinking…';
+    out.classList.add('hidden');
+    out.innerHTML = '';
+    try {
+      const [health, sessions, painLog, goals] = await Promise.all([
+        getSetting('healthContext'), getAllSessions(8), getPainLog(), getGoals()
+      ]);
+      const summaries = sessions.slice(0, 5).map(buildSessionSummary).join('\n');
+      const suggestions = await buildGoalSuggestions(health, summaries, painSummary(painLog), goals.map(g => g.title), apiKey);
+      if (!suggestions.length) {
+        out.textContent = 'No suggestions came back — try again.';
+        out.classList.remove('hidden');
+        return;
+      }
+      out.innerHTML = suggestions.map((s, i) =>
+        `<div class="goal-sug"><div class="goal-sug-main"><b>${esc(s.title)}</b><span>${s.target > 1 ? `${s.target}${s.unit ? ' ' + esc(s.unit) : ''} daily` : 'daily habit'}${s.why ? ` — ${esc(s.why)}` : ''}</span></div><button class="btn btn-ghost goal-sug-add" data-i="${i}">+ Add</button></div>`
+      ).join('');
+      out.classList.remove('hidden');
+      out.querySelectorAll('.goal-sug-add').forEach(b => b.addEventListener('click', async () => {
+        const s = suggestions[Number(b.dataset.i)];
+        const list = await getGoals();
+        list.push({ id: crypto.randomUUID(), title: s.title, target: s.target, unit: s.unit });
+        await saveGoals(list);
+        b.textContent = '✓ Added';
+        b.disabled = true;
+      }));
+    } catch (err) {
+      out.textContent = `Error: ${err.message}`;
+      out.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Suggest daily goals';
+    }
   });
 }
 

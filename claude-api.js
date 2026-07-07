@@ -74,6 +74,38 @@ export async function buildAdjustedWorkoutTemplate(template, exerciseDefs, soren
   return JSON.parse(jsonMatch[0]);
 }
 
+// Parse a coach's goal-suggestion reply (a JSON array, possibly wrapped in
+// prose) into clean daily-goal objects. Returns [] on anything unparseable.
+export function parseGoalSuggestions(text) {
+  const m = (text || '').match(/\[[\s\S]*\]/);
+  if (!m) return [];
+  try {
+    const arr = JSON.parse(m[0]);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter(g => g && typeof g.title === 'string' && g.title.trim())
+      .map(g => ({
+        title: String(g.title).trim(),
+        target: Math.max(1, Math.round(Number(g.target) || 1)),
+        unit: g.unit ? String(g.unit).trim() : '',
+        why: g.why ? String(g.why).trim() : '',
+      }))
+      .slice(0, 4);
+  } catch { return []; }
+}
+
+export function buildGoalSuggestionPrompt(healthContext, recentSummaries, painNote, currentGoalTitles = []) {
+  const system = `You are a fitness coach proposing simple DAILY goals for an athlete. Return ONLY a JSON array — no prose, no markdown. Each element: {"title": string, "target": number (daily count; 1 means a yes/no habit), "unit": string (short, e.g. "hangs", "min", "sessions", or ""), "why": string (one short sentence)}. Propose 2-3 goals that fit their profile, training, and any flagged pain. Favor injury prevention and consistency. Do not duplicate existing goals.${healthContext ? '\n\n' + healthContext : ''}`;
+  const userMessage = `Recent training:\n${recentSummaries || '(no recent sessions)'}\n\n${painNote || 'No active pain.'}\n\nExisting daily goals: ${currentGoalTitles.length ? currentGoalTitles.join(', ') : 'none'}\n\nPropose 2-3 daily goals as a JSON array.`;
+  return { system, userMessage };
+}
+
+export async function buildGoalSuggestions(healthContext, recentSummaries, painNote, currentGoalTitles, apiKey) {
+  const { system, userMessage } = buildGoalSuggestionPrompt(healthContext, recentSummaries, painNote, currentGoalTitles);
+  const response = await callClaude(system, userMessage, apiKey);
+  return parseGoalSuggestions(response);
+}
+
 export function buildExportSummary(sessions, runs, walks = []) {
   const byPart = { arms: [], legs: [], core: [] };
   for (const s of sessions) {

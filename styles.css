@@ -280,6 +280,12 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .bp-chip.bp-mod { background: rgba(229,138,42,0.2); color: #e78a2c; }
 .bp-chip.bp-sev { background: rgba(224,82,82,0.2); color: #e86b6b; }
 .bp-none { font-size: 13px; color: var(--text-3); text-align: center; }
+.goal-sug { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.goal-sug:last-child { border-bottom: none; }
+.goal-sug-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.goal-sug-main b { font-size: 15px; font-weight: 800; }
+.goal-sug-main span { font-size: 12.5px; color: var(--text-2); line-height: 1.4; }
+.goal-sug-add { min-height: 38px; font-size: 13px; padding: 0 14px; flex-shrink: 0; }
 .export-confirm { text-align: center; color: var(--success); font-weight: 700; margin-top: 8px; }
 .chart-wrap { height: 180px; margin-bottom: 24px; }
 

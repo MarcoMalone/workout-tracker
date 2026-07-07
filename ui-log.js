@@ -1,4 +1,4 @@
-import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress, getPainLog } from './db.js';
+import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, setSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress, getPainLog } from './db.js';
 import { readinessScore, goalStreak, painSummary } from './metrics.js';
 import { switchTab } from './app.js';
 
@@ -614,7 +614,7 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
     const nowDone = !this.classList.contains('done');
     this.classList.toggle('done');
     row.classList.toggle('set-done');
-    if (nowDone) startRest();
+    if (nowDone) startRest(exDef.id);
   });
   row.querySelector('.set-remove-btn').addEventListener('click', () => {
     if (activeSession.exercises[exIdx].sets.length <= 1) return;
@@ -632,15 +632,28 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
 const REST_DEFAULT = 90;
 let restInterval = null;
 let restRemaining = 0;
+let restTarget = REST_DEFAULT;
+let restExId = null;
 
-function startRest() {
+async function startRest(exId) {
   const bar = document.getElementById('rest-timer');
   if (!bar) return;
-  restRemaining = REST_DEFAULT;
+  restExId = exId || null;
+  const map = (await getSetting('restByExercise')) || {};
+  restTarget = (restExId && map[restExId]) || REST_DEFAULT;
+  restRemaining = restTarget;
   clearInterval(restInterval);
   bar.classList.remove('hidden', 'rest-done');
   renderRest(bar);
   restInterval = setInterval(tickRest, 1000);
+}
+
+// Remember the chosen rest for this exercise so it auto-starts there next time.
+async function persistRest() {
+  if (!restExId) return;
+  const map = (await getSetting('restByExercise')) || {};
+  map[restExId] = restTarget;
+  await setSetting('restByExercise', map);
 }
 
 function tickRest() {
@@ -667,8 +680,9 @@ function renderRest(bar, done = false) {
   const label = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
   bar.innerHTML = done
     ? `<span class="rest-label">Rest done — go</span><button class="rest-btn" id="rest-dismiss">Got it</button>`
-    : `<span class="rest-label">Rest ${label}</span><div class="rest-actions"><button class="rest-btn" id="rest-add">+15s</button><button class="rest-btn rest-skip" id="rest-skip">Skip</button></div>`;
-  bar.querySelector('#rest-add')?.addEventListener('click', () => { restRemaining += 15; renderRest(bar); });
+    : `<span class="rest-label">Rest ${label}</span><div class="rest-actions"><button class="rest-btn" id="rest-sub">−15s</button><button class="rest-btn" id="rest-add">+15s</button><button class="rest-btn rest-skip" id="rest-skip">Skip</button></div>`;
+  bar.querySelector('#rest-add')?.addEventListener('click', () => { restTarget += 15; restRemaining += 15; persistRest(); renderRest(bar); });
+  bar.querySelector('#rest-sub')?.addEventListener('click', () => { restTarget = Math.max(15, restTarget - 15); restRemaining = Math.max(1, restRemaining - 15); persistRest(); renderRest(bar); });
   bar.querySelector('#rest-skip')?.addEventListener('click', clearRest);
   bar.querySelector('#rest-dismiss')?.addEventListener('click', clearRest);
 }
@@ -677,6 +691,7 @@ function clearRest() {
   clearInterval(restInterval);
   restInterval = null;
   restRemaining = 0;
+  restExId = null;
   const bar = document.getElementById('rest-timer');
   if (bar) { bar.classList.add('hidden'); bar.classList.remove('rest-done'); bar.innerHTML = ''; }
 }
