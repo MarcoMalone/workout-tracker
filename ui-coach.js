@@ -1,4 +1,4 @@
-import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness } from './db.js';
+import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, getGoalLog } from './db.js';
 import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary } from './claude-api.js';
 import { readinessScore } from './metrics.js';
 
@@ -7,6 +7,16 @@ const localDateStr = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth
 function readinessNoteFor(entry) {
   if (!entry) return '';
   return `Today's readiness: ${readinessScore(entry)}/100 (sleep ${entry.sleep}/5, energy ${entry.energy}/5, soreness ${entry.soreness}/5, mood ${entry.mood}/5).`;
+}
+
+function goalsNoteFor(goals, log, today) {
+  const active = (goals || []).filter(g => g.title);
+  if (!active.length) return '';
+  const lines = active.map(g => {
+    const c = (log[g.id] || {})[today] || 0;
+    return `- ${g.title}: ${c}/${g.target || 1}${g.unit ? ` ${g.unit}` : ''} today`;
+  });
+  return `Daily goals (help me stay on track / suggest adjustments):\n${lines.join('\n')}`;
 }
 import { switchTab } from './app.js';
 import { setPendingCoachNote } from './ui-log.js';
@@ -54,10 +64,12 @@ export async function renderCoachTab(el) {
     const note = el.querySelector('#pre-note').value.trim();
     if (!note) { alert('Describe how you are feeling first.'); return; }
     await runCoach(el, '#pre-ask-btn', '#pre-response', async () => {
-      const [recent, health, readiness] = await Promise.all([
-        getSessionsByBodyPart(part, 4), getSetting('healthContext'), getReadiness(localDateStr())
+      const today = localDateStr();
+      const [recent, health, readiness, goals, goalLog] = await Promise.all([
+        getSessionsByBodyPart(part, 4), getSetting('healthContext'), getReadiness(today), getGoals(), getGoalLog()
       ]);
-      return buildPreWorkoutContext(recent, note, health, readinessNoteFor(readiness));
+      const statusNote = [readinessNoteFor(readiness), goalsNoteFor(goals, goalLog, today)].filter(Boolean).join('\n\n');
+      return buildPreWorkoutContext(recent, note, health, statusNote);
     }, apiKey);
     const resp = el.querySelector('#pre-response');
     if (!resp.classList.contains('hidden') && !resp.textContent.startsWith('Error:')) {

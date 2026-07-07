@@ -1,5 +1,5 @@
-import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness } from './db.js';
-import { readinessScore } from './metrics.js';
+import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress } from './db.js';
+import { readinessScore, goalStreak } from './metrics.js';
 import { switchTab } from './app.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -136,6 +136,7 @@ export async function renderLogTab(el) {
         <div class="week-bars-wrap"><div class="week-bars">${barsHtml}</div></div>
       </div>
       ${readinessCard}
+      <div id="daily-goals"></div>
       <div class="log-cardio-row">
         <button class="btn log-cardio-btn cardio-run" id="start-run-btn">${runIcon} Log a Run</button>
         <button class="btn log-cardio-btn cardio-walk" id="start-walk-btn">${walkIcon} Log a Walk</button>
@@ -182,6 +183,107 @@ export async function renderLogTab(el) {
   el.querySelector('#start-run-btn').addEventListener('click', () => showRunForm(el));
   el.querySelector('#start-walk-btn').addEventListener('click', () => showWalkForm(el));
   el.querySelector('#readiness-btn')?.addEventListener('click', () => showReadinessCheckin(el));
+  renderGoalsSection(el.querySelector('#daily-goals'), el);
+}
+
+// ── Daily goals ───────────────────────────────────────────────────────────────
+function refreshGoals(el) {
+  const c = el.querySelector('#daily-goals');
+  if (c) renderGoalsSection(c, el);
+}
+
+async function renderGoalsSection(container, el) {
+  if (!container) return;
+  const [goals, log] = await Promise.all([getGoals(), getGoalLog()]);
+  const today = localDateStr();
+  const rows = goals.map(g => {
+    const target = g.target || 1;
+    const count = (log[g.id] || {})[today] || 0;
+    const done = count >= target;
+    const streak = goalStreak(log[g.id] || {}, target);
+    const sub = `${count}/${target}${g.unit ? ` ${esc(g.unit)}` : ''}${streak > 0 ? ` · 🔥 ${streak}` : ''}`;
+    const control = target > 1
+      ? `<div class="goal-steps"><button class="goal-dec" data-id="${g.id}" aria-label="Decrease">−</button><button class="goal-inc" data-id="${g.id}" aria-label="Increase">+</button></div>`
+      : `<button class="goal-toggle${done ? ' done' : ''}" data-id="${g.id}" aria-label="Toggle done">${done ? '✓' : ''}</button>`;
+    return `<div class="goal-row${done ? ' goal-done' : ''}">
+      <div class="goal-main" data-id="${g.id}"><span class="goal-title">${esc(g.title)}</span><span class="goal-sub">${sub}</span></div>
+      ${control}
+    </div>`;
+  }).join('');
+  container.innerHTML = `
+    <div class="goals-head"><p class="section-title" style="margin:0">Daily Goals</p><button class="goals-add-btn" id="add-goal-btn">+ Goal</button></div>
+    ${goals.length ? `<div class="goals-list">${rows}</div>` : `<p class="goals-empty">No goals yet — tap + Goal to set a daily target like "3× 1-min hangs" or "PT every day."</p>`}
+  `;
+  container.querySelector('#add-goal-btn').addEventListener('click', () => showGoalModal(el, null));
+  container.querySelectorAll('.goal-main').forEach(m => m.addEventListener('click', () => showGoalModal(el, m.dataset.id)));
+  container.querySelectorAll('.goal-inc').forEach(b => b.addEventListener('click', () => bumpGoal(b.dataset.id, 1, el)));
+  container.querySelectorAll('.goal-dec').forEach(b => b.addEventListener('click', () => bumpGoal(b.dataset.id, -1, el)));
+  container.querySelectorAll('.goal-toggle').forEach(b => b.addEventListener('click', () => toggleGoal(b.dataset.id, el)));
+}
+
+async function bumpGoal(id, delta, el) {
+  const log = await getGoalLog();
+  const cur = (log[id] || {})[localDateStr()] || 0;
+  await setGoalProgress(id, localDateStr(), Math.max(0, cur + delta));
+  refreshGoals(el);
+}
+
+async function toggleGoal(id, el) {
+  const [goals, log] = await Promise.all([getGoals(), getGoalLog()]);
+  const g = goals.find(x => x.id === id);
+  if (!g) return;
+  const target = g.target || 1;
+  const cur = (log[id] || {})[localDateStr()] || 0;
+  await setGoalProgress(id, localDateStr(), cur >= target ? 0 : target);
+  refreshGoals(el);
+}
+
+async function showGoalModal(el, goalId) {
+  const goals = await getGoals();
+  const existing = goalId ? goals.find(g => g.id === goalId) : null;
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <div class="modal-sheet">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 class="modal-title" style="margin-bottom:0">${existing ? 'Edit' : 'New'} Goal</h2>
+        <button class="modal-dismiss-btn" id="goal-dismiss" aria-label="Dismiss">✕</button>
+      </div>
+      <label class="form-label">Goal</label>
+      <input class="input" id="goal-title" placeholder="e.g. Dead hangs" value="${esc(existing?.title || '')}">
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label class="form-label">Daily target</label><input type="number" class="input" id="goal-target" inputmode="numeric" min="1" value="${existing?.target || 1}"></div>
+        <div style="flex:1"><label class="form-label">Unit <span class="form-hint">optional</span></label><input class="input" id="goal-unit" placeholder="hangs, min, sets" value="${esc(existing?.unit || '')}"></div>
+      </div>
+      <p class="settings-hint" style="margin-top:10px">Target 1 = a simple daily habit (tap to check off). Higher targets show a counter.</p>
+      <button class="btn btn-primary btn-full" id="goal-save" style="margin-top:14px">${existing ? 'Save' : 'Add Goal'}</button>
+      ${existing ? `<button class="btn btn-ghost btn-full" id="goal-delete" style="margin-top:8px;color:var(--danger)">🗑 Delete Goal</button>` : ''}
+    </div>
+  `;
+  const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
+  overlay.querySelector('#goal-dismiss').addEventListener('click', close);
+  overlay.querySelector('#goal-save').addEventListener('click', async () => {
+    const title = overlay.querySelector('#goal-title').value.trim();
+    if (!title) { alert('Give the goal a name.'); return; }
+    const target = Math.max(1, Number(overlay.querySelector('#goal-target').value) || 1);
+    const unit = overlay.querySelector('#goal-unit').value.trim();
+    const list = await getGoals();
+    if (existing) {
+      const g = list.find(x => x.id === goalId);
+      Object.assign(g, { title, target, unit });
+    } else {
+      list.push({ id: crypto.randomUUID(), title, target, unit });
+    }
+    await saveGoals(list);
+    close();
+    refreshGoals(el);
+  });
+  if (existing) overlay.querySelector('#goal-delete').addEventListener('click', async () => {
+    if (!confirm(`Delete "${existing.title}"?`)) return;
+    await saveGoals((await getGoals()).filter(g => g.id !== goalId));
+    close();
+    refreshGoals(el);
+  });
 }
 
 const RD_METRICS = [

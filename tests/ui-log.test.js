@@ -8,7 +8,7 @@ vi.mock('../app.js', () => ({ switchTab: () => {} }));
 
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
-import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog } from '../db.js';
+import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog, saveGoals } from '../db.js';
 import { renderLogTab, computeAsymmetry, _resetSessionForTest } from '../ui-log.js';
 
 const flush = () => new Promise(r => setTimeout(r, 0));
@@ -120,6 +120,19 @@ test('deleting an exercise keeps the session usable (names stay aligned)', async
   // the first remaining card must be Bravo — NOT Alpha's name shifted onto Bravo's data
   expect(cards[0].querySelector('.ex-name').textContent).toContain('Bravo');
   overlay.remove();
+});
+
+// ── Daily goals ───────────────────────────────────────────────────────────────
+test('daily goals render on the Log home and increment on tap', async () => {
+  await saveGoals([{ id: 'g1', title: 'Dead hangs', target: 3, unit: 'hangs' }]);
+  await renderLogTab(container);
+  await waitFor(() => container.querySelector('.goal-row'));
+  expect(container.querySelector('.goal-title').textContent).toBe('Dead hangs');
+  expect(container.querySelector('.goal-sub').textContent).toContain('0/3');
+
+  container.querySelector('.goal-inc').click();
+  await waitFor(() => container.querySelector('.goal-sub')?.textContent.includes('1/3'));
+  expect(container.querySelector('.goal-sub').textContent).toContain('1/3');
 });
 
 // ── #2 auto-prefill from last session ─────────────────────────────────────────

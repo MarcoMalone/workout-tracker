@@ -1,4 +1,23 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak } from '../metrics.js';
+
+// ── goalStreak ────────────────────────────────────────────────────────────────
+const gb = (t, n) => { const d = new Date(t); d.setDate(t.getDate() - n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+test('goalStreak: consecutive met days including today', () => {
+  const t = new Date(2026, 6, 8);
+  expect(goalStreak({ [gb(t, 0)]: 1, [gb(t, 1)]: 1, [gb(t, 2)]: 1 }, 1, t)).toBe(3);
+});
+test('goalStreak: an untouched today still counts prior days', () => {
+  const t = new Date(2026, 6, 8);
+  expect(goalStreak({ [gb(t, 1)]: 1, [gb(t, 2)]: 1 }, 1, t)).toBe(2);
+});
+test('goalStreak: a gap breaks the streak', () => {
+  const t = new Date(2026, 6, 8);
+  expect(goalStreak({ [gb(t, 0)]: 1, [gb(t, 2)]: 1 }, 1, t)).toBe(1);
+});
+test('goalStreak: quantity target must be reached to count the day', () => {
+  const t = new Date(2026, 6, 8);
+  expect(goalStreak({ [gb(t, 0)]: 3, [gb(t, 1)]: 2 }, 3, t)).toBe(1);
+});
 
 const dk = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 function walksBack(today, count, minutes, offset = 0) {

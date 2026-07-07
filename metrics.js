@@ -78,6 +78,17 @@ export function computeWeeklyVolume(sessions, exerciseGroupById = {}, today = ne
   return counts;
 }
 
+// Consecutive days a daily goal has been met (count >= target), ending today —
+// or yesterday if today isn't met yet, so an untouched today doesn't break it.
+export function goalStreak(logForGoal = {}, target = 1, today = new Date()) {
+  const met = d => (logForGoal[dayKey(d)] || 0) >= target;
+  let streak = 0;
+  const cur = new Date(today);
+  if (!met(cur)) cur.setDate(cur.getDate() - 1);
+  while (met(cur)) { streak++; cur.setDate(cur.getDate() - 1); }
+  return streak;
+}
+
 export function calcE1RM(weight, reps) {
   if (!weight || !reps || reps > 20) return null;
   if (reps === 1) return weight;

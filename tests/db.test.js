@@ -7,6 +7,7 @@ import { initDB, getSetting, setSetting, addExercise, getExercises,
          getLastSessionForExercise, addRunLog, getRunLogs, deleteRunLog,
          addWalkLog, getWalkLogs, deleteWalkLog, getTemplate,
          exportAllData, importAllData, getReadiness, saveReadiness,
+         getGoals, saveGoals, getGoalLog, setGoalProgress,
          seedIfEmpty, _resetForTest } from '../db.js';
 
 beforeEach(async () => {
@@ -195,4 +196,28 @@ test('readiness log is included in a backup and restores', async () => {
   await initDB();
   await importAllData(data);
   expect(await getReadiness('2026-07-07')).toEqual({ sleep: 4, energy: 3, soreness: 2, mood: 4 });
+});
+
+// ─── Goals ────────────────────────────────────────────────────────────────────
+test('goals + progress round-trip and ride along in a backup', async () => {
+  await saveGoals([{ id: 'g1', title: 'Dead hangs', target: 3, unit: 'hangs' }]);
+  await setGoalProgress('g1', '2026-07-07', 2);
+  expect((await getGoals())[0].title).toBe('Dead hangs');
+  expect((await getGoalLog()).g1['2026-07-07']).toBe(2);
+
+  const data = await exportAllData();
+  expect(data.stores.app_settings.goals[0].id).toBe('g1');
+
+  globalThis.indexedDB = new IDBFactory();
+  _resetForTest();
+  await initDB();
+  await importAllData(data);
+  expect((await getGoals())[0].target).toBe(3);
+  expect((await getGoalLog()).g1['2026-07-07']).toBe(2);
+});
+
+test('setGoalProgress clears a day when the count hits zero', async () => {
+  await setGoalProgress('g1', '2026-07-07', 2);
+  await setGoalProgress('g1', '2026-07-07', 0);
+  expect((await getGoalLog()).g1['2026-07-07']).toBeUndefined();
 });

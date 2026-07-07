@@ -161,6 +161,25 @@ export async function saveReadiness(dateStr, entry) {
   await setSetting('readinessLog', log);
 }
 
+// ─── Daily goals ──────────────────────────────────────────────────────────────
+// Goals + per-day progress live in settings (tiny, backed up, no migration).
+// goals: [{ id, title, target, unit }]; goalLog: { [goalId]: { [date]: count } }.
+export async function getGoals() {
+  return (await getSetting('goals')) || [];
+}
+export async function saveGoals(goals) {
+  return setSetting('goals', goals);
+}
+export async function getGoalLog() {
+  return (await getSetting('goalLog')) || {};
+}
+export async function setGoalProgress(goalId, dateStr, count) {
+  const log = await getGoalLog();
+  const g = log[goalId] || (log[goalId] = {});
+  if (count > 0) g[dateStr] = count; else delete g[dateStr];
+  return setSetting('goalLog', log);
+}
+
 // ─── Backup / Restore ───────────────────────────────────────────────────────
 const BACKUP_STORES = ['exercise_definitions', 'workout_templates', 'logged_sessions', 'run_logs', 'walk_logs'];
 // Settings that must NEVER leave the device in a backup file (e.g. the API key).
