@@ -2,6 +2,14 @@ import { getAllSessions, getRunLogs, getWalkLogs, deleteSession, saveSession, ad
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+function detailToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1500);
+}
+
 export async function renderHistoryTab(el) {
   const [sessions, runs, walks] = await Promise.all([getAllSessions(), getRunLogs(), getWalkLogs()]);
   // Only dedup imported sessions (startedAt is null/undefined = came from CSV import).
@@ -113,19 +121,33 @@ function showDetail(el, item, type) {
           <button class="btn btn-ghost" id="cancel-context-btn" style="min-height:40px">&times;</button>
         </div>
       </div>
-      ${item.sessionNotes ? `<div class="detail-notes">${esc(item.sessionNotes)}</div>` : ''}
-      ${item.exercises.map(ex => `
+      <label class="form-label" style="margin:4px 0 4px">Session notes</label>
+      <textarea class="input" id="detail-session-notes" rows="3" placeholder="Add a note about this session…" style="width:100%;box-sizing:border-box;margin-bottom:12px">${esc(item.sessionNotes || '')}</textarea>
+      ${item.exercises.map((ex, i) => `
         <div class="card detail-exercise">
           <p class="ex-name">${esc(displayName(ex.exerciseName))}</p>
-          ${ex.notes ? `<p class="detail-ex-note">${esc(ex.notes)}</p>` : ''}
           ${ex.sets.map(s => `<div class="detail-set-row">
             <span class="set-num">Set ${esc(s.setNumber)}${s.isDropSet ? ' ↓' : ''}</span>
             <span>${s.seconds != null ? `${esc(s.seconds)}s` : `${esc(s.weight)} × ${esc(s.reps)}`}${s.side ? ` (${esc(s.side)})` : ''}</span>
           </div>`).join('')}
+          <textarea class="input detail-ex-note-input" data-ex-idx="${i}" rows="2" placeholder="Note for this exercise…" style="width:100%;box-sizing:border-box;margin-top:8px">${esc(ex.notes || '')}</textarea>
         </div>
       `).join('')}
     </div>
   `;
+  const sessionNotesEl = el.querySelector('#detail-session-notes');
+  sessionNotesEl.addEventListener('change', async () => {
+    item.sessionNotes = sessionNotesEl.value;
+    await saveSession(item);
+    detailToast('Saved');
+  });
+  el.querySelectorAll('.detail-ex-note-input').forEach(t => {
+    t.addEventListener('change', async () => {
+      item.exercises[Number(t.dataset.exIdx)].notes = t.value;
+      await saveSession(item);
+      detailToast('Saved');
+    });
+  });
   el.querySelector('#back-btn').addEventListener('click', () => renderHistoryTab(el));
   el.querySelector('#copy-notes-btn').addEventListener('click', () => {
     const titleStr = displayName(item.workoutLabel ? `${item.templateName} — ${item.workoutLabel}` : item.templateName);

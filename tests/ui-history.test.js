@@ -6,7 +6,7 @@
 // (fake-)IndexedDB — asserting the DB actually changes.
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
-import { initDB, _resetForTest, addWalkLog, addRunLog, getWalkLogs, getRunLogs } from '../db.js';
+import { initDB, _resetForTest, addWalkLog, addRunLog, getWalkLogs, getRunLogs, saveSession, getSession } from '../db.js';
 import { renderHistoryTab } from '../ui-history.js';
 
 // Let async click handlers (await persist() → re-render) settle.
@@ -116,4 +116,26 @@ test('run detail edits and deletes persist to the DB', async () => {
   detailButtons().del.click();
   await flush();
   expect(await getRunLogs()).toHaveLength(0);
+});
+
+test('editing session and exercise notes on a logged workout persists', async () => {
+  await saveSession({
+    id: 's-1', templateId: 't-1', templateName: 'Arm A', bodyPartGroup: 'arms',
+    date: '2026-06-11', startedAt: 1, finishedAt: 2, sessionRating: null,
+    preChecklist: {}, postChecklist: {}, sessionNotes: '',
+    exercises: [{ exerciseId: 'ex-1', exerciseName: 'Curl', notes: '', sets: [{ setNumber: 1, weight: 100, reps: 10, seconds: null, side: null, isDropSet: false, parentSetIndex: null }] }]
+  });
+  await openDetail('workout');
+
+  const sn = container.querySelector('#detail-session-notes');
+  sn.value = 'felt strong';
+  sn.dispatchEvent(new Event('change'));
+  const exNote = container.querySelector('.detail-ex-note-input');
+  exNote.value = 'left elbow twinge';
+  exNote.dispatchEvent(new Event('change'));
+  await flush();
+
+  const s = await getSession('s-1');
+  expect(s.sessionNotes).toBe('felt strong');
+  expect(s.exercises[0].notes).toBe('left elbow twinge');
 });
