@@ -146,6 +146,7 @@ export async function renderLogTab(el) {
       ${lastLine}
       <div class="template-section">
         <p class="section-title">Workouts</p>
+        ${templates.length === 0 ? `<p class="tpl-empty">No workouts yet — build one below, or add starter splits / paste a template from Settings.</p>` : ''}
         <div class="template-list" id="template-list"></div>
         <button class="btn btn-ghost btn-full" id="new-template-btn" style="margin-top:10px">+ New Template</button>
       </div>

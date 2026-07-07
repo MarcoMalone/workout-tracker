@@ -1,6 +1,13 @@
 import { getSetting } from './db.js';
 import { askHelp } from './claude-api.js';
 
+// Opens the user's mail app with a prefilled feedback email to Marco.
+export function openFeedback() {
+  const subject = encodeURIComponent('Workout Tracker — feedback');
+  const body = encodeURIComponent('What I liked:\n\n\nWhat was confusing:\n\n\nBugs:\n\n\nIdeas / what I wish it did:\n\n');
+  window.location.href = `mailto:marco.dileo@cylentra.com?subject=${subject}&body=${body}`;
+}
+
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // Curated answers — work offline / without an API key. The free-form "Ask" box
@@ -35,10 +42,14 @@ export function showHelpCenter() {
       <textarea class="input" id="help-q" rows="2" placeholder="e.g. How do I log a drop set?"></textarea>
       <button class="btn btn-secondary btn-full" id="help-ask" style="margin-top:8px">Ask</button>
       <div class="coach-response hidden" id="help-answer"></div>
+      <div style="height:1px;background:var(--border);margin:18px 0"></div>
+      <p class="settings-hint" style="margin-bottom:8px">Found a bug or have an idea? It helps the app improve fast.</p>
+      <button class="btn btn-ghost btn-full" id="help-feedback">✉ Send feedback</button>
     </div>
   `;
   const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
   overlay.querySelector('#help-dismiss').addEventListener('click', close);
+  overlay.querySelector('#help-feedback').addEventListener('click', openFeedback);
   overlay.querySelectorAll('.faq-q').forEach(b => b.addEventListener('click', () => {
     overlay.querySelector('#faq-a-' + b.dataset.i).classList.toggle('hidden');
     b.classList.toggle('open');

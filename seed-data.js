@@ -18,35 +18,56 @@ export const SEED_EXERCISES = [
   { id: 'ex-single-arm-lateral-raises', name: 'Single-Arm Lateral Raises', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, notes: '' },
 ];
 
-export const SEED_TEMPLATES = [
+// New installs start with NO templates — the first-run welcome lets the user
+// choose to load the starter splits below, build their own, or paste one in.
+export const SEED_TEMPLATES = [];
+
+// "Marco's Starter Splits" — offered on first run. Real exercises and rep
+// targets, but NO default weights (a new user fills in their own load). All
+// exerciseIds exist in the exercise library (seeded via SEED_EXERCISES + the
+// migrate-data upsert, which both run before onboarding).
+export const STARTER_TEMPLATES = [
   {
-    id: 'tpl-arm-a',
-    name: 'Arm A',
+    id: 'tpl-starter-arms',
+    name: 'Basic Arms',
     bodyPartGroup: 'arms',
     createdAt: 1749600000000,
     exercises: [
       { exerciseId: 'ex-mn-lat-pulldown', defaultSets: 3, targetReps: 12, order: 0 },
       { exerciseId: 'ex-semi-pronated-db-curls', defaultSets: 3, targetReps: 12, order: 1 },
-      { exerciseId: 'ex-rear-delt-fly-machine', defaultSets: 3, targetReps: 12, order: 2 },
-      { exerciseId: 'ex-seated-cable-rows', defaultSets: 3, targetReps: 12, order: 3 },
+      { exerciseId: 'ex-seated-shoulder-press', defaultSets: 3, targetReps: 12, order: 2 },
+      { exerciseId: 'ex-rope-tricep-pushdowns', defaultSets: 3, targetReps: 12, order: 3 },
       { exerciseId: 'ex-hammer-curls', defaultSets: 3, targetReps: 10, order: 4 },
-      { exerciseId: 'ex-reverse-cable-flys', defaultSets: 3, targetReps: 12, order: 5 },
-      { exerciseId: 'ex-dead-hangs', defaultSets: 3, targetReps: null, order: 6 },
+      { exerciseId: 'ex-face-pulls', defaultSets: 3, targetReps: 12, order: 5 },
+      { exerciseId: 'ex-push-ups', defaultSets: 3, targetReps: 10, order: 6 },
     ]
   },
   {
-    id: 'tpl-arm-b',
-    name: 'Arm B',
-    bodyPartGroup: 'arms',
-    createdAt: 1749772800000,
+    id: 'tpl-starter-legs',
+    name: 'Legs',
+    bodyPartGroup: 'legs',
+    createdAt: 1749600000001,
     exercises: [
-      { exerciseId: 'ex-seated-shoulder-press', defaultSets: 3, targetReps: 12, order: 0 },
-      { exerciseId: 'ex-db-bench', defaultSets: 3, targetReps: 12, order: 1 },
-      { exerciseId: 'ex-push-ups', defaultSets: 3, targetReps: null, order: 2 },
-      { exerciseId: 'ex-rope-tricep-pushdowns', defaultSets: 3, targetReps: 12, order: 3 },
-      { exerciseId: 'ex-face-pulls', defaultSets: 3, targetReps: 12, order: 4 },
-      { exerciseId: 'ex-pec-flys-machine', defaultSets: 3, targetReps: 12, order: 5 },
-      { exerciseId: 'ex-single-arm-lateral-raises', defaultSets: 3, targetReps: 12, order: 6 },
+      { exerciseId: 'ex-hip-thrusts', defaultSets: 3, targetReps: 10, order: 0 },
+      { exerciseId: 'ex-rdl', defaultSets: 3, targetReps: 8, order: 1 },
+      { exerciseId: 'ex-leg-press', defaultSets: 3, targetReps: 10, order: 2 },
+      { exerciseId: 'ex-leg-extensions', defaultSets: 3, targetReps: 12, order: 3 },
+      { exerciseId: 'ex-hamstring-curls', defaultSets: 3, targetReps: 12, order: 4 },
+      { exerciseId: 'ex-calf-raises', defaultSets: 3, targetReps: 15, order: 5 },
     ]
-  }
+  },
+  {
+    id: 'tpl-starter-core',
+    name: 'My Core Workout',
+    bodyPartGroup: 'core',
+    createdAt: 1749600000002,
+    exercises: [
+      { exerciseId: 'ex-pallof-press', defaultSets: 3, targetReps: 10, order: 0 },
+      { exerciseId: 'ex-cable-crunch', defaultSets: 3, targetReps: 12, order: 1 },
+      { exerciseId: 'ex-dead-bug', defaultSets: 3, targetReps: 10, order: 2 },
+      { exerciseId: 'ex-side-plank', defaultSets: 3, targetReps: null, defaultSeconds: 30, order: 3 },
+      { exerciseId: 'ex-bird-dog', defaultSets: 3, targetReps: 10, order: 4 },
+      { exerciseId: 'ex-ab-wheel-rollout', defaultSets: 2, targetReps: 8, order: 5 },
+    ]
+  },
 ];

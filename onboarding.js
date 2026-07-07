@@ -1,5 +1,7 @@
 import { getSetting, setSetting, saveSession, addExercise, addTemplate } from './db.js';
 import { switchTab } from './app.js';
+import { STARTER_TEMPLATES } from './seed-data.js';
+import { showPasteTemplateModal } from './template-import.js';
 
 export async function checkOnboarding() {
   const done = await getSetting('onboardingComplete');
@@ -28,13 +30,26 @@ function renderOnboarding() {
       <div class="onboard-screen">
         <div class="onboard-hero">💪</div>
         <h1 class="onboard-title">Workout Tracker</h1>
-        <p class="onboard-sub">Log workouts, track progression, get AI coaching. All offline-first.</p>
-        <button class="btn btn-primary btn-full" id="import-btn">Import my Google Sheets history</button>
-        <button class="btn btn-ghost btn-full" id="fresh-btn" style="margin-top:8px">Start fresh</button>
+        <p class="onboard-sub">Log workouts, track progression, get AI coaching. Works offline. How do you want to start?</p>
+        <button class="btn btn-primary btn-full" id="start-splits">Use starter splits <span style="font-weight:400;opacity:.8">— Arms · Legs · Core</span></button>
+        <button class="btn btn-secondary btn-full" id="start-build" style="margin-top:8px">Build my own</button>
+        <button class="btn btn-secondary btn-full" id="start-paste" style="margin-top:8px">Paste a template <span style="font-weight:400;opacity:.8">— AI-assisted</span></button>
+        <button class="btn btn-ghost btn-full" id="import-btn" style="margin-top:8px">Import Google Sheets history</button>
         <input type="file" id="csv-input" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
+        <p class="onboard-note" id="start-note"></p>
       </div>
     `;
-    el.querySelector('#fresh-btn').addEventListener('click', () => showStep(2));
+    el.querySelector('#start-splits').addEventListener('click', async () => {
+      for (const tpl of STARTER_TEMPLATES) await addTemplate(tpl);
+      showStep(2);
+    });
+    el.querySelector('#start-build').addEventListener('click', () => showStep(2));
+    el.querySelector('#start-paste').addEventListener('click', () => {
+      showPasteTemplateModal(result => {
+        const note = el.querySelector('#start-note');
+        if (note) note.textContent = `Added "${result.name}". Paste another, pick another option, or you're set.`;
+      });
+    });
     el.querySelector('#import-btn').addEventListener('click', () => el.querySelector('#csv-input').click());
     el.querySelector('#csv-input').addEventListener('change', async e => {
       await importCSV(e.target.files[0], el);

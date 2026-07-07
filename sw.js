@@ -1,9 +1,10 @@
-const CACHE = 'workout-v35';
+const CACHE = 'workout-v36';
 const BASE = '/workout-tracker';
 const PRECACHE = [
   BASE + '/', BASE + '/index.html', BASE + '/styles.css', BASE + '/app.js', BASE + '/db.js',
   BASE + '/ui-log.js', BASE + '/ui-history.js', BASE + '/ui-progress.js',
   BASE + '/ui-coach.js', BASE + '/ui-settings.js', BASE + '/ui-help.js', BASE + '/claude-api.js',
+  BASE + '/template-import.js',
   BASE + '/onboarding.js', BASE + '/metrics.js', BASE + '/seed-data.js', BASE + '/migrate-data.js', BASE + '/manifest.json',
   BASE + '/icons/icon-192.png', BASE + '/icons/icon-512.png',
   'https://esm.sh/idb@8'

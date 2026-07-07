@@ -1,5 +1,6 @@
 ﻿import { getSetting, setSetting, getExercises, addExercise, deleteExercise, getTemplates, addTemplate, deleteTemplate, getAllSessions, getRunLogs, exportAllData, importAllData } from './db.js';
-import { showHelpCenter } from './ui-help.js';
+import { showHelpCenter, openFeedback } from './ui-help.js';
+import { showPasteTemplateModal } from './template-import.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -36,7 +37,8 @@ export async function renderSettingsTab(el) {
     <div class="screen">
       <h1 class="tab-title">Settings</h1>
 
-      <button class="btn btn-ghost btn-full" id="open-help-center" style="margin-bottom:18px">❓ Help Center &amp; FAQ</button>
+      <button class="btn btn-ghost btn-full" id="open-help-center" style="margin-bottom:8px">❓ Help Center &amp; FAQ</button>
+      <button class="btn btn-ghost btn-full" id="send-feedback" style="margin-bottom:18px">✉ Send feedback</button>
 
       <p class="section-title">Coach</p>
       <div class="settings-group card">
@@ -77,6 +79,7 @@ export async function renderSettingsTab(el) {
       <p class="section-title" style="margin-top:20px">Workout Templates</p>
       <div class="settings-group card" id="template-library"></div>
       <button class="btn btn-ghost btn-full" id="add-template-btn" style="margin-top:8px">+ New Template</button>
+      <button class="btn btn-ghost btn-full" id="paste-template-btn" style="margin-top:8px">Paste a template (AI-assisted)</button>
 
       <p class="section-title" style="margin-top:20px">Appearance</p>
       <div class="settings-group card">
@@ -101,6 +104,12 @@ export async function renderSettingsTab(el) {
   `;
 
   el.querySelector('#open-help-center').addEventListener('click', () => showHelpCenter());
+  el.querySelector('#send-feedback').addEventListener('click', () => openFeedback());
+  el.querySelector('#paste-template-btn').addEventListener('click', () => showPasteTemplateModal(async () => {
+    await renderTemplateLibrary(el.querySelector('#template-library'), el);
+    await renderExerciseLibrary(el.querySelector('#exercise-library'));
+    showToast('Template added');
+  }));
   el.querySelector('#save-api-key').addEventListener('click', async () => {
     await setSetting('anthropicApiKey', el.querySelector('#api-key-input').value.trim());
     showToast('API key saved');

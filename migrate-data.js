@@ -214,20 +214,14 @@ const ALL_TEMPLATES = [
 ];
 
 export async function migrateNewTemplates() {
-  const storedV = Number(localStorage.getItem('app_migrate_v') || 0);
-
-  // Always upsert all exercise definitions (safe, idempotent)
+  // Always upsert all exercise definitions (safe, idempotent) so the library
+  // stays current for everyone.
   for (const ex of ALL_EXERCISES) await addExercise(ex);
 
-  if (storedV < MIGRATE_V) {
-    // v5: force-upsert all templates (fixes PT set counts, adds Curtsy Lunge + Side Star Plank to Full PT)
-    for (const tpl of ALL_TEMPLATES) await addTemplate(tpl);
-    localStorage.setItem('app_migrate_v', String(MIGRATE_V));
-  } else {
-    // Only add templates that don't exist yet
-    for (const tpl of ALL_TEMPLATES) {
-      const existing = await getTemplate(tpl.id);
-      if (!existing) await addTemplate(tpl);
-    }
-  }
+  // NOTE: templates are intentionally NOT seeded here anymore. Personal/starter
+  // templates would otherwise be pushed onto every install. New users choose
+  // their starting templates in the first-run welcome (STARTER_TEMPLATES,
+  // build-your-own, or paste-a-template); existing devices keep whatever
+  // templates they already have. ALL_TEMPLATES below is retained only as a
+  // reference of the original built-in set.
 }

@@ -197,11 +197,24 @@ The app feeds the coach several things; knowing which to use avoids confusion:
 
 ## What's next (not yet built)
 
-- **Muscle-tag exercises** → unlocks a real volume-shaded muscle heatmap.
+- **Specialty / neglected-area auto-population** (Marco's idea, high priority): the
+  app analyzes logged workouts, notices body parts/movements that haven't been
+  trained in a while (feet & toes, tibialis, ankles, hip flexors, traps/shrugs,
+  adductors), and auto-injects a small niche exercise into the relevant workout —
+  deletable, but tracked. If an area goes untouched ~2 weeks it escalates and gets
+  injected every session until done, then the cycle resets. Configurable cadence
+  (e.g. weekly). Needs: a catalog of "specialty exercises" tagged by area, a
+  coverage analysis over recent sessions, and an injection point in the session
+  builder + a nudge.
+- **Muscle-tag exercises** → unlocks a real volume-shaded muscle heatmap (and feeds
+  the coverage analysis above).
 - **Pain history / trends** — per-region sparklines, "days since pain-free."
 - **In-app injury log** — dated injuries that persist to the coach and the body map.
-- Polish: onboarding wizard, achievements/badges, a shareable monthly "Wrapped" card,
-  auto-detecting goal completion from logged data.
+- **Pilot polish**: quick-build tutorial, achievements/badges, a shareable monthly
+  "Wrapped" card, auto-detecting goal completion from logged data.
+- **BYO-key pilot** decided (Aug 2026 direction): each of ~5 testers uses their own
+  Anthropic key; a rate-limited proxy (Marco pays) is the later step if friction
+  hurts adoption.
 
 ---
 
