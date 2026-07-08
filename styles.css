@@ -22,7 +22,7 @@
   --font-mono: "Consolas", ui-monospace, "SF Mono", monospace;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent; }
 #app { display: flex; flex-direction: column; height: 100%; }
 #tab-content { flex: 1; overflow-y: auto; padding-top: var(--safe-t); padding-bottom: calc(var(--nav-h) + var(--safe-b) + 8px); }
 #bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b); background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: stretch; }

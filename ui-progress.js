@@ -3,7 +3,7 @@ import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, compute
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { switchTab } from './app.js';
 
-const CHART_COLORS = { line: '#F3A64E', vol: 'rgba(243,166,78,0.3)', run: '#4CAF7D', walk: '#5BA4E0', grid: '#2A3F58', text: '#8EA3B8' };
+const CHART_COLORS = { line: '#c6f135', vol: 'rgba(198,241,53,0.28)', run: '#4CAF7D', walk: '#5BA4E0', grid: 'rgba(255,255,255,0.06)', text: '#77797f' };
 // Arms=purple, Legs=blue, Core=green, PT=orange, Run=coral, Walk=teal
 const LAYER_A_COLORS = { arms: '#B09FE0', legs: '#5BA4E0', core: '#4CAF7D', pt: '#F5923E', run: '#E87444', walk: '#6ECFB0' };
 const LAYER_B_COLORS = { arms: '#B09FE0', legs: '#5BA4E0', core: '#4CAF7D', pt: '#F5923E' };
@@ -663,7 +663,7 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
     tooltipFn = v => `${v} sec`;
     const best = Math.max(...data);
     statEl.innerHTML = `<span class="chart-stat-pr">🏆 Best: ${best} sec</span>`;
-    pointColors = data.map(() => '#F3A64E');
+    pointColors = data.map(() => '#c6f135');
     pointRadii = data.map(() => 4);
   } else if (metric === 'e1rm') {
     data = capOutliers(sorted.map(h => getBestE1RM(h.exercise.sets)));
@@ -674,7 +674,7 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
     const change = percentChange(valid);
     const sign = change >= 0 ? '+' : '';
     statEl.innerHTML = `<span class="chart-stat-pr">🏆 Best: ${best} lbs est.</span><span>📈 ${sign}${change}% over ${valid.length} session${valid.length !== 1 ? 's' : ''}</span>`;
-    pointColors = prFlags.map((pr, i) => (pr && data[i] != null) ? '#F3A64E' : 'rgba(0,0,0,0)');
+    pointColors = prFlags.map((pr, i) => (pr && data[i] != null) ? '#c6f135' : 'rgba(0,0,0,0)');
     pointRadii = prFlags.map((pr, i) => (pr && data[i] != null) ? 6 : 4);
   } else {
     // volume mode
@@ -684,7 +684,7 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
     const change = percentChange(data);
     const sign = change >= 0 ? '+' : '';
     statEl.innerHTML = `<span class="chart-stat-pr">🏆 Best: ${best.toLocaleString()} lbs</span><span>📈 ${sign}${change}% over ${data.length} sessions</span>`;
-    pointColors = data.map(() => '#F3A64E');
+    pointColors = data.map(() => '#c6f135');
     pointRadii = data.map(() => 4);
   }
 
@@ -700,8 +700,8 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
       labels,
       datasets: [{
         data,
-        borderColor: '#F3A64E',
-        backgroundColor: 'rgba(243,166,78,0.15)',
+        borderColor: '#c6f135',
+        backgroundColor: 'rgba(198,241,53,0.12)',
         tension: 0.3,
         fill: true,
         pointBackgroundColor: pointColors,
@@ -717,8 +717,8 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
         tooltip: { callbacks: { label: ctx => tooltipFn(ctx.parsed.y) } }
       },
       scales: {
-        x: { ticks: { color: '#8EA3B8', maxTicksLimit: 6, includeBounds: true }, grid: { color: '#2A3F58' } },
-        y: { min: minVal, ticks: { color: '#8EA3B8' }, grid: { color: '#2A3F58' } }
+        x: { ticks: { color: '#77797f', maxTicksLimit: 6, includeBounds: true }, grid: { color: 'rgba(255,255,255,0.06)' } },
+        y: { min: minVal, ticks: { color: '#77797f' }, grid: { color: 'rgba(255,255,255,0.06)' } }
       },
       onClick: (e, elements) => {
         if (!elements.length) return;
@@ -738,7 +738,7 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
       i === selIdx && v != null ? 9 : pointRadii[i]
     );
     chart.data.datasets[0].pointBorderColor = data.map((v, i) =>
-      i === selIdx && v != null ? '#EEF2F8' : '#F3A64E'
+      i === selIdx && v != null ? '#f4f5f2' : '#c6f135'
     );
     chart.data.datasets[0].pointBorderWidth = data.map((v, i) =>
       i === selIdx && v != null ? 3 : 1
@@ -833,19 +833,19 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl 
 
   const datasets = [];
   if (hasL) {
-    basePtColors.Left = lData.map((v, i) => lPRFlags[i] && v != null ? '#5BA4E0' : 'rgba(0,0,0,0)');
+    basePtColors.Left = lData.map((v, i) => lPRFlags[i] && v != null ? '#57c7ff' : 'rgba(0,0,0,0)');
     basePtRadii.Left = lData.map((v, i) => lPRFlags[i] && v != null ? 6 : 4);
-    datasets.push({ label: 'Left', data: lData, borderColor: '#5BA4E0', backgroundColor: 'rgba(91,164,224,0.1)', tension: 0.3, fill: false, pointBackgroundColor: basePtColors.Left, pointRadius: basePtRadii.Left, spanGaps: true });
+    datasets.push({ label: 'Left', data: lData, borderColor: '#57c7ff', backgroundColor: 'rgba(87,199,255,0.10)', tension: 0.3, fill: false, pointBackgroundColor: basePtColors.Left, pointRadius: basePtRadii.Left, spanGaps: true });
   }
   if (hasR) {
-    basePtColors.Right = rData.map((v, i) => rPRFlags[i] && v != null ? '#F3A64E' : 'rgba(0,0,0,0)');
+    basePtColors.Right = rData.map((v, i) => rPRFlags[i] && v != null ? '#c6f135' : 'rgba(0,0,0,0)');
     basePtRadii.Right = rData.map((v, i) => rPRFlags[i] && v != null ? 6 : 4);
-    datasets.push({ label: 'Right', data: rData, borderColor: '#F3A64E', backgroundColor: 'rgba(243,166,78,0.1)', tension: 0.3, fill: false, pointBackgroundColor: basePtColors.Right, pointRadius: basePtRadii.Right, spanGaps: true });
+    datasets.push({ label: 'Right', data: rData, borderColor: '#c6f135', backgroundColor: 'rgba(198,241,53,0.10)', tension: 0.3, fill: false, pointBackgroundColor: basePtColors.Right, pointRadius: basePtRadii.Right, spanGaps: true });
   }
   if (hasU) {
     basePtColors.Untracked = uData.map(() => 'rgba(0,0,0,0)');
     basePtRadii.Untracked = uData.map(() => 3);
-    datasets.push({ label: 'Untracked', data: uData, borderColor: '#8EA3B8', backgroundColor: 'rgba(142,163,184,0.05)', tension: 0.3, fill: false, pointBackgroundColor: basePtColors.Untracked, pointRadius: basePtRadii.Untracked, spanGaps: true, borderDash: [4, 4] });
+    datasets.push({ label: 'Untracked', data: uData, borderColor: '#77797f', backgroundColor: 'rgba(119,121,127,0.05)', tension: 0.3, fill: false, pointBackgroundColor: basePtColors.Untracked, pointRadius: basePtRadii.Untracked, spanGaps: true, borderDash: [4, 4] });
   }
 
   const unit = isTimed ? 'sec' : (metric === 'e1rm' ? 'lbs est.' : 'lbs vol');
@@ -868,12 +868,12 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl 
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { display: datasets.length > 1, labels: { color: '#8EA3B8', boxWidth: 12, font: { size: 11 } } },
+        legend: { display: datasets.length > 1, labels: { color: '#77797f', boxWidth: 12, font: { size: 11 } } },
         tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} ${unit}` } }
       },
       scales: {
-        x: { ticks: { color: '#8EA3B8', maxTicksLimit: 6, includeBounds: true }, grid: { color: '#2A3F58' } },
-        y: { min: minVal, ticks: { color: '#8EA3B8' }, grid: { color: '#2A3F58' } }
+        x: { ticks: { color: '#77797f', maxTicksLimit: 6, includeBounds: true }, grid: { color: 'rgba(255,255,255,0.06)' } },
+        y: { min: minVal, ticks: { color: '#77797f' }, grid: { color: 'rgba(255,255,255,0.06)' } }
       },
       onClick: (e, elements) => {
         if (!elements.length) return;
@@ -897,7 +897,7 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl 
         i === selIdx && v != null ? 9 : baseRadii[i]
       );
       ds.pointBorderColor = ds.data.map((v, i) =>
-        i === selIdx && v != null ? '#EEF2F8' : ds.borderColor
+        i === selIdx && v != null ? '#f4f5f2' : ds.borderColor
       );
       ds.pointBorderWidth = ds.data.map((v, i) =>
         i === selIdx && v != null ? 3 : 1
@@ -921,8 +921,8 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl 
       const notes = anyEntry?.sessionNotes || '';
       const ctx = anyEntry?.workoutContext ? `<p class="date-nav-context">&#9889; ${esc(anyEntry.workoutContext)}</p>` : '';
       let html = '';
-      if (lSets.length) html += `<p class="date-nav-sets"><span style="color:#5BA4E0;font-weight:700">L</span>&nbsp;&nbsp;${fmtSets(lSets)}</p>`;
-      if (rSets.length) html += `<p class="date-nav-sets"><span style="color:#F3A64E;font-weight:700">R</span>&nbsp;&nbsp;${fmtSets(rSets)}</p>`;
+      if (lSets.length) html += `<p class="date-nav-sets"><span style="color:#57c7ff;font-weight:700">L</span>&nbsp;&nbsp;${fmtSets(lSets)}</p>`;
+      if (rSets.length) html += `<p class="date-nav-sets"><span style="color:#c6f135;font-weight:700">R</span>&nbsp;&nbsp;${fmtSets(rSets)}</p>`;
       if (uSets.length) html += `<p class="date-nav-sets">${fmtSets(uSets)}</p>`;
       if (ctx) html += ctx;
       if (notes) html += `<p class="date-nav-notes">${esc(notes)}</p>`;
