@@ -197,7 +197,12 @@ The app feeds the coach several things; knowing which to use avoids confusion:
 
 ## What's next (not yet built)
 
-- **Specialty / neglected-area auto-population** (Marco's idea, high priority): the
+- **Specialty / neglected-area auto-population** — **PARKED (Jul 2026).** Marco wants
+  to hash out open design questions *before* any build starts. **Remind him of this
+  before picking the feature back up** — the questions to settle first: catalog scope
+  & tagging model, coverage-window definition, escalation cadence, and the injection
+  UX (how a suggested exercise appears in the session builder without being annoying).
+  Do not begin implementation until those are answered. Original idea below:
   app analyzes logged workouts, notices body parts/movements that haven't been
   trained in a while (feet & toes, tibialis, ankles, hip flexors, traps/shrugs,
   adductors), and auto-injects a small niche exercise into the relevant workout —
@@ -215,6 +220,26 @@ The app feeds the coach several things; knowing which to use avoids confusion:
 - **BYO-key pilot** decided (Aug 2026 direction): each of ~5 testers uses their own
   Anthropic key; a rate-limited proxy (Marco pays) is the later step if friction
   hurts adoption.
+
+## Vercel deployment prep (Jul 2026)
+
+Code is now **deploy-location-agnostic** — all asset paths were made relative
+(`index.html`, `app.js` SW registration, `manifest.json` `start_url`/`scope`/icons,
+and the `sw.js` precache list), so the app runs correctly both at the current
+GitHub Pages subpath (`/workout-tracker/`) **and** at a Vercel domain root (`/`).
+This means the GitHub Pages build keeps working — no forced cutover. Added
+`vercel.json` (framework: null, no build/install, output = repo root) and
+`.vercelignore` (excludes `node_modules`, `tests`, `docs`, `.superpowers`,
+`vendor`, and the vitest/package files). SW cache bumped to `workout-v37`.
+
+**Still Marco's steps when we "make Vercel happen":**
+1. **Export a backup first** from the live GitHub Pages app (Settings → Backup) —
+   IndexedDB is origin-scoped, so data does NOT follow the app to a new domain.
+2. Connect the repo to Vercel, deploy (framework preset "Other").
+3. On the Vercel origin, **import** that backup, then **re-enter the API key**
+   (backups deliberately exclude it).
+4. Pick the final domain early — moving again = another export/import.
+   BYO-key stays the model; a serverless proxy is only if we later hide one key.
 
 ---
 

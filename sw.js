@@ -1,12 +1,14 @@
-const CACHE = 'workout-v36';
-const BASE = '/workout-tracker';
+const CACHE = 'workout-v37';
+// Relative precache paths resolve against the service worker's own URL, so the
+// app works both at a GitHub Pages subpath (/workout-tracker/) and at a Vercel
+// domain root (/). Do not hardcode a base path here.
 const PRECACHE = [
-  BASE + '/', BASE + '/index.html', BASE + '/styles.css', BASE + '/app.js', BASE + '/db.js',
-  BASE + '/ui-log.js', BASE + '/ui-history.js', BASE + '/ui-progress.js',
-  BASE + '/ui-coach.js', BASE + '/ui-settings.js', BASE + '/ui-help.js', BASE + '/claude-api.js',
-  BASE + '/template-import.js',
-  BASE + '/onboarding.js', BASE + '/metrics.js', BASE + '/seed-data.js', BASE + '/migrate-data.js', BASE + '/manifest.json',
-  BASE + '/icons/icon-192.png', BASE + '/icons/icon-512.png',
+  './', 'index.html', 'styles.css', 'app.js', 'db.js',
+  'ui-log.js', 'ui-history.js', 'ui-progress.js',
+  'ui-coach.js', 'ui-settings.js', 'ui-help.js', 'claude-api.js',
+  'template-import.js',
+  'onboarding.js', 'metrics.js', 'seed-data.js', 'migrate-data.js', 'manifest.json',
+  'icons/icon-192.png', 'icons/icon-512.png',
   'https://esm.sh/idb@8'
 ];
 

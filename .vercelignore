@@ -1,0 +1,9 @@
+# Dev-only files — keep them out of the static deploy
+node_modules
+tests
+docs
+.superpowers
+vendor
+vitest.config.js
+package.json
+package-lock.json
