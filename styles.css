@@ -215,6 +215,23 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .pref-toggle.on { background: var(--accent); border-color: var(--accent); }
 .pref-toggle.on::after { transform: translateX(20px); background: #0a0a0b; }
 
+/* ── Contextual help layer ──────────────────────────────────────────────── */
+/* Info bubble: a small bordered "i" next to a metric */
+.info-btn { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: 6px; padding: 0; flex-shrink: 0; border: 1px solid var(--border); border-radius: 50%; background: transparent; color: var(--text-2); font-size: 12px; font-weight: 700; font-style: italic; font-family: Georgia, 'Times New Roman', serif; line-height: 1; cursor: pointer; vertical-align: middle; }
+.info-btn:active { background: var(--surface-hi); color: var(--text); }
+/* Ambient glossary term: subtle dotted underline, tappable */
+.gloss { border-bottom: 1px dotted var(--text-3); cursor: pointer; }
+.gloss:active { color: var(--accent); border-color: var(--accent); }
+/* Term explainer bottom sheet */
+.term-sheet .term-short { font-size: 16px; font-weight: 600; margin: 0 0 8px; }
+.term-sheet .term-body { color: var(--text-2); line-height: 1.5; margin: 0 0 8px; }
+.term-sheet .term-range { color: var(--text); background: var(--surface-hi); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: var(--r-sm); line-height: 1.45; margin: 0; }
+/* Teaching empty state */
+.empty-state { text-align: center; padding: 48px 20px; }
+.empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.9; }
+.empty-state .empty-title { font-size: 20px; font-weight: 800; margin: 0 0 8px; }
+.empty-state .empty-text { color: var(--text-2); line-height: 1.5; margin: 0 auto 18px; max-width: 320px; }
+
 .rating-row { margin: 16px 0 12px; }
 .stars { display: flex; gap: 8px; margin-top: 8px; }
 .star-btn { background: none; border: none; font-size: 28px; color: var(--text-3); cursor: pointer; padding: 4px; }

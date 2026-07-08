@@ -1,5 +1,7 @@
 import { getRunLogs, getWalkLogs, getAllSessions, getExercises } from './db.js';
 import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall } from './metrics.js';
+import { infoBtnHTML, termSpan, wireInfo } from './help.js';
+import { switchTab } from './app.js';
 
 const CHART_COLORS = { line: '#F3A64E', vol: 'rgba(243,166,78,0.3)', run: '#4CAF7D', walk: '#5BA4E0', grid: '#2A3F58', text: '#8EA3B8' };
 // Arms=purple, Legs=blue, Core=green, PT=orange, Run=coral, Walk=teal
@@ -30,6 +32,21 @@ export async function renderProgressTab(el) {
   `;
 
   const [allSessions, runs, walks, exercises] = await Promise.all([getAllSessions(200), getRunLogs(50), getWalkLogs(50), getExercises()]);
+
+  if (allSessions.length === 0 && runs.length === 0 && walks.length === 0) {
+    el.innerHTML = `
+      <div class="screen">
+        <h1 class="tab-title">Progress</h1>
+        <div class="empty-state">
+          <div class="empty-icon">📈</div>
+          <h2 class="empty-title">Your trends will build here</h2>
+          <p class="empty-text">Log a few workouts and this tab starts showing your training load, weekly volume, and estimated 1-rep maxes. Most charts fill in after about 3–4 sessions.</p>
+          <button class="btn btn-primary" id="empty-log-cta">Log a workout</button>
+        </div>
+      </div>`;
+    el.querySelector('#empty-log-cta').addEventListener('click', () => switchTab('log'));
+    return;
+  }
 
   const exGroupById = {};
   const exNameById = {};
@@ -95,9 +112,6 @@ function computeStalls(sessions, exNameById) {
 // ACWR training-load gauge + weekly sets-per-group volume board + stall watch.
 function renderProgressSummary(container, acwr, volume, stalls = []) {
   if (!container) return;
-  const acwrHelp = `Acute:Chronic Workload Ratio. "Acute" is your training load over the last 7 days; "chronic" is your typical week, averaged over the last 28 days. The ratio compares them — about 1.0 means this week matches your recent norm. 0.8–1.3 is the safe zone; spiking well above ~1.3–1.5 is when injury risk tends to climb, and under 0.8 you may be detraining. Load here = total training minutes (lifting + cardio).`;
-  const volHelp = `How many hard sets each muscle group got this week (Mon–Sun) — a set counts once you log weight, reps, or seconds. The green band marks a rough 10–20 sets/week guideline for building muscle: below it you may be undertraining a group, above it may be more than you can recover from.`;
-
   let acwrBody;
   if (!acwr.hasBaseline) {
     acwrBody = `<div class="acwr-top">
@@ -148,25 +162,21 @@ function renderProgressSummary(container, acwr, volume, stalls = []) {
 
   container.innerHTML = `
     <div class="card summary-card">
-      <div class="sum-head"><b>Training Load</b><div class="sum-right"><span>7-day vs 28-day</span><button class="sum-help" data-help="acwr" aria-label="What is this?">?</button></div></div>
-      <div class="sum-explain hidden" id="explain-acwr">${acwrHelp}</div>
+      <div class="sum-head"><b>Training Load</b><div class="sum-right"><span>7-day vs 28-day</span>${infoBtnHTML('acwr')}</div></div>
       ${acwrBody}
     </div>
     <div class="card summary-card">
-      <div class="sum-head"><b>This Week's Volume</b><div class="sum-right"><span>hard sets · target ${LOW}–${HIGH}</span><button class="sum-help" data-help="vol" aria-label="What is this?">?</button></div></div>
-      <div class="sum-explain hidden" id="explain-vol">${volHelp}</div>
+      <div class="sum-head"><b>This Week's Volume</b><div class="sum-right"><span>${termSpan('hard sets', 'volume')} · target ${LOW}–${HIGH}</span></div></div>
       ${volRows}
     </div>
     ${stalls.length ? `
     <div class="card summary-card">
-      <div class="sum-head"><b>Lifts to Watch</b><span>no recent PR</span></div>
+      <div class="sum-head"><b>Lifts to Watch</b><div class="sum-right"><span>no recent PR</span>${infoBtnHTML('stall')}</div></div>
       ${stalls.map(s => `<div class="stall-row"><span class="stall-name">${esc(s.name)}</span><span class="stall-meta">${s.sinceBest} sessions since PR</span></div>`).join('')}
-      <p class="stall-tip">Plateaued lifts often respond to a lighter deload week or swapping in a variation.</p>
+      <p class="stall-tip">Plateaued lifts often respond to a lighter ${termSpan('deload', 'deload')} week or swapping in a variation.</p>
     </div>` : ''}`;
 
-  container.querySelectorAll('.sum-help').forEach(btn => btn.addEventListener('click', () => {
-    container.querySelector('#explain-' + btn.dataset.help)?.classList.toggle('hidden');
-  }));
+  wireInfo(container);
 }
 
 function buildActivityByDate(sessions, runs, walks) {

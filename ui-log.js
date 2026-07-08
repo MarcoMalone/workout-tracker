@@ -4,6 +4,7 @@ import { showHelpCenter } from './ui-help.js';
 import { switchTab } from './app.js';
 import { haptic } from './haptics.js';
 import { acquire as acquireWakeLock, release as releaseWakeLock, wakeLockEnabled, wakeLockSupported } from './wakelock.js';
+import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function localDateStr(d = new Date()) {
@@ -119,11 +120,11 @@ export async function renderLogTab(el) {
   const walkIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="1.7"/><path d="M9 21l2-6 3 2v4"/><path d="M11 15l-1-5 4 1 2 3"/></svg>`;
   const readinessCard = todayReadiness
     ? `<div class="card readiness-card">
-         <div class="rd-info"><span class="rd-label">Readiness</span><span class="rd-sub">logged today</span></div>
+         <div class="rd-info"><span class="rd-label">Readiness ${infoBtnHTML('readiness')}</span><span class="rd-sub">logged today</span></div>
          <div class="rd-right"><span class="rd-score">${readinessScore(todayReadiness)}</span><button class="btn btn-ghost rd-btn" id="readiness-btn">Update</button></div>
        </div>`
     : `<div class="card readiness-card">
-         <div class="rd-info"><span class="rd-label">Morning check-in</span><span class="rd-sub">30s — sharpens your coach</span></div>
+         <div class="rd-info"><span class="rd-label">Morning check-in ${infoBtnHTML('readiness')}</span><span class="rd-sub">30s — sharpens your coach</span></div>
          <button class="btn btn-secondary rd-btn" id="readiness-btn">Check in</button>
        </div>`;
 
@@ -191,6 +192,7 @@ export async function renderLogTab(el) {
   el.querySelector('#readiness-btn')?.addEventListener('click', () => showReadinessCheckin(el));
   el.querySelector('#help-btn')?.addEventListener('click', () => showHelpCenter());
   renderGoalsSection(el.querySelector('#daily-goals'), el);
+  wireInfo(el);
 }
 
 // ── Daily goals ───────────────────────────────────────────────────────────────
@@ -529,7 +531,8 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
     if (!asymEl) return;
     const a = computeAsymmetry(sessionEx, exDef);
     if (a) {
-      asymEl.textContent = `⚠ L/R imbalance — ${a.weaker} side ${a.gap}% lower`;
+      asymEl.innerHTML = `⚠ ${termSpan('L/R imbalance', 'asymmetry')} — ${a.weaker} side ${a.gap}% lower`;
+      wireInfo(asymEl);
       asymEl.classList.remove('hidden');
     } else {
       asymEl.classList.add('hidden');
