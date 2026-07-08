@@ -93,6 +93,7 @@ cache version bumped each release so clients update.
 | `a1e6f1e` | **Goal Coach** (AI proposes daily goals, one-tap add) + **per-exercise rest defaults**. |
 | _(earlier batch)_ | Body-map detail expansion (arm segments: bicep/tricep, elbow, forearm, wrist; feet/ankles), side-specific regions with L/R labels. |
 | `b34aa2c` | **On-the-bench UX bundle** — screen wake lock (re-acquire on visibilitychange), haptics on set-commit + rest-zero, glanceable big-digit rest timer + optional beep, repeat-last-set, set-commit pulse, model-backed `✓` state, three Settings toggles. All `localStorage`-gated, no migration. From the 3-agent UX research pass; spec at `docs/superpowers/specs/2026-07-08-on-the-bench-ux-design.md`. |
+| `29c1127` | **Trust & finish A1 — unified feedback** (first `/improve-app`-driven build). One `ui-feedback.js`: `toast()` (info/success/error + optional Undo action), a themed `confirmSheet()` replacing all 7 raw `confirm()`, `undoToast()`. Consolidated the 3 duplicated toasts; frequent reversible deletes now use Undo, catastrophic ones a danger confirm; all `alert()` → calm toasts; global `:focus-visible`. Spec at `docs/superpowers/specs/2026-07-08-trust-and-finish-design.md`. A2 (privacy/consent card, About/What's-New, backup nudge+preview) queued. SW v41. |
 | `d2edf9c` | **Chart re-skin (visual polish, workstream A)** — migrated the Progress line/e1RM/volume charts off the leftover pre-Kinetic palette (orange/navy/slate) to volt-lime with a faint hairline grid and `--text-3` ticks; L/R charts now cyan (Left) + lime (Right), with per-date side labels matched. Tabular numerals set globally on `body`. Categorical activity heatmap left distinct. Finding: the CSS token layer (near-black, hairline borders, dark-on-lime, radius scale) was already solid, so no token churn. SW v40. |
 | `e781b28` | **Contextual help layer** — one `help.js` backbone: a `DEFS` jargon map, a `showTermSheet` bottom sheet, `wireInfo()` for consistent ⓘ buttons + ambient dotted-underline glossary terms, and a `localStorage` help registry. Converts Progress's inline explainers to the shared component; adds ⓘ/underlines across Progress (ACWR, hard sets, stall, deload), the Log-home readiness card, and the active-session asymmetry chip; new first-run teaching empty state on Progress. Static/offline, no migration. From a 4-agent "professional polish" research pass; spec at `docs/superpowers/specs/2026-07-08-help-layer-design.md`. |
 
@@ -192,7 +193,7 @@ The app feeds the coach several things; knowing which to use avoids confusion:
 - Framework: **vitest**, with `fake-indexeddb` for the DB layer and a per-file
   **jsdom** environment for UI render tests. Aliases resolve the `esm.sh` `idb` import
   and the vendored Anthropic SDK.
-- Coverage grew **39 → 113 tests**. Pure logic is unit-tested (e1RM, ACWR, weekly
+- Coverage grew **39 → 122 tests**. Pure logic is unit-tested (e1RM, ACWR, weekly
   volume, readiness score, goal/activity streaks, stall detection, pain summary, the
   goal-suggestion parser, `cloneLastSet`, and the haptics/wake-lock feature-detect
   guards). UI flows have integration tests that mount real render functions (history
