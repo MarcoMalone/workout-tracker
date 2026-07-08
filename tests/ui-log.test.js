@@ -36,6 +36,7 @@ beforeEach(async () => {
   globalThis.indexedDB = new IDBFactory();
   _resetForTest();
   _resetSessionForTest();
+  localStorage.clear(); // isolate the autosaved activeSession between tests
   await initDB();
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -188,5 +189,20 @@ test('discard still works after deleting an exercise', async () => {
   // discard resets to the Log home (hero present, no session view)
   expect(container.querySelector('.log-hero')).toBeTruthy();
   expect(container.querySelector('.session-name')).toBeFalsy();
+  expect(localStorage.getItem('activeSession')).toBeFalsy();       // discard clears the autosave
+  overlay.remove();
+});
+
+test('an in-progress session persists and resumes after a reload', async () => {
+  const overlay = await seedSessionAndStart();
+  expect(container.querySelectorAll('.exercise-card')).toHaveLength(4);
+  expect(localStorage.getItem('activeSession')).toBeTruthy();      // autosaved
+
+  _resetSessionForTest();                                          // simulate reload: in-memory session gone
+  await renderLogTab(container);                                   // should rehydrate from localStorage
+  await waitFor(() => container.querySelectorAll('.exercise-card').length === 4);
+  expect(container.querySelector('.session-name')).toBeTruthy();   // resumed the session…
+  expect(container.querySelector('.log-hero')).toBeFalsy();        // …not the home
+  expect(container.querySelectorAll('.exercise-card')).toHaveLength(4);
   overlay.remove();
 });

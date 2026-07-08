@@ -63,9 +63,26 @@ function computeHomeStats(sessions, runs, walks) {
 }
 
 export let activeSession = null;
+let _persistBound = false;
 
 // Test-only: reset module-level session state between test cases.
 export function _resetSessionForTest() { activeSession = null; }
+
+// Autosave the in-progress session to localStorage so a reload / PWA-close /
+// tab-switch resumes it instead of losing the workout. (It's per-device — each
+// phone has its own storage; there's no server sync.)
+function persistActiveSession() {
+  try {
+    if (activeSession) localStorage.setItem('activeSession', JSON.stringify(activeSession));
+    else localStorage.removeItem('activeSession');
+  } catch (e) {}
+}
+function loadPersistedSession() {
+  try { const raw = localStorage.getItem('activeSession'); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function clearPersistedSession() {
+  try { localStorage.removeItem('activeSession'); } catch (e) {}
+}
 
 let _pendingCoachNote = null;
 export function setPendingCoachNote(note, bodyPart) {
@@ -85,6 +102,10 @@ function fromTimeInput(timeStr) {
 }
 
 export async function renderLogTab(el) {
+  if (activeSession === null) {
+    const saved = loadPersistedSession();
+    if (saved) activeSession = saved; // resume an in-progress workout after a reload / tab switch
+  }
   if (activeSession !== null) {
     renderActiveSession(el);
     return;
@@ -406,6 +427,7 @@ async function renderActiveSession(el) {
     if (await confirmSheet({ title: 'Discard workout?', body: 'All logged data will be lost.', confirmLabel: 'Discard', danger: true })) {
       clearRest();
       activeSession = null;
+      clearPersistedSession();
       renderLogTab(el);
     }
   });
@@ -426,6 +448,14 @@ async function renderActiveSession(el) {
   el.querySelector('#session-end-time').addEventListener('change', e => {
     activeSession._endTimeStr = e.target.value;
   });
+  // One delegated autosave listener on the persistent tab container (bound once)
+  // captures every edit; renderActiveSession also persists structural changes.
+  if (!_persistBound) {
+    el.addEventListener('input', () => { if (activeSession) persistActiveSession(); });
+    el.addEventListener('click', () => { if (activeSession) persistActiveSession(); });
+    _persistBound = true;
+  }
+  persistActiveSession();
 }
 
 // Overwrite a session exercise's sets with the values from its most recent
@@ -1061,6 +1091,7 @@ async function showPostChecklist(el) {
     activeSession.workoutContext = ctxVal || null;
     await saveSession(activeSession);
     activeSession = null;
+    clearPersistedSession();
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
     await switchTab('log');
