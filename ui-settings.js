@@ -1,6 +1,7 @@
 ﻿import { getSetting, setSetting, getExercises, addExercise, deleteExercise, getTemplates, addTemplate, deleteTemplate, getAllSessions, getRunLogs, exportAllData, importAllData } from './db.js';
 import { showHelpCenter, openFeedback } from './ui-help.js';
 import { showPasteTemplateModal } from './template-import.js';
+import { toast, showToast, confirmSheet } from './ui-feedback.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -219,15 +220,15 @@ export async function renderSettingsTab(el) {
     if (!file) return;
     let data;
     try { data = JSON.parse(await file.text()); }
-    catch { alert('That file is not valid JSON.'); e.target.value = ''; return; }
-    if (!confirm('Restore from this backup? Entries with matching IDs are overwritten; nothing already on this device is deleted.')) { e.target.value = ''; return; }
+    catch { toast('That file is not valid JSON.', { type: 'error' }); e.target.value = ''; return; }
+    if (!(await confirmSheet({ title: 'Restore from backup?', body: 'Entries with matching IDs are overwritten; nothing already on this device is deleted.', confirmLabel: 'Restore', danger: true }))) { e.target.value = ''; return; }
     try {
       const counts = await importAllData(data);
       const total = Object.values(counts).reduce((a, b) => a + b, 0);
       showToast(`Restored ${total} records`);
       await renderSettingsTab(el);
     } catch (err) {
-      alert(err.message || 'Restore failed.');
+      toast(err.message || 'Restore failed.', { type: 'error' });
     }
     e.target.value = '';
   });
@@ -282,7 +283,7 @@ async function renderTemplateLibrary(container, el) {
   container.innerHTML = shown.map(rowHtml).join('')
     + (templates.length > COLLAPSE_LIMIT ? `<button type="button" class="collapse-toggle" id="tpl-lib-toggle">${tplLibExpanded ? 'Show fewer ▴' : `Show all ${templates.length} ▾`}</button>` : '');
   container.querySelectorAll('.lib-del-btn').forEach(btn => {
-    btn.addEventListener('click', async () => { if (confirm('Delete this template?')) { await deleteTemplate(btn.dataset.id); await renderTemplateLibrary(container, el); } });
+    btn.addEventListener('click', async () => { if (await confirmSheet({ title: 'Delete template?', confirmLabel: 'Delete', danger: true })) { await deleteTemplate(btn.dataset.id); await renderTemplateLibrary(container, el); } });
   });
   container.querySelectorAll('.lib-edit-btn').forEach(btn => {
     btn.addEventListener('click', () => { const tpl = templates.find(t => t.id === btn.dataset.id); if (tpl) showTemplateEditor(el, tpl); });
@@ -339,7 +340,7 @@ function showExerciseForm(el, existing) {
       isBodyweight: bwChk.checked,
       notes: ''
     };
-    if (!exercise.name) { alert('Name required'); return; }
+    if (!exercise.name) { toast('Name required', { type: 'error' }); return; }
     await addExercise(exercise);
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
@@ -376,7 +377,7 @@ export async function showTemplateEditor(el, existing, onSave) {
   overlay.querySelector('#tpl-dismiss-btn').addEventListener('click', dismiss);
   if (existing) {
     overlay.querySelector('#del-tpl-btn').addEventListener('click', async () => {
-      if (!confirm(`Delete "${existing.name}"? This cannot be undone.`)) return;
+      if (!(await confirmSheet({ title: 'Delete template?', body: `Delete "${existing.name}"?`, confirmLabel: 'Delete', danger: true }))) return;
       await deleteTemplate(existing.id);
       dismiss();
       if (onSave) await onSave();
@@ -385,7 +386,7 @@ export async function showTemplateEditor(el, existing, onSave) {
   }
   overlay.querySelector('#save-tpl-btn').addEventListener('click', async () => {
     const name = overlay.querySelector('#tpl-name').value.trim();
-    if (!name) { alert('Name required'); return; }
+    if (!name) { toast('Name required', { type: 'error' }); return; }
     const checked = Array.from(overlay.querySelectorAll('#tpl-ex-list input:checked'));
     const exList = checked.map((inp, i) => {
       const exId = inp.value;
@@ -401,11 +402,5 @@ export async function showTemplateEditor(el, existing, onSave) {
   });
 }
 
-function showToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2500);
-}
+// showToast/toast/confirmSheet now come from ui-feedback.js.
 

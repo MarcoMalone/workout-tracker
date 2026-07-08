@@ -2,6 +2,7 @@ import { getSetting, setSetting, saveSession, addExercise, addTemplate } from '.
 import { switchTab } from './app.js';
 import { STARTER_TEMPLATES } from './seed-data.js';
 import { showPasteTemplateModal } from './template-import.js';
+import { toast } from './ui-feedback.js';
 
 export async function checkOnboarding() {
   const done = await getSetting('onboardingComplete');
@@ -120,7 +121,7 @@ export async function importCSV(file, el) {
     await saveSession(session);
     count++;
   }
-  alert(`Imported ${count} sessions.`);
+  toast(`Imported ${count} sessions.`, { type: 'success' });
 }
 
 function parseCSVRow(line) {

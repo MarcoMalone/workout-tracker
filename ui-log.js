@@ -5,6 +5,7 @@ import { switchTab } from './app.js';
 import { haptic } from './haptics.js';
 import { acquire as acquireWakeLock, release as releaseWakeLock, wakeLockEnabled, wakeLockSupported } from './wakelock.js';
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
+import { toast, showToast, confirmSheet, undoToast } from './ui-feedback.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function localDateStr(d = new Date()) {
@@ -104,7 +105,7 @@ export async function renderLogTab(el) {
   const coachBanner = _pendingCoachNote
     ? `<div class="coach-pending-banner" id="coach-pending-banner">
         <span>Coach note ready for <strong>${esc(_pendingCoachNote.bodyPart)}</strong> — tap a template to start</span>
-        <button class="coach-banner-dismiss" id="dismiss-coach-banner">✕</button>
+        <button class="coach-banner-dismiss" id="dismiss-coach-banner" aria-label="Dismiss">✕</button>
        </div>`
     : '';
 
@@ -273,7 +274,7 @@ async function showGoalModal(el, goalId) {
   overlay.querySelector('#goal-dismiss').addEventListener('click', close);
   overlay.querySelector('#goal-save').addEventListener('click', async () => {
     const title = overlay.querySelector('#goal-title').value.trim();
-    if (!title) { alert('Give the goal a name.'); return; }
+    if (!title) { toast('Give the goal a name.', { type: 'error' }); return; }
     const target = Math.max(1, Number(overlay.querySelector('#goal-target').value) || 1);
     const unit = overlay.querySelector('#goal-unit').value.trim();
     const list = await getGoals();
@@ -288,7 +289,7 @@ async function showGoalModal(el, goalId) {
     refreshGoals(el);
   });
   if (existing) overlay.querySelector('#goal-delete').addEventListener('click', async () => {
-    if (!confirm(`Delete "${existing.title}"?`)) return;
+    if (!(await confirmSheet({ title: 'Delete goal?', body: `Delete "${existing.title}"?`, confirmLabel: 'Delete', danger: true }))) return;
     await saveGoals((await getGoals()).filter(g => g.id !== goalId));
     close();
     refreshGoals(el);
@@ -401,8 +402,8 @@ async function renderActiveSession(el) {
   }
   el.querySelector('#finish-btn').addEventListener('click', () => showPostChecklist(el));
   el.querySelector('#sticky-finish-btn').addEventListener('click', () => showPostChecklist(el));
-  el.querySelector('#discard-btn').addEventListener('click', () => {
-    if (confirm('Discard this workout? All logged data will be lost.')) {
+  el.querySelector('#discard-btn').addEventListener('click', async () => {
+    if (await confirmSheet({ title: 'Discard workout?', body: 'All logged data will be lost.', confirmLabel: 'Discard', danger: true })) {
       clearRest();
       activeSession = null;
       renderLogTab(el);
@@ -486,9 +487,13 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
     card.querySelector(`#note-${exIdx}`).classList.toggle('hidden');
   });
   card.querySelector('.ex-remove-btn').addEventListener('click', async () => {
-    if (!confirm(`Remove ${displayName} from this workout?`)) return;
+    const removed = activeSession.exercises[exIdx];
     activeSession.exercises.splice(exIdx, 1);
     await renderActiveSession(el);
+    undoToast(`Removed ${displayName}`, async () => {
+      activeSession.exercises.splice(exIdx, 0, removed);
+      await renderActiveSession(el);
+    });
   });
   card.querySelector(`#note-${exIdx} textarea`).addEventListener('input', e => {
     activeSession.exercises[exIdx].notes = e.target.value;
@@ -788,13 +793,7 @@ function shortDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function showToast(msg, duration = 2500) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), duration);
-}
+// showToast/toast/confirmSheet/undoToast now come from ui-feedback.js.
 
 async function generateAdjustedTemplate(template, sorenessNote, apiKey) {
   const [{ buildAdjustedWorkoutTemplate }, exercises, painLog] = await Promise.all([
@@ -1158,7 +1157,7 @@ function showWalkForm(el) {
   el.querySelector('#save-walk-btn').addEventListener('click', async () => {
     const dur = parseFloat(el.querySelector('#walk-dur').value);
     const speed = parseFloat(el.querySelector('#walk-speed').value);
-    if (!dur || !speed) { alert('Enter duration and speed.'); return; }
+    if (!dur || !speed) { toast('Enter duration and speed.', { type: 'error' }); return; }
     const overrideVal = el.querySelector('#walk-dist-override').value;
     const distanceMiles = overrideVal
       ? parseFloat(overrideVal)
@@ -1212,7 +1211,7 @@ function showRunForm(el) {
     const durStr = el.querySelector('#run-dur').value;
     const [min, sec] = durStr.split(':').map(Number);
     const durationMinutes = min + (sec / 60);
-    if (!dist || !durStr.includes(':')) { alert('Enter distance and duration.'); return; }
+    if (!dist || !durStr.includes(':')) { toast('Enter distance and duration.', { type: 'error' }); return; }
     await addRunLog({
       id: crypto.randomUUID(),
       date: el.querySelector('#run-date').value,

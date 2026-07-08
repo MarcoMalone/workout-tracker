@@ -1,13 +1,10 @@
 import { getAllSessions, getRunLogs, getWalkLogs, deleteSession, saveSession, addRunLog, addWalkLog, deleteRunLog, deleteWalkLog } from './db.js';
+import { toast, undoToast } from './ui-feedback.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function detailToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 1500);
+  toast(msg, { duration: 1500 });
 }
 
 export async function renderHistoryTab(el) {
@@ -156,8 +153,8 @@ function showDetail(el, item, type) {
     item.exercises.forEach(ex => {
       if (ex.notes) lines.push(`${displayName(ex.exerciseName)}: ${ex.notes}`);
     });
-    if (lines.length === 1) { alert('No notes recorded for this session.'); return; }
-    navigator.clipboard.writeText(lines.join('\n')).then(() => alert('Copied!'));
+    if (lines.length === 1) { toast('No notes recorded for this session.'); return; }
+    navigator.clipboard.writeText(lines.join('\n')).then(() => toast('Copied!', { type: 'success' }));
   });
   el.querySelector('#edit-date-btn').addEventListener('click', () => {
     const row = el.querySelector('#date-edit-row');
@@ -193,9 +190,9 @@ function showDetail(el, item, type) {
     ctxInputRow.style.display = 'none';
   });
   el.querySelector('#delete-session-btn').addEventListener('click', async () => {
-    if (!confirm(`Delete "${displayName(item.templateName)}" from ${item.date}? This cannot be undone.`)) return;
     await deleteSession(item.id);
     renderHistoryTab(el);
+    undoToast('Workout deleted', async () => { await saveSession(item); renderHistoryTab(el); });
   });
 }
 
@@ -281,8 +278,8 @@ function showCardioDetail(el, item, type) {
   el.querySelector('#back-btn').addEventListener('click', () => renderHistoryTab(el));
 
   el.querySelector('#copy-notes-btn').addEventListener('click', () => {
-    if (!item.notes) { alert('No notes recorded.'); return; }
-    navigator.clipboard.writeText(`${title} — ${item.date}\n${item.notes}`).then(() => alert('Copied!'));
+    if (!item.notes) { toast('No notes recorded.'); return; }
+    navigator.clipboard.writeText(`${title} — ${item.date}\n${item.notes}`).then(() => toast('Copied!', { type: 'success' }));
   });
 
   el.querySelector('#edit-date-btn').addEventListener('click', () => {
@@ -329,8 +326,8 @@ function showCardioDetail(el, item, type) {
   });
 
   el.querySelector('#delete-cardio-btn').addEventListener('click', async () => {
-    if (!confirm(`Delete this ${type} from ${item.date}? This cannot be undone.`)) return;
     await del(item.id);
     renderHistoryTab(el);
+    undoToast('Deleted', async () => { if (type === 'run') await addRunLog(item); else await addWalkLog(item); renderHistoryTab(el); });
   });
 }

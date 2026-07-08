@@ -1,6 +1,7 @@
 import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, saveGoals, getGoalLog, getPainLog, setPain } from './db.js';
 import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary, buildSessionSummary, buildGoalSuggestions } from './claude-api.js';
 import { readinessScore, computeACWR, painSummary } from './metrics.js';
+import { toast } from './ui-feedback.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -77,7 +78,7 @@ export async function renderCoachTab(el) {
   el.querySelector('#pre-ask-btn').addEventListener('click', async () => {
     const part = el.querySelector('#body-part-select').value;
     const note = el.querySelector('#pre-note').value.trim();
-    if (!note) { alert('Describe how you are feeling first.'); return; }
+    if (!note) { toast('Describe how you are feeling first.', { type: 'error' }); return; }
     await runCoach(el, '#pre-ask-btn', '#pre-response', async () => {
       const today = localDateStr();
       const [recent, health, readiness, goals, goalLog, painLog, allSessions, runs, walks] = await Promise.all([

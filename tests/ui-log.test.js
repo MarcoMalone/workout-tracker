@@ -11,6 +11,16 @@ import { IDBFactory } from 'fake-indexeddb';
 import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog, saveGoals } from '../db.js';
 import { renderLogTab, computeAsymmetry, _resetSessionForTest } from '../ui-log.js';
 
+// The base test env's localStorage is a non-functional stub; ui-log now
+// transitively imports localStorage-reading modules (wakelock/haptics/help).
+const _ls = new Map();
+globalThis.localStorage = {
+  getItem: k => (_ls.has(k) ? _ls.get(k) : null),
+  setItem: (k, v) => { _ls.set(k, String(v)); },
+  removeItem: k => { _ls.delete(k); },
+  clear: () => _ls.clear(),
+};
+
 const flush = () => new Promise(r => setTimeout(r, 0));
 async function waitFor(cond, tries = 60) {
   for (let i = 0; i < tries; i++) { if (cond()) return; await flush(); }
@@ -171,6 +181,8 @@ test('discard still works after deleting an exercise', async () => {
   await waitFor(() => container.querySelectorAll('.exercise-card').length === 3);
 
   container.querySelector('#discard-btn').click();                 // must be wired after re-render
+  await waitFor(() => document.querySelector('#cf-yes'));          // themed confirm sheet appears
+  document.querySelector('#cf-yes').click();                       // confirm the discard
   await waitFor(() => container.querySelector('.log-hero'));
 
   // discard resets to the Log home (hero present, no session view)
