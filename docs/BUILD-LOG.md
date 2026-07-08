@@ -93,6 +93,7 @@ cache version bumped each release so clients update.
 | `a1e6f1e` | **Goal Coach** (AI proposes daily goals, one-tap add) + **per-exercise rest defaults**. |
 | _(earlier batch)_ | Body-map detail expansion (arm segments: bicep/tricep, elbow, forearm, wrist; feet/ankles), side-specific regions with L/R labels. |
 | `b34aa2c` | **On-the-bench UX bundle** — screen wake lock (re-acquire on visibilitychange), haptics on set-commit + rest-zero, glanceable big-digit rest timer + optional beep, repeat-last-set, set-commit pulse, model-backed `✓` state, three Settings toggles. All `localStorage`-gated, no migration. From the 3-agent UX research pass; spec at `docs/superpowers/specs/2026-07-08-on-the-bench-ux-design.md`. |
+| `e781b28` | **Contextual help layer** — one `help.js` backbone: a `DEFS` jargon map, a `showTermSheet` bottom sheet, `wireInfo()` for consistent ⓘ buttons + ambient dotted-underline glossary terms, and a `localStorage` help registry. Converts Progress's inline explainers to the shared component; adds ⓘ/underlines across Progress (ACWR, hard sets, stall, deload), the Log-home readiness card, and the active-session asymmetry chip; new first-run teaching empty state on Progress. Static/offline, no migration. From a 4-agent "professional polish" research pass; spec at `docs/superpowers/specs/2026-07-08-help-layer-design.md`. |
 
 Earlier phases (pre–`d23f661`) built the core app: templates, logging (unilateral /
 bodyweight / timed / drop sets), pre/post checklists, run/walk logging, the Claude
@@ -190,7 +191,7 @@ The app feeds the coach several things; knowing which to use avoids confusion:
 - Framework: **vitest**, with `fake-indexeddb` for the DB layer and a per-file
   **jsdom** environment for UI render tests. Aliases resolve the `esm.sh` `idb` import
   and the vendored Anthropic SDK.
-- Coverage grew **39 → 103 tests**. Pure logic is unit-tested (e1RM, ACWR, weekly
+- Coverage grew **39 → 113 tests**. Pure logic is unit-tested (e1RM, ACWR, weekly
   volume, readiness score, goal/activity streaks, stall detection, pain summary, the
   goal-suggestion parser, `cloneLastSet`, and the haptics/wake-lock feature-detect
   guards). UI flows have integration tests that mount real render functions (history
@@ -222,6 +223,21 @@ The app feeds the coach several things; knowing which to use avoids confusion:
 - **In-app injury log** — dated injuries that persist to the coach and the body map.
 - **Pilot polish**: quick-build tutorial, achievements/badges, a shareable monthly
   "Wrapped" card, auto-detecting goal completion from logged data.
+- **Professional-polish research menu** (4-agent pass, Jul 2026): three workstreams
+  still queued after the help layer — **A) visual token layer** (tabular numerals,
+  8pt spacing, layered near-black + hairline borders, radius/type scales, accent
+  discipline, one number formatter; then self-host a display font — which also fixes
+  the Kinetic look only rendering on Windows — plus a motion pass, Chart.js reskin,
+  one icon set); **C) trust & finish** (on-device privacy card, About + What's New,
+  one confirm+Undo system, backup nudge + restore preview, AI-coach consent, a11y
+  pass, unified toasts); **D) navigation & flow** (persist active session + resume
+  mini-bar, keep tab panels mounted, standardized sheet header/dismiss, collapsible
+  Settings, Progress section-index chips). Full findings live in the research pass.
+- **Help-layer follow-ups** (deferred from `e781b28`): full helper-text-under-every-
+  input audit; one-time just-in-time tips (e.g. explain a stall the first time it
+  fires — the `wt.help` registry is already shipped); a single dismiss-forever "?"
+  FAB pointer; Ask-box context seeding; and wiring e1RM ⓘ into the per-exercise
+  Progress charts (skipped this batch to avoid the carousel re-render churn).
 - **On-the-bench follow-ups** (deferred from the `b34aa2c` bundle): weight steppers
   (+2.5/+5), live PR detection + PR celebration, a global bottom action bar, and
   **full active-session persistence** (survive a reload / PWA close — the
