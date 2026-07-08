@@ -91,7 +91,8 @@ cache version bumped each release so clients update.
 | `ccc5731` | **Auto-start rest timer** + **stalled-lift/deload detection** ("Lifts to Watch"). |
 | `6375f41` | **Body-map pain logger** (tappable front/back figure) + **recovery-aware coach** (readiness + ACWR + active pain fold into pre-workout advice and the AI template adjustment). |
 | `a1e6f1e` | **Goal Coach** (AI proposes daily goals, one-tap add) + **per-exercise rest defaults**. |
-| _(this batch)_ | Body-map detail expansion (arm segments: bicep/tricep, elbow, forearm, wrist; feet/ankles), side-specific regions with L/R labels. |
+| _(earlier batch)_ | Body-map detail expansion (arm segments: bicep/tricep, elbow, forearm, wrist; feet/ankles), side-specific regions with L/R labels. |
+| `b34aa2c` | **On-the-bench UX bundle** — screen wake lock (re-acquire on visibilitychange), haptics on set-commit + rest-zero, glanceable big-digit rest timer + optional beep, repeat-last-set, set-commit pulse, model-backed `✓` state, three Settings toggles. All `localStorage`-gated, no migration. From the 3-agent UX research pass; spec at `docs/superpowers/specs/2026-07-08-on-the-bench-ux-design.md`. |
 
 Earlier phases (pre–`d23f661`) built the core app: templates, logging (unilateral /
 bodyweight / timed / drop sets), pre/post checklists, run/walk logging, the Claude
@@ -112,6 +113,10 @@ Profile.
 - **Auto-start rest timer** with per-exercise remembered rest (−15/+15, persisted).
 - Log home: date hero, activity **streak**, **"This Week"** load bars, **readiness
   check-in** card, **Daily Goals**, quick RUN/WALK.
+- **On-the-bench feel:** screen **wake lock** during a session (Settings toggle),
+  **haptics** on set-commit and at rest-zero, a **glanceable** big-digit rest timer
+  (optional beep), one-tap **repeat-last-set**, a set-commit **pulse**, and
+  **model-backed `✓`** state so ticked sets survive re-renders.
 
 **History**
 - Unified list; full editable detail for strength/PT **and** walks/runs (date,
@@ -185,11 +190,11 @@ The app feeds the coach several things; knowing which to use avoids confusion:
 - Framework: **vitest**, with `fake-indexeddb` for the DB layer and a per-file
   **jsdom** environment for UI render tests. Aliases resolve the `esm.sh` `idb` import
   and the vendored Anthropic SDK.
-- Coverage grew **39 → 84 tests**. Pure logic is unit-tested (e1RM, ACWR, weekly
+- Coverage grew **39 → 103 tests**. Pure logic is unit-tested (e1RM, ACWR, weekly
   volume, readiness score, goal/activity streaks, stall detection, pain summary, the
-  goal-suggestion parser). UI flows have integration tests that mount real render
-  functions (history editing, Log-home render + goal increment, the delete-crash
-  regression).
+  goal-suggestion parser, `cloneLastSet`, and the haptics/wake-lock feature-detect
+  guards). UI flows have integration tests that mount real render functions (history
+  editing, Log-home render + goal increment, the delete-crash regression).
 - Every batch ran the full suite green before commit; `node --check` guarded syntax
   on changed modules.
 
@@ -217,6 +222,13 @@ The app feeds the coach several things; knowing which to use avoids confusion:
 - **In-app injury log** — dated injuries that persist to the coach and the body map.
 - **Pilot polish**: quick-build tutorial, achievements/badges, a shareable monthly
   "Wrapped" card, auto-detecting goal completion from logged data.
+- **On-the-bench follow-ups** (deferred from the `b34aa2c` bundle): weight steppers
+  (+2.5/+5), live PR detection + PR celebration, a global bottom action bar, and
+  **full active-session persistence** (survive a reload / PWA close — the
+  model-backed `✓` is step one). iOS Safari haptic trick + a custom in-app number
+  pad also noted. These came out of a 3-agent UX research pass; the broader menu
+  (coaching nudges, progress-story layers, pain×load correlation) is captured in
+  that research if we want to pick more from it.
 - **BYO-key pilot** decided (Aug 2026 direction): each of ~5 testers uses their own
   Anthropic key; a rate-limited proxy (Marco pays) is the later step if friction
   hurts adoption.
