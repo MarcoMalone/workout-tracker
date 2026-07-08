@@ -93,6 +93,7 @@ cache version bumped each release so clients update.
 | `a1e6f1e` | **Goal Coach** (AI proposes daily goals, one-tap add) + **per-exercise rest defaults**. |
 | _(earlier batch)_ | Body-map detail expansion (arm segments: bicep/tricep, elbow, forearm, wrist; feet/ankles), side-specific regions with L/R labels. |
 | `b34aa2c` | **On-the-bench UX bundle** — screen wake lock (re-acquire on visibilitychange), haptics on set-commit + rest-zero, glanceable big-digit rest timer + optional beep, repeat-last-set, set-commit pulse, model-backed `✓` state, three Settings toggles. All `localStorage`-gated, no migration. From the 3-agent UX research pass; spec at `docs/superpowers/specs/2026-07-08-on-the-bench-ux-design.md`. |
+| `dfa0c4b` | **Trust & finish A2 — privacy/About/consent/backup-safety** (closes WS-A). Settings "Data & Privacy" (on-device story + honest caveat) and "About" (version + changelog); one-time AI-coach consent gate in `runCoach` + Clear-API-key; backup nudge + restore preview (counts before overwrite); one-time "What's new" on version bump. New `version.js` / `whatsnew.js` / `db.backupSummary()`. SW v42. |
 | `29c1127` | **Trust & finish A1 — unified feedback** (first `/improve-app`-driven build). One `ui-feedback.js`: `toast()` (info/success/error + optional Undo action), a themed `confirmSheet()` replacing all 7 raw `confirm()`, `undoToast()`. Consolidated the 3 duplicated toasts; frequent reversible deletes now use Undo, catastrophic ones a danger confirm; all `alert()` → calm toasts; global `:focus-visible`. Spec at `docs/superpowers/specs/2026-07-08-trust-and-finish-design.md`. A2 (privacy/consent card, About/What's-New, backup nudge+preview) queued. SW v41. |
 | `d2edf9c` | **Chart re-skin (visual polish, workstream A)** — migrated the Progress line/e1RM/volume charts off the leftover pre-Kinetic palette (orange/navy/slate) to volt-lime with a faint hairline grid and `--text-3` ticks; L/R charts now cyan (Left) + lime (Right), with per-date side labels matched. Tabular numerals set globally on `body`. Categorical activity heatmap left distinct. Finding: the CSS token layer (near-black, hairline borders, dark-on-lime, radius scale) was already solid, so no token churn. SW v40. |
 | `e781b28` | **Contextual help layer** — one `help.js` backbone: a `DEFS` jargon map, a `showTermSheet` bottom sheet, `wireInfo()` for consistent ⓘ buttons + ambient dotted-underline glossary terms, and a `localStorage` help registry. Converts Progress's inline explainers to the shared component; adds ⓘ/underlines across Progress (ACWR, hard sets, stall, deload), the Log-home readiness card, and the active-session asymmetry chip; new first-run teaching empty state on Progress. Static/offline, no migration. From a 4-agent "professional polish" research pass; spec at `docs/superpowers/specs/2026-07-08-help-layer-design.md`. |
@@ -193,7 +194,7 @@ The app feeds the coach several things; knowing which to use avoids confusion:
 - Framework: **vitest**, with `fake-indexeddb` for the DB layer and a per-file
   **jsdom** environment for UI render tests. Aliases resolve the `esm.sh` `idb` import
   and the vendored Anthropic SDK.
-- Coverage grew **39 → 122 tests**. Pure logic is unit-tested (e1RM, ACWR, weekly
+- Coverage grew **39 → 126 tests**. Pure logic is unit-tested (e1RM, ACWR, weekly
   volume, readiness score, goal/activity streaks, stall detection, pain summary, the
   goal-suggestion parser, `cloneLastSet`, and the haptics/wake-lock feature-detect
   guards). UI flows have integration tests that mount real render functions (history
@@ -235,11 +236,14 @@ The app feeds the coach several things; knowing which to use avoids confusion:
   in the build env; recommend Oswald / Barlow Semi Condensed / Saira / Archivo,
   subset + `font-display:swap`, system stack as fallback), a **motion pass** (sheet
   slide-up, hero count-up; reduced-motion aware), and a **consistent icon set**
-  (drop emoji-as-icons for one inline-SVG line set). **C) trust & finish** (on-device privacy card, About + What's New,
-  one confirm+Undo system, backup nudge + restore preview, AI-coach consent, a11y
-  pass, unified toasts); **D) navigation & flow** (persist active session + resume
-  mini-bar, keep tab panels mounted, standardized sheet header/dismiss, collapsible
-  Settings, Progress section-index chips). Full findings live in the research pass.
+  (drop emoji-as-icons for one inline-SVG line set). **C) trust & finish — ✅ DONE**
+  (shipped as WS-A via the first `/improve-app` run — unified toasts + confirm+Undo
+  `29c1127`, privacy/About/consent/backup-safety `dfa0c4b`). **D) navigation & flow —
+  still open** (persist active session + resume mini-bar, keep tab panels mounted,
+  standardized sheet header/dismiss, collapsible Settings, Progress section-index
+  chips), plus the `/improve-app` **tactile** batch (weight steppers, non-color
+  active-tab cue + bigger step buttons, live PR celebration). Full findings live in
+  the research pass + the grounding verdicts.
 - **Help-layer follow-ups** (deferred from `e781b28`): full helper-text-under-every-
   input audit; one-time just-in-time tips (e.g. explain a stall the first time it
   fires — the `wt.help` registry is already shipped); a single dismiss-forever "?"
