@@ -1,4 +1,4 @@
-const CACHE = 'workout-v41';
+const CACHE = 'workout-v42';
 // Relative precache paths resolve against the service worker's own URL, so the
 // app works both at a GitHub Pages subpath (/workout-tracker/) and at a Vercel
 // domain root (/). Do not hardcode a base path here.
@@ -7,7 +7,7 @@ const PRECACHE = [
   'ui-log.js', 'ui-history.js', 'ui-progress.js',
   'ui-coach.js', 'ui-settings.js', 'ui-help.js', 'claude-api.js',
   'template-import.js',
-  'haptics.js', 'wakelock.js', 'help.js', 'ui-feedback.js',
+  'haptics.js', 'wakelock.js', 'help.js', 'ui-feedback.js', 'version.js', 'whatsnew.js',
   'onboarding.js', 'metrics.js', 'seed-data.js', 'migrate-data.js', 'manifest.json',
   'icons/icon-192.png', 'icons/icon-512.png',
   'https://esm.sh/idb@8'

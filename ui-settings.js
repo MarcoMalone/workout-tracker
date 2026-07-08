@@ -1,9 +1,23 @@
-﻿import { getSetting, setSetting, getExercises, addExercise, deleteExercise, getTemplates, addTemplate, deleteTemplate, getAllSessions, getRunLogs, exportAllData, importAllData } from './db.js';
+﻿import { getSetting, setSetting, getExercises, addExercise, deleteExercise, getTemplates, addTemplate, deleteTemplate, getAllSessions, getRunLogs, exportAllData, importAllData, backupSummary } from './db.js';
 import { showHelpCenter, openFeedback } from './ui-help.js';
 import { showPasteTemplateModal } from './template-import.js';
 import { toast, showToast, confirmSheet } from './ui-feedback.js';
+import { APP_VERSION, CHANGELOG } from './version.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function lastBackupLabel() {
+  let ts = 0;
+  try { ts = Number(localStorage.getItem('lastBackup')) || 0; } catch (e) { ts = 0; }
+  if (!ts) return '⚠ No backup yet — export one to keep your data safe.';
+  const days = Math.floor((Date.now() - ts) / 86400000);
+  const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+  return `Last backup: ${when}.`;
+}
+function refreshLastBackup(el) {
+  const n = el.querySelector('#last-backup');
+  if (n) n.textContent = lastBackupLabel();
+}
 
 const COLLAPSE_LIMIT = 3;
 let exLibExpanded = false;
@@ -59,7 +73,11 @@ export async function renderSettingsTab(el) {
       <div class="settings-group card">
         <label class="settings-label">Anthropic API Key</label>
         <input type="password" class="input" id="api-key-input" value="${esc(apiKey)}" placeholder="sk-ant-...">
-        <button class="btn btn-secondary settings-save-btn" id="save-api-key">Save Key</button>
+        <p class="settings-hint" style="margin-top:8px">Only for the optional AI coach. When you ask it something, your workout details and question go to Anthropic using this key. Stored only on this device; never included in a backup.</p>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-secondary settings-save-btn" id="save-api-key" style="flex:1;margin:0">Save Key</button>
+          <button class="btn btn-ghost" id="clear-api-key" style="flex:1">Clear</button>
+        </div>
       </div>
 
       <p class="section-title" style="margin-top:20px">Coach Profile</p>
@@ -121,15 +139,24 @@ export async function renderSettingsTab(el) {
         </div>
       </div>
 
-      <p class="section-title" style="margin-top:20px">Data & Backup</p>
+      <p class="section-title" style="margin-top:20px">Data & Privacy</p>
       <div class="settings-group card">
-        <p class="settings-hint">Your data lives only on this device. Export a backup regularly — restore it on a new phone or after clearing your browser. Your API key is never included in a backup.</p>
+        <p class="settings-hint"><b style="color:var(--text)">Your data stays on this phone.</b> No account, no server — nothing is uploaded. (The one exception: the optional AI coach sends what you ask to Anthropic, using your own key.) If you clear your browser or lose the phone, your data is gone unless you've exported a backup.</p>
+        <p class="settings-hint" id="last-backup" style="margin-top:6px"></p>
         <button class="btn btn-secondary btn-full" id="export-json-btn">⬇ Export Backup (JSON)</button>
         <button class="btn btn-ghost btn-full" id="restore-json-btn" style="margin-top:8px">⬆ Restore from Backup</button>
         <input type="file" id="json-file-input" accept="application/json,.json" class="hidden">
         <div style="height:1px;background:var(--border);margin:12px 0"></div>
         <button class="btn btn-ghost btn-full" id="import-csv-btn">Import from Google Sheets (CSV or Excel)</button>
         <input type="file" id="csv-file-input" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
+      </div>
+
+      <p class="section-title" style="margin-top:20px">About</p>
+      <div class="settings-group card">
+        <p class="settings-label" style="margin:0">Workout Tracker <span style="color:var(--text-3);font-weight:700">v${esc(APP_VERSION)}</span></p>
+        <p class="settings-hint" style="margin:4px 0 12px">A private, on-device training log — no accounts, no servers.</p>
+        <p class="section-title" style="margin-bottom:6px">What's new</p>
+        ${CHANGELOG.slice(0, 3).map(c => `<div class="changelog-entry"><span class="changelog-v">v${esc(c.v)} · ${esc(c.date)}</span><ul class="whatsnew-list">${c.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join('')}
       </div>
     </div>
   `;
@@ -149,6 +176,12 @@ export async function renderSettingsTab(el) {
     await setSetting('anthropicApiKey', el.querySelector('#api-key-input').value.trim());
     showToast('API key saved');
   });
+  el.querySelector('#clear-api-key').addEventListener('click', async () => {
+    await setSetting('anthropicApiKey', '');
+    el.querySelector('#api-key-input').value = '';
+    toast('API key cleared');
+  });
+  refreshLastBackup(el);
   el.querySelector('#save-health-ctx').addEventListener('click', async () => {
     await setSetting('healthContext', el.querySelector('#health-ctx').value);
     showToast('Health notes saved');
@@ -210,6 +243,8 @@ export async function renderSettingsTab(el) {
     a.download = `workout-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
+    try { localStorage.setItem('lastBackup', String(Date.now())); } catch (e) {}
+    refreshLastBackup(el);
     showToast('Backup exported');
   });
 
@@ -221,7 +256,8 @@ export async function renderSettingsTab(el) {
     let data;
     try { data = JSON.parse(await file.text()); }
     catch { toast('That file is not valid JSON.', { type: 'error' }); e.target.value = ''; return; }
-    if (!(await confirmSheet({ title: 'Restore from backup?', body: 'Entries with matching IDs are overwritten; nothing already on this device is deleted.', confirmLabel: 'Restore', danger: true }))) { e.target.value = ''; return; }
+    const sum = backupSummary(data);
+    if (!(await confirmSheet({ title: 'Restore from backup?', body: `This file has ${sum.workouts} workouts, ${sum.templates} templates, ${sum.exercises} exercises, ${sum.runs} runs and ${sum.walks} walks. Entries with matching IDs are overwritten; nothing already on this device is deleted.`, confirmLabel: 'Restore', danger: true }))) { e.target.value = ''; return; }
     try {
       const counts = await importAllData(data);
       const total = Object.values(counts).reduce((a, b) => a + b, 0);

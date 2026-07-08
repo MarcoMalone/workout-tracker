@@ -214,6 +214,19 @@ export async function exportAllData() {
   return data;
 }
 
+// Count summary of a backup snapshot, for the restore preview. Pure.
+export function backupSummary(data) {
+  const s = (data && data.stores) || {};
+  const n = k => (Array.isArray(s[k]) ? s[k].length : 0);
+  return {
+    workouts: n('logged_sessions'),
+    templates: n('workout_templates'),
+    exercises: n('exercise_definitions'),
+    runs: n('run_logs'),
+    walks: n('walk_logs'),
+  };
+}
+
 // Restore a snapshot produced by exportAllData(). Upserts by key (nothing is
 // deleted unless {replace:true}). The API key is never imported. Returns a
 // per-store count of records written.

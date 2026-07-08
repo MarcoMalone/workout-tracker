@@ -1,7 +1,7 @@
 import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, saveGoals, getGoalLog, getPainLog, setPain } from './db.js';
 import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary, buildSessionSummary, buildGoalSuggestions } from './claude-api.js';
 import { readinessScore, computeACWR, painSummary } from './metrics.js';
-import { toast } from './ui-feedback.js';
+import { toast, confirmSheet } from './ui-feedback.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -168,6 +168,17 @@ export async function renderCoachTab(el) {
 }
 
 async function runCoach(el, btnSel, respSel, contextFn, apiKey) {
+  // One-time consent: the coach is the only place data leaves the device.
+  let consented; try { consented = localStorage.getItem('coachConsent'); } catch (e) { consented = '1'; }
+  if (!consented) {
+    const ok = await confirmSheet({
+      title: 'Send this to Anthropic?',
+      body: 'To answer, the app sends the workout details and your question to Anthropic using your own API key. Your key is stored only on this device and is never included in a backup.',
+      confirmLabel: 'OK, continue', cancelLabel: 'Not now',
+    });
+    if (!ok) return;
+    try { localStorage.setItem('coachConsent', '1'); } catch (e) {}
+  }
   const btn = el.querySelector(btnSel);
   const resp = el.querySelector(respSel);
   btn.disabled = true;

@@ -35,6 +35,7 @@ async function init() {
   if (needsOnboarding) return;
   document.querySelector('[data-tab="log"]').classList.add('active');
   await switchTab('log');
+  import('./whatsnew.js').then(m => m.maybeShowWhatsNew()).catch(() => {});
 }
 
 init().catch(console.error);
