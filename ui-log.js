@@ -2,6 +2,8 @@ import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionFor
 import { readinessScore, goalStreak, painSummary } from './metrics.js';
 import { showHelpCenter } from './ui-help.js';
 import { switchTab } from './app.js';
+import { haptic } from './haptics.js';
+import { acquire as acquireWakeLock, release as releaseWakeLock, wakeLockEnabled, wakeLockSupported } from './wakelock.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function localDateStr(d = new Date()) {
@@ -85,6 +87,7 @@ export async function renderLogTab(el) {
     renderActiveSession(el);
     return;
   }
+  releaseWakeLock(); // no active workout on the Log home → let the screen sleep
   const [templates, recent, runs, walks, todayReadiness] = await Promise.all([
     getTemplates(), getAllSessions(200), getRunLogs(60), getWalkLogs(60), getReadiness(localDateStr())
   ]);
@@ -345,6 +348,7 @@ async function showReadinessCheckin(el) {
 
 async function renderActiveSession(el) {
   clearRest();
+  acquireWakeLock(); // keep the screen awake for the duration of the workout
   el.innerHTML = `
     <div class="screen session-screen">
       <div class="session-header">
@@ -354,6 +358,7 @@ async function renderActiveSession(el) {
           <button class="btn btn-ghost session-finish-btn" id="finish-btn" style="min-height:36px;font-size:14px">Finish</button>
         </div>
       </div>
+      ${(wakeLockEnabled() && wakeLockSupported()) ? '<div class="screen-on-chip">☀ Screen stays on</div>' : ''}
       <div class="session-time-row">
         <span class="session-time-label">Date</span>
         <input type="date" class="session-time-input" id="session-date" value="${activeSession.date}">
@@ -467,6 +472,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
     </div>
     <div class="ex-actions">
       <button class="btn btn-ghost ex-add-set">+ Add Set</button>
+      <button class="btn btn-ghost ex-repeat-set">Repeat</button>
       <button class="btn btn-ghost ex-add-drop">+ Drop Set</button>
     </div>
   `;
@@ -501,6 +507,19 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
       side: null, isDropSet: true, parentSetIndex: parentIdx
     });
     appendSetRow(setsEl, exIdx, newIdx, exDef, prev, true);
+    updateAsym();
+  });
+  // Repeat last set: clone the exercise's last set's values, append it already
+  // marked done, start rest, and pulse — one tap for a straight set.
+  card.querySelector('.ex-repeat-set').addEventListener('click', () => {
+    const sets = activeSession.exercises[exIdx].sets;
+    const clone = cloneLastSet(sets);
+    if (!clone) return;
+    sets.push(clone);
+    appendSetRow(setsEl, exIdx, sets.length - 1, exDef, prev, false);
+    pulseRow(setsEl.lastElementChild);
+    haptic('tap');
+    startRest(exDef.id);
     updateAsym();
   });
 
@@ -618,7 +637,8 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
     const nowDone = !this.classList.contains('done');
     this.classList.toggle('done');
     row.classList.toggle('set-done');
-    if (nowDone) startRest(exDef.id);
+    activeSession.exercises[exIdx].sets[sIdx].done = nowDone; // model-backed: survives re-render
+    if (nowDone) { startRest(exDef.id); haptic('tap'); pulseRow(row); }
   });
   row.querySelector('.set-remove-btn').addEventListener('click', () => {
     if (activeSession.exercises[exIdx].sets.length <= 1) return;
@@ -626,6 +646,11 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
     activeSession.exercises[exIdx].sets.forEach((s, i) => { s.setNumber = i + 1; });
     refreshSets(setsEl, exIdx, exDef, prev);
   });
+  // Restore a previously-committed set's checked state after any re-render.
+  if (currentSet.done) {
+    row.classList.add('set-done');
+    row.querySelector('.set-check')?.classList.add('done');
+  }
   setsEl.appendChild(row);
 }
 
@@ -669,7 +694,8 @@ function tickRest() {
     restInterval = null;
     bar.classList.add('rest-done');
     renderRest(bar, true);
-    if (navigator.vibrate) { try { navigator.vibrate(200); } catch (e) {} }
+    haptic('rest');
+    maybeRestBeep();
     setTimeout(() => {
       const b = document.getElementById('rest-timer');
       if (b) { b.classList.add('hidden'); b.classList.remove('rest-done'); b.innerHTML = ''; }
@@ -684,7 +710,7 @@ function renderRest(bar, done = false) {
   const label = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
   bar.innerHTML = done
     ? `<span class="rest-label">Rest done — go</span><button class="rest-btn" id="rest-dismiss">Got it</button>`
-    : `<span class="rest-label">Rest ${label}</span><div class="rest-actions"><button class="rest-btn" id="rest-sub">−15s</button><button class="rest-btn" id="rest-add">+15s</button><button class="rest-btn rest-skip" id="rest-skip">Skip</button></div>`;
+    : `<span class="rest-big">${label}</span><div class="rest-actions"><button class="rest-btn" id="rest-sub">−15</button><button class="rest-btn" id="rest-add">+15</button><button class="rest-btn rest-skip" id="rest-skip">Skip</button></div>`;
   bar.querySelector('#rest-add')?.addEventListener('click', () => { restTarget += 15; restRemaining += 15; persistRest(); renderRest(bar); });
   bar.querySelector('#rest-sub')?.addEventListener('click', () => { restTarget = Math.max(15, restTarget - 15); restRemaining = Math.max(1, restRemaining - 15); persistRest(); renderRest(bar); });
   bar.querySelector('#rest-skip')?.addEventListener('click', clearRest);
@@ -698,6 +724,56 @@ function clearRest() {
   restExId = null;
   const bar = document.getElementById('rest-timer');
   if (bar) { bar.classList.add('hidden'); bar.classList.remove('rest-done'); bar.innerHTML = ''; }
+}
+
+// Short volt-lime flash on a set row to confirm a commit without reading text.
+// CSS honors prefers-reduced-motion; this just toggles the class (restarting the
+// animation via a forced reflow).
+function pulseRow(row) {
+  if (!row) return;
+  row.classList.remove('set-pulse');
+  void row.offsetWidth;
+  row.classList.add('set-pulse');
+  setTimeout(() => row.classList.remove('set-pulse'), 400);
+}
+
+// Clone an exercise's last set for one-tap "Repeat set". Carries weight/reps/
+// seconds/side, marks it done, and is never a drop set. Returns null if empty.
+export function cloneLastSet(sets) {
+  if (!sets || !sets.length) return null;
+  const last = sets[sets.length - 1];
+  return {
+    setNumber: sets.length + 1,
+    weight: last.weight ?? null,
+    reps: last.reps ?? null,
+    seconds: last.seconds ?? null,
+    side: last.side ?? null,
+    isDropSet: false,
+    parentSetIndex: null,
+    done: true,
+  };
+}
+
+// Optional short beep when the rest timer hits zero (off by default). Web Audio,
+// no asset to load; fully guarded so an unsupported context never throws.
+function maybeRestBeep() {
+  try {
+    if (localStorage.getItem('restBeep') !== 'on') return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.26);
+    osc.onended = () => { try { ctx.close(); } catch (e) {} };
+  } catch (e) {}
 }
 
 function formatDate(d) {

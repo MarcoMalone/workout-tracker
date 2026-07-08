@@ -28,6 +28,20 @@ function collapseRows(container, rowSelector, limit = COLLAPSE_LIMIT) {
   container.appendChild(btn);
 }
 
+// Wire a localStorage-backed on/off switch. `defaultOn` sets the value used when
+// the key was never written (only the opposite string flips it).
+function wirePrefToggle(el, id, key, defaultOn) {
+  const btn = el.querySelector('#' + id);
+  if (!btn) return;
+  const isOn = () => defaultOn ? localStorage.getItem(key) !== 'off' : localStorage.getItem(key) === 'on';
+  const paint = () => { btn.classList.toggle('on', isOn()); btn.setAttribute('aria-checked', String(isOn())); };
+  paint();
+  btn.addEventListener('click', () => {
+    localStorage.setItem(key, isOn() ? 'off' : 'on');
+    paint();
+  });
+}
+
 export async function renderSettingsTab(el) {
   const [apiKey, healthCtx, preCL, postCL] = await Promise.all([
     getSetting('anthropicApiKey'), getSetting('healthContext'),
@@ -90,6 +104,22 @@ export async function renderSettingsTab(el) {
         </div>
       </div>
 
+      <p class="section-title" style="margin-top:20px">Workout feel</p>
+      <div class="settings-group card">
+        <div class="pref-row">
+          <div class="pref-text"><span class="settings-label" style="margin:0">Keep screen on</span><p class="settings-hint" style="margin:2px 0 0">Stops your phone sleeping during a workout.</p></div>
+          <button class="pref-toggle" id="pref-keepScreenOn" role="switch" aria-label="Keep screen on"></button>
+        </div>
+        <div class="pref-row">
+          <div class="pref-text"><span class="settings-label" style="margin:0">Haptic feedback</span><p class="settings-hint" style="margin:2px 0 0">Buzz when you log a set and when rest ends (Android; iOS is silent).</p></div>
+          <button class="pref-toggle" id="pref-haptics" role="switch" aria-label="Haptic feedback"></button>
+        </div>
+        <div class="pref-row">
+          <div class="pref-text"><span class="settings-label" style="margin:0">Rest-timer beep</span><p class="settings-hint" style="margin:2px 0 0">Play a short beep when the rest timer hits zero.</p></div>
+          <button class="pref-toggle" id="pref-restBeep" role="switch" aria-label="Rest-timer beep"></button>
+        </div>
+      </div>
+
       <p class="section-title" style="margin-top:20px">Data & Backup</p>
       <div class="settings-group card">
         <p class="settings-hint">Your data lives only on this device. Export a backup regularly — restore it on a new phone or after clearing your browser. Your API key is never included in a backup.</p>
@@ -105,6 +135,10 @@ export async function renderSettingsTab(el) {
 
   el.querySelector('#open-help-center').addEventListener('click', () => showHelpCenter());
   el.querySelector('#send-feedback').addEventListener('click', () => openFeedback());
+
+  wirePrefToggle(el, 'pref-keepScreenOn', 'keepScreenOn', true);
+  wirePrefToggle(el, 'pref-haptics', 'haptics', true);
+  wirePrefToggle(el, 'pref-restBeep', 'restBeep', false);
   el.querySelector('#paste-template-btn').addEventListener('click', () => showPasteTemplateModal(async () => {
     await renderTemplateLibrary(el.querySelector('#template-library'), el);
     await renderExerciseLibrary(el.querySelector('#exercise-library'));
