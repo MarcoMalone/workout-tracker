@@ -93,6 +93,7 @@ cache version bumped each release so clients update.
 | `a1e6f1e` | **Goal Coach** (AI proposes daily goals, one-tap add) + **per-exercise rest defaults**. |
 | _(earlier batch)_ | Body-map detail expansion (arm segments: bicep/tricep, elbow, forearm, wrist; feet/ankles), side-specific regions with L/R labels. |
 | `b34aa2c` | **On-the-bench UX bundle** — screen wake lock (re-acquire on visibilitychange), haptics on set-commit + rest-zero, glanceable big-digit rest timer + optional beep, repeat-last-set, set-commit pulse, model-backed `✓` state, three Settings toggles. All `localStorage`-gated, no migration. From the 3-agent UX research pass; spec at `docs/superpowers/specs/2026-07-08-on-the-bench-ux-design.md`. |
+| `d2edf9c` | **Chart re-skin (visual polish, workstream A)** — migrated the Progress line/e1RM/volume charts off the leftover pre-Kinetic palette (orange/navy/slate) to volt-lime with a faint hairline grid and `--text-3` ticks; L/R charts now cyan (Left) + lime (Right), with per-date side labels matched. Tabular numerals set globally on `body`. Categorical activity heatmap left distinct. Finding: the CSS token layer (near-black, hairline borders, dark-on-lime, radius scale) was already solid, so no token churn. SW v40. |
 | `e781b28` | **Contextual help layer** — one `help.js` backbone: a `DEFS` jargon map, a `showTermSheet` bottom sheet, `wireInfo()` for consistent ⓘ buttons + ambient dotted-underline glossary terms, and a `localStorage` help registry. Converts Progress's inline explainers to the shared component; adds ⓘ/underlines across Progress (ACWR, hard sets, stall, deload), the Log-home readiness card, and the active-session asymmetry chip; new first-run teaching empty state on Progress. Static/offline, no migration. From a 4-agent "professional polish" research pass; spec at `docs/superpowers/specs/2026-07-08-help-layer-design.md`. |
 
 Earlier phases (pre–`d23f661`) built the core app: templates, logging (unilateral /
@@ -224,11 +225,16 @@ The app feeds the coach several things; knowing which to use avoids confusion:
 - **Pilot polish**: quick-build tutorial, achievements/badges, a shareable monthly
   "Wrapped" card, auto-detecting goal completion from logged data.
 - **Professional-polish research menu** (4-agent pass, Jul 2026): three workstreams
-  still queued after the help layer — **A) visual token layer** (tabular numerals,
-  8pt spacing, layered near-black + hairline borders, radius/type scales, accent
-  discipline, one number formatter; then self-host a display font — which also fixes
-  the Kinetic look only rendering on Windows — plus a motion pass, Chart.js reskin,
-  one icon set); **C) trust & finish** (on-device privacy card, About + What's New,
+  still queued. **A) visual polish** — the CSS token layer turned out to already be
+  in good shape (near-black surfaces, hairline borders, dark-on-lime text, radius
+  scale, tabular numerals, graceful `system-ui` font fallback), so the "Tier A
+  token overhaul" the research proposed was largely redundant; the real gap was the
+  off-brand charts, now re-skinned (`d2edf9c`). Still open in A: **self-host one
+  display font** (needs a `.woff2` binary dropped into the repo — can't be fetched
+  in the build env; recommend Oswald / Barlow Semi Condensed / Saira / Archivo,
+  subset + `font-display:swap`, system stack as fallback), a **motion pass** (sheet
+  slide-up, hero count-up; reduced-motion aware), and a **consistent icon set**
+  (drop emoji-as-icons for one inline-SVG line set). **C) trust & finish** (on-device privacy card, About + What's New,
   one confirm+Undo system, backup nudge + restore preview, AI-coach consent, a11y
   pass, unified toasts); **D) navigation & flow** (persist active session + resume
   mini-bar, keep tab panels mounted, standardized sheet header/dismiss, collapsible
