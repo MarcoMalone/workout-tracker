@@ -1,7 +1,7 @@
 # Supersets (round-interleaved) — Design
 
 **Date:** 2026-07-08
-**Status:** Draft — pending Marco's review before build
+**Status:** Stage 1 shipped (template-editor linking + round-interleaved logging + group-aware rest). Stage 2 deferred.
 **Origin:** Live-testing brainstorm — logging dumbbell bench with push-ups as a
 linked finisher. Chose **B (superset grouping)** + **round-interleaved** UI.
 Client-side, offline, `localStorage`/IndexedDB, **no DB migration** (optional

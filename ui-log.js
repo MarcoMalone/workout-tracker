@@ -413,13 +413,25 @@ async function renderActiveSession(el) {
   // original template, which drifts out of sync the moment an exercise is
   // deleted or added. Each card resolves its own definition by exerciseId.
   const cardsEl = el.querySelector('#exercise-cards');
+  // Resolve each exercise's definition + prior session once, then render.
+  // Consecutive exercises sharing a supersetId render as one round-interleaved
+  // superset block; everything else is a standalone card (unchanged).
+  const meta = [];
   for (let i = 0; i < activeSession.exercises.length; i++) {
     const ex = activeSession.exercises[i];
     const exDef = await getExercise(ex.exerciseId);
     const prev = await getLastSessionForExercise(ex.exerciseId);
     ex.exerciseName = exDef.name;
     prefillFromLastSession(ex, exDef, prev); // start from what you actually did last time
-    cardsEl.appendChild(buildExerciseCard(i, exDef, prev, ex, el));
+    meta[i] = { exDef, prev };
+  }
+  for (const g of groupExercises(activeSession.exercises)) {
+    if (g.exIdxs.length < 2) {
+      const i = g.exIdxs[0];
+      cardsEl.appendChild(buildExerciseCard(i, meta[i].exDef, meta[i].prev, activeSession.exercises[i], el));
+    } else {
+      cardsEl.appendChild(buildSupersetBlock(g, meta, el));
+    }
   }
   el.querySelector('#finish-btn').addEventListener('click', () => showPostChecklist(el));
   el.querySelector('#sticky-finish-btn').addEventListener('click', () => showPostChecklist(el));
@@ -587,6 +599,138 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
   return card;
 }
 
+// ── Supersets (round-interleaved) ─────────────────────────────────────────────
+// Group consecutive session exercises that share a non-null supersetId. Each
+// group is { supersetId, exIdxs:[...] }; standalone exercises come back as their
+// own single-element group (rendered as a normal card). Pure — unit-tested.
+export function groupExercises(exercises) {
+  const groups = [];
+  let cur = null;
+  (exercises || []).forEach((ex, i) => {
+    const sid = ex.supersetId || null;
+    if (sid && cur && cur.supersetId === sid) {
+      cur.exIdxs.push(i);
+    } else {
+      cur = { supersetId: sid, exIdxs: [i] };
+      groups.push(cur);
+    }
+  });
+  return groups;
+}
+
+// Split an exercise's sets into "round slots": each working (non-drop) set opens
+// a slot; drop sets attach to the slot immediately above them. So round r is the
+// r-th working set plus any drops trailing it. Pure — unit-tested.
+export function roundSlots(sets) {
+  const slots = [];
+  let cur = null;
+  (sets || []).forEach((s, i) => {
+    if (s.isDropSet) {
+      if (!cur) { cur = { workIdx: null, dropIdxs: [] }; slots.push(cur); }
+      cur.dropIdxs.push(i);
+    } else {
+      cur = { workIdx: i, dropIdxs: [] };
+      slots.push(cur);
+    }
+  });
+  return slots;
+}
+
+// Subtle "do the next exercise" cue shown when an earlier exercise in a superset
+// round is checked (rest waits for the group's last exercise).
+function showNextCue(name) {
+  if (name) toast(`Next: ${name}`, { duration: 1600 });
+}
+
+// A superset renders as rounds: round r shows, for each exercise in group order,
+// that exercise's r-th working set (+ its drops) as a labeled row. "+ drop" adds
+// a drop to that exercise in that round; "+ Add round" adds a set to every
+// exercise so they stay aligned. Rest fires only after the group's last exercise.
+function buildSupersetBlock(g, meta, el) {
+  const block = document.createElement('div');
+  block.className = 'superset-block';
+  const names = g.exIdxs.map(i => (meta[i].exDef.name || '').replace(/_/g, ' ')).join(' + ');
+  block.innerHTML = `
+    <div class="superset-hd"><span class="superset-tag">⛓ Superset</span><span class="superset-ex-names">${esc(names)}</span></div>
+    <div class="superset-rounds"></div>
+    <button class="btn btn-ghost btn-full superset-add-round" style="margin-top:6px">+ Add round</button>
+  `;
+  const roundsEl = block.querySelector('.superset-rounds');
+  const reRender = () => renderRounds(roundsEl, g, meta, el);
+  reRender();
+  block.querySelector('.superset-add-round').addEventListener('click', () => {
+    for (const i of g.exIdxs) {
+      const sets = activeSession.exercises[i].sets;
+      sets.push({ setNumber: sets.length + 1, weight: null, reps: null, seconds: null, side: null, isDropSet: false, parentSetIndex: null });
+    }
+    reRender();
+  });
+  return block;
+}
+
+function renderRounds(roundsEl, g, meta, el) {
+  roundsEl.innerHTML = '';
+  const reRender = () => renderRounds(roundsEl, g, meta, el);
+  const slotsByEx = {};
+  let roundCount = 1;
+  for (const i of g.exIdxs) {
+    slotsByEx[i] = roundSlots(activeSession.exercises[i].sets);
+    roundCount = Math.max(roundCount, slotsByEx[i].length);
+  }
+  const lastExIdx = g.exIdxs[g.exIdxs.length - 1];
+
+  for (let r = 0; r < roundCount; r++) {
+    const roundEl = document.createElement('div');
+    roundEl.className = 'ss-round';
+    roundEl.innerHTML = `<div class="ss-round-hd">Round ${r + 1}</div>`;
+    for (let gi = 0; gi < g.exIdxs.length; gi++) {
+      const exIdx = g.exIdxs[gi];
+      const { exDef, prev } = meta[exIdx];
+      const slot = slotsByEx[exIdx][r];
+      const isLast = exIdx === lastExIdx;
+      const nextName = isLast ? null : (meta[g.exIdxs[gi + 1]].exDef.name || '').replace(/_/g, ' ');
+      const onCheck = () => { if (isLast) startRest(exDef.id); else showNextCue(nextName); };
+
+      const exWrap = document.createElement('div');
+      exWrap.className = 'ss-ex';
+      const uni = exDef.isUnilateral ? ' <span class="uni-tag">per side</span>' : '';
+      exWrap.innerHTML = `<div class="ss-ex-name">${esc((exDef.name || '').replace(/_/g, ' '))}${uni}</div><div class="ss-ex-sets"></div>`;
+      const setsHost = exWrap.querySelector('.ss-ex-sets');
+
+      if (slot && slot.workIdx != null) {
+        appendSetRow(setsHost, exIdx, slot.workIdx, exDef, prev, false, { label: `Set ${r + 1}`, onCheck, reRender });
+        slot.dropIdxs.forEach((di, k) => {
+          appendSetRow(setsHost, exIdx, di, exDef, prev, true, { label: `Drop ${k + 1}`, onCheck, reRender });
+        });
+        const dropBtn = document.createElement('button');
+        dropBtn.className = 'btn btn-ghost ss-add-drop';
+        dropBtn.textContent = '+ drop';
+        dropBtn.addEventListener('click', () => {
+          const sets = activeSession.exercises[exIdx].sets;
+          const insertAt = (slot.dropIdxs.length ? slot.dropIdxs[slot.dropIdxs.length - 1] : slot.workIdx) + 1;
+          sets.splice(insertAt, 0, { setNumber: insertAt + 1, weight: null, reps: null, seconds: null, side: null, isDropSet: true, parentSetIndex: slot.workIdx });
+          sets.forEach((s, i) => { s.setNumber = i + 1; });
+          reRender();
+        });
+        exWrap.appendChild(dropBtn);
+      } else {
+        // This exercise has fewer rounds than a linked partner — offer to catch up.
+        const addBtn = document.createElement('button');
+        addBtn.className = 'btn btn-ghost ss-add-slot';
+        addBtn.textContent = '+ add set';
+        addBtn.addEventListener('click', () => {
+          const sets = activeSession.exercises[exIdx].sets;
+          sets.push({ setNumber: sets.length + 1, weight: null, reps: null, seconds: null, side: null, isDropSet: false, parentSetIndex: null });
+          reRender();
+        });
+        exWrap.appendChild(addBtn);
+      }
+      roundEl.appendChild(exWrap);
+    }
+    roundsEl.appendChild(roundEl);
+  }
+}
+
 // Side-to-side imbalance for a unilateral exercise, from the current session's
 // sets. Uses weight (loaded), reps (bodyweight), or seconds (timed). Returns
 // { gap, weaker } when both sides have data and the gap exceeds 15%, else null.
@@ -615,13 +759,18 @@ function refreshSets(setsEl, exIdx, exDef, prev) {
   });
 }
 
-function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
+// opts (optional, used by the superset round view):
+//   label     — override the "Set N" label (e.g. "Set 1" / "Drop 1" in a round)
+//   onCheck    — called instead of the default startRest() when a set is checked
+//                (used for group-aware rest: only the group's last exercise rests)
+//   reRender   — called instead of refreshSets() after a set is removed
+function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts = {}) {
   const currentSet = activeSession.exercises[exIdx].sets[sIdx];
   const prevSet = prev?.sets[sIdx];
   const weight = currentSet.weight ?? prevSet?.weight ?? '';
   const reps = currentSet.reps ?? prevSet?.reps ?? '';
   const unit = exDef.unit || 'lbs';
-  const setLabel = `Set ${sIdx + 1}${isDropSet ? ' ↓' : ''}`;
+  const setLabel = opts.label ?? `Set ${sIdx + 1}${isDropSet ? ' ↓' : ''}`;
   const row = document.createElement('div');
   row.className = `set-row${isDropSet ? ' drop-set' : ''}`;
 
@@ -681,13 +830,13 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false) {
     this.classList.toggle('done');
     row.classList.toggle('set-done');
     activeSession.exercises[exIdx].sets[sIdx].done = nowDone; // model-backed: survives re-render
-    if (nowDone) { startRest(exDef.id); haptic('tap'); pulseRow(row); }
+    if (nowDone) { haptic('tap'); pulseRow(row); if (opts.onCheck) opts.onCheck(); else startRest(exDef.id); }
   });
   row.querySelector('.set-remove-btn').addEventListener('click', () => {
     if (activeSession.exercises[exIdx].sets.length <= 1) return;
     activeSession.exercises[exIdx].sets.splice(sIdx, 1);
     activeSession.exercises[exIdx].sets.forEach((s, i) => { s.setNumber = i + 1; });
-    refreshSets(setsEl, exIdx, exDef, prev);
+    if (opts.reRender) opts.reRender(); else refreshSets(setsEl, exIdx, exDef, prev);
   });
   // Restore a previously-committed set's checked state after any re-render.
   if (currentSet.done) {
@@ -1000,6 +1149,7 @@ function startSession(el, template, answers, sorenessNote = '') {
     exercises: template.exercises.map(e => ({
       exerciseId: e.exerciseId,
       exerciseName: '',
+      supersetId: e.supersetId ?? null,
       notes: '',
       sets: Array.from({ length: e.defaultSets }, (_, i) => ({
         setNumber: i + 1,

@@ -374,6 +374,21 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .tpl-ex-ctrls button:active { background: var(--surface-hi); }
 .tpl-ex-ctrls button:disabled { color: var(--text-3); opacity: 0.35; }
 .tpl-remove { color: var(--danger) !important; }
+.tpl-ex-row.tpl-linked { margin-left: 22px; padding-left: 10px; border-left: 2px solid var(--accent); border-bottom-color: var(--border); }
+.tpl-linked-tag { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 2px; }
+.uni-tag { display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; vertical-align: middle; }
+/* Superset block (round-interleaved logging) */
+.superset-block { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--r-md); padding: 14px; margin-bottom: 12px; }
+.superset-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.superset-tag { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--volt-ink); background: var(--accent); padding: 3px 8px; border-radius: 100px; }
+.superset-ex-names { font-size: 15px; font-weight: 700; color: var(--text); text-transform: capitalize; }
+.ss-round { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+.ss-round:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.ss-round-hd { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); margin-bottom: 8px; }
+.ss-ex { margin-bottom: 10px; }
+.ss-ex:last-child { margin-bottom: 0; }
+.ss-ex-name { font-size: 13px; font-weight: 700; color: var(--text-2); text-transform: capitalize; margin-bottom: 4px; }
+.ss-add-drop, .ss-add-slot { min-height: 32px; font-size: 12px; padding: 4px 10px; margin-top: 4px; color: var(--text-3); }
 .toast { position: fixed; bottom: calc(var(--nav-h) + var(--safe-b) + 16px); left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 14px; max-width: calc(100vw - 32px); background: var(--navy); color: var(--text); padding: 11px 20px; border-radius: 100px; font-size: 14px; font-weight: 700; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
 .toast-msg { min-width: 0; }
 .toast-success { background: var(--success); color: #06110b; }

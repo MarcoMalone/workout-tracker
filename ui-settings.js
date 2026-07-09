@@ -176,7 +176,7 @@ export async function renderSettingsTab(el) {
   wirePrefToggle(el, 'pref-restBeep', 'restBeep', false);
   el.querySelector('#paste-template-btn').addEventListener('click', () => showPasteTemplateModal(async () => {
     await renderTemplateLibrary(el.querySelector('#template-library'), el);
-    await renderExerciseLibrary(el.querySelector('#exercise-library'));
+    await renderExerciseLibrary(el.querySelector('#exercise-library'), el);
     showToast('Template added');
   }));
   el.querySelector('#save-api-key').addEventListener('click', async () => {
@@ -234,7 +234,7 @@ export async function renderSettingsTab(el) {
   });
 
   // Exercise library
-  await renderExerciseLibrary(el.querySelector('#exercise-library'));
+  await renderExerciseLibrary(el.querySelector('#exercise-library'), el);
   el.querySelector('#add-exercise-btn').addEventListener('click', () => showExerciseForm(el, null));
 
   // Template library
@@ -305,17 +305,20 @@ function renderChecklistEditor(container, items, prefix) {
   collapseRows(container, '.cl-row');
 }
 
-async function renderExerciseLibrary(container) {
+async function renderExerciseLibrary(container, el) {
   const exercises = await getExercises();
   if (exercises.length === 0) { container.innerHTML = '<p style="color:var(--text-3);padding:12px">No exercises yet</p>'; return; }
   const shown = exLibExpanded ? exercises : exercises.slice(0, COLLAPSE_LIMIT);
-  const rowHtml = ex => `<div class="lib-row"><span>${esc(ex.name)} <span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></span><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px" data-id="${esc(ex.id)}">Delete</button></div>`;
+  const rowHtml = ex => `<div class="lib-row"><span>${esc(ex.name)}${ex.isUnilateral ? ' <span class="uni-tag">per side</span>' : ''} <span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></span><div style="display:flex;gap:4px"><button class="btn btn-ghost lib-edit-btn" style="min-height:36px;font-size:13px" data-id="${esc(ex.id)}">Edit</button><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px;color:var(--danger)" data-id="${esc(ex.id)}">Del</button></div></div>`;
   container.innerHTML = shown.map(rowHtml).join('')
     + (exercises.length > COLLAPSE_LIMIT ? `<button type="button" class="collapse-toggle" id="ex-lib-toggle">${exLibExpanded ? 'Show fewer ▴' : `Show all ${exercises.length} ▾`}</button>` : '');
-  container.querySelectorAll('.lib-del-btn').forEach(btn => {
-    btn.addEventListener('click', async () => { await deleteExercise(btn.dataset.id); await renderExerciseLibrary(container); });
+  container.querySelectorAll('.lib-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => { const ex = exercises.find(e => e.id === btn.dataset.id); if (ex) showExerciseForm(el, ex); });
   });
-  container.querySelector('#ex-lib-toggle')?.addEventListener('click', () => { exLibExpanded = !exLibExpanded; renderExerciseLibrary(container); });
+  container.querySelectorAll('.lib-del-btn').forEach(btn => {
+    btn.addEventListener('click', async () => { if (await confirmSheet({ title: 'Delete exercise?', confirmLabel: 'Delete', danger: true })) { await deleteExercise(btn.dataset.id); await renderExerciseLibrary(container, el); } });
+  });
+  container.querySelector('#ex-lib-toggle')?.addEventListener('click', () => { exLibExpanded = !exLibExpanded; renderExerciseLibrary(container, el); });
 }
 
 async function renderTemplateLibrary(container, el) {
@@ -347,7 +350,7 @@ function showExerciseForm(el, existing) {
       <input class="input" id="ex-name" value="${esc(existing?.name || '')}">
       <label class="form-label">Body Part</label>
       <select class="input" id="ex-part">
-        ${['arms','legs','core'].map(p => `<option value="${p}" ${existing?.bodyPartGroup === p ? 'selected' : ''}>${p}</option>`).join('')}
+        ${['arms','legs','core'].map(p => `<option value="${p}" ${existing?.bodyPartGroup === p ? 'selected' : ''}>${p[0].toUpperCase() + p.slice(1)}</option>`).join('')}
       </select>
       <label class="form-label">Equipment</label>
       <input class="input" id="ex-equip" value="${esc(existing?.equipment || '')}">
@@ -432,7 +435,7 @@ export async function showTemplateEditor(el, existing, onSave) {
       <input class="input" id="tpl-name" value="${esc(existing?.name || '')}">
       <label class="form-label">Body Part</label>
       <select class="input" id="tpl-part">
-        ${['arms', 'legs', 'core'].map(p => `<option value="${p}" ${existing?.bodyPartGroup === p ? 'selected' : ''}>${p}</option>`).join('')}
+        ${['arms', 'legs', 'core'].map(p => `<option value="${p}" ${existing?.bodyPartGroup === p ? 'selected' : ''}>${p[0].toUpperCase() + p.slice(1)}</option>`).join('')}
       </select>
       <label class="form-label" style="margin-top:12px">Exercises <span class="form-hint">— reorder, set sets × reps, and ⛓ to superset with the one above</span></label>
       <div id="tpl-ex-list" style="max-height:300px;overflow-y:auto;margin-bottom:8px"></div>
@@ -449,12 +452,14 @@ export async function showTemplateEditor(el, existing, onSave) {
       const d = exById[r.exerciseId];
       const name = d ? d.name.replace(/_/g, ' ') : r.exerciseId;
       const timed = !!(d && d.isTimed);
-      const cfg = timed
-        ? `<input class="tpl-mini" type="number" inputmode="numeric" min="1" value="${r.defaultSets}" data-i="${i}" data-f="defaultSets" aria-label="Sets"><span class="tpl-x">×</span><input class="tpl-mini" type="number" inputmode="numeric" value="${r.defaultSeconds ?? ''}" data-i="${i}" data-f="defaultSeconds" aria-label="Seconds"><span class="tpl-x">s</span>`
-        : `<input class="tpl-mini" type="number" inputmode="numeric" min="1" value="${r.defaultSets}" data-i="${i}" data-f="defaultSets" aria-label="Sets"><span class="tpl-x">×</span><input class="tpl-mini" type="number" inputmode="numeric" value="${r.targetReps ?? ''}" data-i="${i}" data-f="targetReps" aria-label="Reps"><span class="tpl-x">reps</span>`;
-      return `<div class="tpl-ex-row">
-        ${i > 0 ? `<button class="tpl-link${r.linkedAbove ? ' on' : ''}" data-i="${i}" title="Superset with the exercise above" aria-label="Superset with above">⛓</button>` : '<span class="tpl-link-spacer"></span>'}
-        <div class="tpl-ex-main"><span class="tpl-ex-name">${esc(name)}</span><div class="tpl-ex-cfg">${cfg}</div></div>
+      const uni = !!(d && d.isUnilateral);
+      const repLabel = uni ? (timed ? 's/side' : 'reps/side') : (timed ? 's' : 'reps');
+      const repField = timed ? 'defaultSeconds' : 'targetReps';
+      const repVal = timed ? (r.defaultSeconds ?? '') : (r.targetReps ?? '');
+      const cfg = `<input class="tpl-mini" type="number" inputmode="numeric" min="1" value="${r.defaultSets}" data-i="${i}" data-f="defaultSets" aria-label="Sets"><span class="tpl-x">×</span><input class="tpl-mini" type="number" inputmode="numeric" value="${repVal}" data-i="${i}" data-f="${repField}" aria-label="${uni ? 'Per side' : 'Reps'}"><span class="tpl-x">${repLabel}</span>`;
+      return `<div class="tpl-ex-row${r.linkedAbove ? ' tpl-linked' : ''}">
+        ${i > 0 ? `<button class="tpl-link${r.linkedAbove ? ' on' : ''}" data-i="${i}" title="${r.linkedAbove ? 'Linked as a superset — tap to unlink' : 'Superset with the exercise above'}" aria-label="Superset with above">⛓</button>` : '<span class="tpl-link-spacer"></span>'}
+        <div class="tpl-ex-main">${r.linkedAbove ? '<span class="tpl-linked-tag">⛓ superset with above</span>' : ''}<span class="tpl-ex-name">${esc(name)}${uni ? ' <span class="uni-tag">per side</span>' : ''}</span><div class="tpl-ex-cfg">${cfg}</div></div>
         <div class="tpl-ex-ctrls">
           <button class="tpl-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
           <button class="tpl-move" data-i="${i}" data-d="1" ${i === chosen.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>

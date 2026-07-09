@@ -9,7 +9,7 @@ vi.mock('../app.js', () => ({ switchTab: () => {} }));
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog, saveGoals } from '../db.js';
-import { renderLogTab, computeAsymmetry, _resetSessionForTest } from '../ui-log.js';
+import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest } from '../ui-log.js';
 
 // The base test env's localStorage is a non-functional stub; ui-log now
 // transitively imports localStorage-reading modules (wakelock/haptics/help).
@@ -190,6 +190,88 @@ test('discard still works after deleting an exercise', async () => {
   expect(container.querySelector('.log-hero')).toBeTruthy();
   expect(container.querySelector('.session-name')).toBeFalsy();
   expect(localStorage.getItem('activeSession')).toBeFalsy();       // discard clears the autosave
+  overlay.remove();
+});
+
+// ── Supersets (round-interleaved) ─────────────────────────────────────────────
+test('groupExercises groups consecutive shared supersetIds; singletons stand alone', () => {
+  const ex = [
+    { supersetId: 'g1' }, { supersetId: 'g1' }, // group of 2
+    { supersetId: null },                        // standalone
+    { supersetId: 'g2' },                        // lone id → own group of 1
+    { supersetId: 'g3' }, { supersetId: 'g3' },  // another group of 2
+  ];
+  const groups = groupExercises(ex);
+  expect(groups.map(g => g.exIdxs)).toEqual([[0, 1], [2], [3], [4, 5]]);
+  expect(groups[0].supersetId).toBe('g1');
+});
+
+test('groupExercises: same id but non-adjacent does NOT merge across a gap', () => {
+  const groups = groupExercises([{ supersetId: 'g1' }, { supersetId: null }, { supersetId: 'g1' }]);
+  expect(groups.map(g => g.exIdxs)).toEqual([[0], [1], [2]]);
+});
+
+test('roundSlots: each working set opens a slot; drops attach to the slot above', () => {
+  const sets = [
+    { isDropSet: false }, { isDropSet: true }, { isDropSet: true }, // round 1 + 2 drops
+    { isDropSet: false },                                          // round 2, no drop
+  ];
+  const slots = roundSlots(sets);
+  expect(slots).toEqual([
+    { workIdx: 0, dropIdxs: [1, 2] },
+    { workIdx: 3, dropIdxs: [] },
+  ]);
+});
+
+async function seedSupersetAndStart() {
+  for (const [id, name] of [['ex-a', 'Alpha'], ['ex-b', 'Bravo']]) {
+    await addExercise({ id, name, bodyPartGroup: 'core', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' });
+  }
+  await addTemplate({
+    id: 'tpl-ss', name: 'SS Day', bodyPartGroup: 'core', createdAt: 1,
+    exercises: [
+      { exerciseId: 'ex-a', defaultSets: 2, targetReps: 10, defaultWeight: 50, order: 0, supersetId: 'grp1' },
+      { exerciseId: 'ex-b', defaultSets: 2, targetReps: 10, defaultWeight: 50, order: 1, supersetId: 'grp1' },
+    ],
+  });
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-overlay';
+  document.body.appendChild(overlay);
+  window.confirm = () => true;
+  await renderLogTab(container);
+  await flush();
+  container.querySelector('.template-card .template-name').click();
+  await waitFor(() => overlay.querySelector('#start-session-btn'));
+  overlay.querySelector('#start-session-btn').click();
+  await waitFor(() => container.querySelector('.superset-block'));
+  return overlay;
+}
+
+test('a superset template renders one round-interleaved block, not two cards', async () => {
+  const overlay = await seedSupersetAndStart();
+  const block = container.querySelector('.superset-block');
+  expect(block).toBeTruthy();
+  expect(container.querySelectorAll('.exercise-card')).toHaveLength(0); // grouped, not standalone
+  expect(block.querySelectorAll('.ss-round')).toHaveLength(2);          // 2 default sets → 2 rounds
+  const firstRound = block.querySelector('.ss-round').querySelectorAll('.ss-ex-name');
+  expect(firstRound).toHaveLength(2);
+  expect(firstRound[0].textContent).toContain('Alpha');                // interleaved in order
+  expect(firstRound[1].textContent).toContain('Bravo');
+  overlay.remove();
+});
+
+test('rest waits for the last exercise in a superset round', async () => {
+  const overlay = await seedSupersetAndStart();
+  const bar = document.getElementById('rest-timer');
+  const exBlocks = container.querySelector('.ss-round').querySelectorAll('.ss-ex');
+  // check the FIRST exercise (Alpha, not last) → no rest yet
+  exBlocks[0].querySelector('.set-check').click();
+  await flush();
+  expect(bar.classList.contains('hidden')).toBe(true);
+  // check the LAST exercise (Bravo) → rest starts
+  exBlocks[1].querySelector('.set-check').click();
+  await waitFor(() => !bar.classList.contains('hidden'));
+  expect(bar.classList.contains('hidden')).toBe(false);
   overlay.remove();
 });
 
