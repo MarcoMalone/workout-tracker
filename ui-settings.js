@@ -391,12 +391,37 @@ function showExerciseForm(el, existing) {
   });
 }
 
+// Assign superset group ids from per-row "linked with the one above" flags.
+// Consecutive linked rows share an id; standalone rows get null. Pure.
+export function assignSupersetIds(linkedAbove) {
+  const ids = new Array(linkedAbove.length).fill(null);
+  for (let i = 1; i < linkedAbove.length; i++) {
+    if (linkedAbove[i]) {
+      if (!ids[i - 1]) ids[i - 1] = crypto.randomUUID();
+      ids[i] = ids[i - 1];
+    }
+  }
+  return ids;
+}
+
 export async function showTemplateEditor(el, existing, onSave) {
   const exercises = await getExercises();
+  const exById = Object.fromEntries(exercises.map(e => [e.id, e]));
   const overlay = document.getElementById('modal-overlay');
   overlay.classList.remove('hidden');
-  const selectedExIds = existing?.exercises.map(e => e.exerciseId) ?? [];
   const dismiss = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
+
+  // Working copy: an ordered, per-exercise list with editable sets/reps and a
+  // "linked with above" (superset) flag derived from the saved supersetId.
+  const sorted = existing ? existing.exercises.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) : [];
+  const chosen = sorted.map((e, i) => ({
+    exerciseId: e.exerciseId,
+    defaultSets: e.defaultSets ?? 3,
+    targetReps: e.targetReps ?? null,
+    defaultSeconds: e.defaultSeconds ?? null,
+    linkedAbove: i > 0 && !!e.supersetId && e.supersetId === sorted[i - 1].supersetId,
+  }));
+
   overlay.innerHTML = `
     <div class="modal-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -407,16 +432,59 @@ export async function showTemplateEditor(el, existing, onSave) {
       <input class="input" id="tpl-name" value="${esc(existing?.name || '')}">
       <label class="form-label">Body Part</label>
       <select class="input" id="tpl-part">
-        ${['arms','legs','core'].map(p => `<option value="${p}" ${existing?.bodyPartGroup === p ? 'selected' : ''}>${p}</option>`).join('')}
+        ${['arms', 'legs', 'core'].map(p => `<option value="${p}" ${existing?.bodyPartGroup === p ? 'selected' : ''}>${p}</option>`).join('')}
       </select>
-      <label class="form-label" style="margin-top:12px">Exercises (in order)</label>
-      <div id="tpl-ex-list" style="max-height:240px;overflow-y:auto;margin-bottom:8px">
-        ${exercises.map(ex => `<div class="tpl-ex-row"><label><input type="checkbox" value="${ex.id}" ${selectedExIds.includes(ex.id) ? 'checked' : ''}> ${esc(ex.name)}</label></div>`).join('')}
-      </div>
-      <button class="btn btn-primary btn-full" id="save-tpl-btn">Save Template</button>
+      <label class="form-label" style="margin-top:12px">Exercises <span class="form-hint">— reorder, set sets × reps, and ⛓ to superset with the one above</span></label>
+      <div id="tpl-ex-list" style="max-height:300px;overflow-y:auto;margin-bottom:8px"></div>
+      <select class="input" id="tpl-add-ex"><option value="">+ Add exercise…</option>${exercises.map(ex => `<option value="${esc(ex.id)}">${esc(ex.name)}</option>`).join('')}</select>
+      <button class="btn btn-primary btn-full" id="save-tpl-btn" style="margin-top:12px">Save Template</button>
       ${existing ? `<button class="btn btn-ghost btn-full" id="del-tpl-btn" style="margin-top:8px;color:var(--danger)">🗑 Delete Template</button>` : ''}
     </div>
   `;
+
+  const listEl = overlay.querySelector('#tpl-ex-list');
+  function renderList() {
+    if (!chosen.length) { listEl.innerHTML = '<p class="settings-hint" style="padding:8px 0">No exercises yet — add one below.</p>'; return; }
+    listEl.innerHTML = chosen.map((r, i) => {
+      const d = exById[r.exerciseId];
+      const name = d ? d.name.replace(/_/g, ' ') : r.exerciseId;
+      const timed = !!(d && d.isTimed);
+      const cfg = timed
+        ? `<input class="tpl-mini" type="number" inputmode="numeric" min="1" value="${r.defaultSets}" data-i="${i}" data-f="defaultSets" aria-label="Sets"><span class="tpl-x">×</span><input class="tpl-mini" type="number" inputmode="numeric" value="${r.defaultSeconds ?? ''}" data-i="${i}" data-f="defaultSeconds" aria-label="Seconds"><span class="tpl-x">s</span>`
+        : `<input class="tpl-mini" type="number" inputmode="numeric" min="1" value="${r.defaultSets}" data-i="${i}" data-f="defaultSets" aria-label="Sets"><span class="tpl-x">×</span><input class="tpl-mini" type="number" inputmode="numeric" value="${r.targetReps ?? ''}" data-i="${i}" data-f="targetReps" aria-label="Reps"><span class="tpl-x">reps</span>`;
+      return `<div class="tpl-ex-row">
+        ${i > 0 ? `<button class="tpl-link${r.linkedAbove ? ' on' : ''}" data-i="${i}" title="Superset with the exercise above" aria-label="Superset with above">⛓</button>` : '<span class="tpl-link-spacer"></span>'}
+        <div class="tpl-ex-main"><span class="tpl-ex-name">${esc(name)}</span><div class="tpl-ex-cfg">${cfg}</div></div>
+        <div class="tpl-ex-ctrls">
+          <button class="tpl-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
+          <button class="tpl-move" data-i="${i}" data-d="1" ${i === chosen.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
+          <button class="tpl-remove" data-i="${i}" aria-label="Remove">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+    listEl.querySelectorAll('.tpl-mini').forEach(inp => inp.addEventListener('input', () => {
+      chosen[+inp.dataset.i][inp.dataset.f] = inp.value === '' ? null : Number(inp.value);
+    }));
+    listEl.querySelectorAll('.tpl-link').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.i; chosen[i].linkedAbove = !chosen[i].linkedAbove; renderList(); }));
+    listEl.querySelectorAll('.tpl-move').forEach(b => b.addEventListener('click', () => {
+      const i = +b.dataset.i, j = i + (+b.dataset.d);
+      if (j < 0 || j >= chosen.length) return;
+      [chosen[i], chosen[j]] = [chosen[j], chosen[i]];
+      renderList();
+    }));
+    listEl.querySelectorAll('.tpl-remove').forEach(b => b.addEventListener('click', () => { chosen.splice(+b.dataset.i, 1); renderList(); }));
+  }
+  renderList();
+
+  overlay.querySelector('#tpl-add-ex').addEventListener('change', e => {
+    const id = e.target.value;
+    if (!id) return;
+    const d = exById[id];
+    chosen.push({ exerciseId: id, defaultSets: 3, targetReps: d?.isTimed ? null : 12, defaultSeconds: d?.isTimed ? 30 : null, linkedAbove: false });
+    e.target.value = '';
+    renderList();
+  });
+
   overlay.querySelector('#tpl-dismiss-btn').addEventListener('click', dismiss);
   if (existing) {
     overlay.querySelector('#del-tpl-btn').addEventListener('click', async () => {
@@ -430,13 +498,18 @@ export async function showTemplateEditor(el, existing, onSave) {
   overlay.querySelector('#save-tpl-btn').addEventListener('click', async () => {
     const name = overlay.querySelector('#tpl-name').value.trim();
     if (!name) { toast('Name required', { type: 'error' }); return; }
-    const checked = Array.from(overlay.querySelectorAll('#tpl-ex-list input:checked'));
-    const exList = checked.map((inp, i) => {
-      const exId = inp.value;
-      const existingEx = existing?.exercises.find(e => e.exerciseId === exId);
-      const exDef = exercises.find(e => e.id === exId);
-      if (existingEx) return { ...existingEx, order: i };
-      return { exerciseId: exId, defaultSets: 3, targetReps: exDef?.isTimed ? null : 12, defaultSeconds: exDef?.isTimed ? 30 : null, order: i };
+    if (!chosen.length) { toast('Add at least one exercise', { type: 'error' }); return; }
+    const ids = assignSupersetIds(chosen.map(r => r.linkedAbove));
+    const exList = chosen.map((r, i) => {
+      const d = exById[r.exerciseId];
+      return {
+        exerciseId: r.exerciseId,
+        defaultSets: Math.max(1, Number(r.defaultSets) || 1),
+        targetReps: d?.isTimed ? null : (Number(r.targetReps) || null),
+        defaultSeconds: d?.isTimed ? (Number(r.defaultSeconds) || null) : null,
+        order: i,
+        supersetId: ids[i],
+      };
     });
     await addTemplate({ id: existing?.id || crypto.randomUUID(), name, bodyPartGroup: overlay.querySelector('#tpl-part').value, exercises: exList, createdAt: existing?.createdAt || Date.now() });
     dismiss();

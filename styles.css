@@ -359,7 +359,21 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .lib-row:last-child { border-bottom: none; }
 .cl-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .cl-remove-btn { background: none; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-3); cursor: pointer; padding: 0 10px; min-height: 44px; }
-.tpl-ex-row { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
+.tpl-ex-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
+.tpl-ex-row:last-child { border-bottom: none; }
+.tpl-link-spacer { width: 28px; flex-shrink: 0; }
+.tpl-link { width: 28px; height: 28px; flex-shrink: 0; display: grid; place-items: center; background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-3); font-size: 14px; cursor: pointer; padding: 0; transition: all 0.12s; }
+.tpl-link.on { background: var(--accent); border-color: var(--accent); color: var(--volt-ink); }
+.tpl-ex-main { flex: 1; min-width: 0; }
+.tpl-ex-name { display: block; font-weight: 700; color: var(--text); text-transform: capitalize; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tpl-ex-cfg { display: flex; align-items: center; gap: 4px; margin-top: 3px; color: var(--text-3); font-size: 12px; }
+.tpl-mini { width: 44px; background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; padding: 4px 6px; text-align: center; }
+.tpl-x { color: var(--text-3); font-size: 12px; }
+.tpl-ex-ctrls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.tpl-ex-ctrls button { width: 30px; height: 30px; display: grid; place-items: center; background: none; border: none; color: var(--text-2); font-size: 15px; cursor: pointer; border-radius: var(--r-sm); padding: 0; }
+.tpl-ex-ctrls button:active { background: var(--surface-hi); }
+.tpl-ex-ctrls button:disabled { color: var(--text-3); opacity: 0.35; }
+.tpl-remove { color: var(--danger) !important; }
 .toast { position: fixed; bottom: calc(var(--nav-h) + var(--safe-b) + 16px); left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 14px; max-width: calc(100vw - 32px); background: var(--navy); color: var(--text); padding: 11px 20px; border-radius: 100px; font-size: 14px; font-weight: 700; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
 .toast-msg { min-width: 0; }
 .toast-success { background: var(--success); color: #06110b; }

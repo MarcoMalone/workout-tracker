@@ -60,9 +60,13 @@ timer" toggle.
   sets). Each exercise still contributes to its own e1RM/PR/volume as today.
 
 ## Edge cases / decisions
-- **Drop sets inside a superset:** disabled in v1 (the "+ Drop Set" button is hidden
-  within a group) — round-interleaving + drop-set insertion together is too tangled
-  for a first cut; revisit later.
+- **Drop sets inside a superset:** KEPT (Marco's call — support the power case). No
+  new set field: a **round** is derived per exercise as its r-th *working* (non-drop)
+  set plus any drop sets immediately following it in the array. In the round UI each
+  exercise's slot shows its working set + its drop rows + a small **"+ drop"**
+  affordance to add another drop to *that* exercise in *that* round (multiple drops
+  per round supported). Order within a round is normal set → drop(s). Rest still fires
+  only after the group's last exercise.
 - **Mixed exercise types in a group** (weighted + bodyweight + timed + unilateral):
   each row uses its own existing renderer; only a name label is added. Unilateral
   asymmetry flag keeps working per exercise.
