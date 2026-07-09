@@ -508,6 +508,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
     <div class="ex-header">
       <span class="ex-name">${esc(displayName)}${machineLabel}</span>
       <div style="display:flex;gap:4px;align-items:center">
+        ${exIdx > 0 ? '<button class="ex-link-btn" title="Superset with the exercise above">⛓</button>' : ''}
         <button class="ex-note-btn" title="Add note">📝</button>
         <button class="ex-remove-btn" title="Remove exercise">✕</button>
       </div>
@@ -530,6 +531,17 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
 
   card.querySelector('.ex-note-btn').addEventListener('click', () => {
     card.querySelector(`#note-${exIdx}`).classList.toggle('hidden');
+  });
+  // Ad-hoc superset: link this exercise with the one directly above it (join its
+  // group if it has one, else start a new one). Re-render merges them into a
+  // round-interleaved block; supersetId autosaves with the session.
+  card.querySelector('.ex-link-btn')?.addEventListener('click', () => {
+    const above = activeSession.exercises[exIdx - 1];
+    const gid = above.supersetId || crypto.randomUUID();
+    above.supersetId = gid;
+    activeSession.exercises[exIdx].supersetId = gid;
+    haptic('tap');
+    renderActiveSession(el);
   });
   card.querySelector('.ex-remove-btn').addEventListener('click', async () => {
     const removed = activeSession.exercises[exIdx];
@@ -620,13 +632,17 @@ function buildSupersetBlock(g, meta, el) {
   block.className = 'superset-block';
   const names = g.exIdxs.map(i => (meta[i].exDef.name || '').replace(/_/g, ' ')).join(' + ');
   block.innerHTML = `
-    <div class="superset-hd"><span class="superset-tag">⛓ Superset</span><span class="superset-ex-names">${esc(names)}</span></div>
+    <div class="superset-hd"><span class="superset-tag">⛓ Superset</span><span class="superset-ex-names">${esc(names)}</span><button class="superset-unlink" title="Break this superset apart">unlink</button></div>
     <div class="superset-rounds"></div>
     <button class="btn btn-ghost btn-full superset-add-round" style="margin-top:6px">+ Add round</button>
   `;
   const roundsEl = block.querySelector('.superset-rounds');
   const reRender = () => renderRounds(roundsEl, g, meta, el);
   reRender();
+  block.querySelector('.superset-unlink').addEventListener('click', () => {
+    for (const i of g.exIdxs) activeSession.exercises[i].supersetId = null;
+    renderActiveSession(el);
+  });
   block.querySelector('.superset-add-round').addEventListener('click', () => {
     for (const i of g.exIdxs) {
       const sets = activeSession.exercises[i].sets;

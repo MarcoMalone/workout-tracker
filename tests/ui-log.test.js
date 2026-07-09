@@ -275,6 +275,25 @@ test('rest waits for the last exercise in a superset round', async () => {
   overlay.remove();
 });
 
+test('linking a card mid-session merges it into a superset block; unlink restores', async () => {
+  const overlay = await seedSessionAndStart(); // 4 standalone exercises
+  expect(container.querySelectorAll('.exercise-card')).toHaveLength(4);
+
+  // link Bravo (card index 1) with Alpha (the card above)
+  container.querySelectorAll('.exercise-card')[1].querySelector('.ex-link-btn').click();
+  await waitFor(() => container.querySelector('.superset-block'));
+  expect(container.querySelectorAll('.exercise-card')).toHaveLength(2); // Charlie + Delta remain
+  const names = container.querySelector('.superset-block .superset-ex-names').textContent.toLowerCase();
+  expect(names).toContain('alpha');
+  expect(names).toContain('bravo');
+
+  // unlink dissolves the group back into standalone cards
+  container.querySelector('.superset-unlink').click();
+  await waitFor(() => container.querySelectorAll('.exercise-card').length === 4);
+  expect(container.querySelector('.superset-block')).toBeFalsy();
+  overlay.remove();
+});
+
 test('an in-progress session persists and resumes after a reload', async () => {
   const overlay = await seedSessionAndStart();
   expect(container.querySelectorAll('.exercise-card')).toHaveLength(4);

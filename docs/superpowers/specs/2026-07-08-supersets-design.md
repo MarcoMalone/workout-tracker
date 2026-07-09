@@ -1,7 +1,7 @@
 # Supersets (round-interleaved) — Design
 
 **Date:** 2026-07-08
-**Status:** Stage 1 shipped (template-editor linking + round-interleaved logging + group-aware rest). Stage 2 in progress — History detail interleaving done; ad-hoc in-session grouping + 3+-exercise circuits still deferred.
+**Status:** Shipped. Stage 1 (template-editor linking + round-interleaved logging + group-aware rest + drop sets in a superset). Stage 2 (History detail interleaving + ad-hoc in-session link/unlink). 3+-exercise circuits work for free via the N-member group engine.
 **Origin:** Live-testing brainstorm — logging dumbbell bench with push-ups as a
 linked finisher. Chose **B (superset grouping)** + **round-interleaved** UI.
 Client-side, offline, `localStorage`/IndexedDB, **no DB migration** (optional

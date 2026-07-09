@@ -382,6 +382,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .superset-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 .superset-tag { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--volt-ink); background: var(--accent); padding: 3px 8px; border-radius: 100px; }
 .superset-ex-names { font-size: 15px; font-weight: 700; color: var(--text); text-transform: capitalize; }
+.superset-unlink { margin-left: auto; background: none; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-3); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 3px 9px; min-height: 26px; cursor: pointer; }
+.superset-unlink:active { background: var(--surface-hi); }
+.ex-link-btn { background: none; border: 1px solid var(--border); border-radius: 50%; width: 26px; height: 26px; color: var(--text-2); font-size: 13px; cursor: pointer; padding: 0; line-height: 1; }
+.ex-link-btn:active { background: var(--surface-hi); border-color: var(--accent); color: var(--accent); }
 .ss-round { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
 .ss-round:first-child { border-top: none; padding-top: 0; margin-top: 0; }
 .ss-round-hd { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); margin-bottom: 8px; }
