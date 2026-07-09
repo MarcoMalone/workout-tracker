@@ -483,8 +483,9 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
   card.className = 'exercise-card card';
   card.dataset.exIdx = exIdx;
 
-  const prevText = prev
-    ? prev.sets.map(s => s.seconds != null ? `${s.seconds}s` : `${s.weight}×${s.reps}`).join(', ')
+  const prevSets = prev ? prev.sets.filter(s => s.seconds != null || s.weight != null || s.reps != null) : [];
+  const prevText = prevSets.length
+    ? prevSets.map(s => s.seconds != null ? `${s.seconds}s` : `${s.weight}×${s.reps}`).join(', ')
     : 'No previous data';
   const displayName = (exDef.name || '').replace(/_/g, ' ');
   const machineLabel = exDef.machineId ? ` (${esc(exDef.machineId)})` : '';
@@ -537,13 +538,17 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
     appendSetRow(setsEl, exIdx, newIdx, exDef, prev);
   });
   card.querySelector('.ex-add-drop').addEventListener('click', () => {
-    const newIdx = activeSession.exercises[exIdx].sets.length;
-    const parentIdx = newIdx - 1;
-    activeSession.exercises[exIdx].sets.push({
-      setNumber: newIdx + 1, weight: null, reps: null, seconds: null,
-      side: null, isDropSet: true, parentSetIndex: parentIdx
+    const sets = activeSession.exercises[exIdx].sets;
+    // Insert the drop set right after the last completed (checked) set, so it
+    // attaches to the set you just finished — not only at the very end.
+    let insertAt = sets.length;
+    for (let i = sets.length - 1; i >= 0; i--) { if (sets[i].done) { insertAt = i + 1; break; } }
+    sets.splice(insertAt, 0, {
+      setNumber: insertAt + 1, weight: null, reps: null, seconds: null,
+      side: null, isDropSet: true, parentSetIndex: insertAt - 1
     });
-    appendSetRow(setsEl, exIdx, newIdx, exDef, prev, true);
+    sets.forEach((s, i) => { s.setNumber = i + 1; });
+    refreshSets(setsEl, exIdx, exDef, prev);
     updateAsym();
   });
   // Repeat last set: clone the exercise's last set's values, append it already
@@ -703,6 +708,7 @@ let restTarget = REST_DEFAULT;
 let restExId = null;
 
 async function startRest(exId) {
+  try { if (localStorage.getItem('restTimer') === 'off') return; } catch (e) {}
   const bar = document.getElementById('rest-timer');
   if (!bar) return;
   restExId = exId || null;
@@ -773,6 +779,17 @@ function pulseRow(row) {
   void row.offsetWidth;
   row.classList.add('set-pulse');
   setTimeout(() => row.classList.remove('set-pulse'), 400);
+}
+
+// Drop sets with no logged data (no weight/reps/seconds) and renumber, so a
+// half-added or skipped set never persists as "null × null". Applied on finish.
+export function stripEmptySets(exercises) {
+  return (exercises || []).map(ex => ({
+    ...ex,
+    sets: (ex.sets || [])
+      .filter(s => s.weight != null || s.reps != null || s.seconds != null)
+      .map((s, i) => ({ ...s, setNumber: i + 1 })),
+  }));
 }
 
 // Clone an exercise's last set for one-tap "Repeat set". Carries weight/reps/
@@ -1089,6 +1106,7 @@ async function showPostChecklist(el) {
     activeSession.workoutLabel = labelVal || null;
     const ctxVal = overlay.querySelector('#workout-context').value.trim();
     activeSession.workoutContext = ctxVal || null;
+    activeSession.exercises = stripEmptySets(activeSession.exercises);
     await saveSession(activeSession);
     activeSession = null;
     clearPersistedSession();

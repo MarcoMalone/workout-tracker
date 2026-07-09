@@ -21,6 +21,7 @@ export async function switchTab(tabName) {
   const el = document.getElementById('tab-content');
   el.innerHTML = '';
   await TABS[tabName](el);
+  try { localStorage.setItem('lastTab', tabName); } catch (e) {}
   updateResumeBar(tabName);
 }
 
@@ -50,8 +51,10 @@ async function init() {
   document.getElementById('resume-bar')?.addEventListener('click', () => switchTab('log'));
   const needsOnboarding = await checkOnboarding();
   if (needsOnboarding) return;
-  document.querySelector('[data-tab="log"]').classList.add('active');
-  await switchTab('log');
+  let startTab = null;
+  try { startTab = localStorage.getItem('lastTab'); } catch (e) {}
+  if (!startTab || !TABS[startTab]) startTab = 'log';
+  await switchTab(startTab); // return to the tab you were last on (switchTab sets the active state)
   import('./whatsnew.js').then(m => m.maybeShowWhatsNew()).catch(() => {});
 }
 

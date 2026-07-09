@@ -2,7 +2,7 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { haptic, hapticsEnabled } from '../haptics.js';
 import { acquire, release, wakeLockSupported, wakeLockEnabled, _isHeld } from '../wakelock.js';
-import { cloneLastSet } from '../ui-log.js';
+import { cloneLastSet, stripEmptySets } from '../ui-log.js';
 
 // The base test env's localStorage is a non-functional stub. Install a real
 // in-memory Storage so the on/off preference paths are exercisable.
@@ -96,6 +96,28 @@ describe('wake lock', () => {
 });
 
 // ── cloneLastSet ────────────────────────────────────────────────────────────
+describe('stripEmptySets', () => {
+  test('drops sets with no weight/reps/seconds and renumbers', () => {
+    const out = stripEmptySets([
+      { exerciseId: 'a', sets: [
+        { setNumber: 1, weight: 135, reps: 8, seconds: null },
+        { setNumber: 2, weight: null, reps: null, seconds: null }, // empty → dropped
+        { setNumber: 3, weight: 185, reps: 6, seconds: null },
+      ] },
+    ]);
+    expect(out[0].sets).toHaveLength(2);
+    expect(out[0].sets.map(s => s.setNumber)).toEqual([1, 2]);
+    expect(out[0].sets[1].weight).toBe(185);
+  });
+
+  test('keeps timed/bodyweight sets; tolerates empty input', () => {
+    expect(stripEmptySets([{ sets: [{ seconds: 45 }, { weight: null, reps: null, seconds: null }] }])[0].sets).toHaveLength(1);
+    expect(stripEmptySets([{ sets: [{ reps: 10 }] }])[0].sets).toHaveLength(1);
+    expect(stripEmptySets([])).toEqual([]);
+    expect(stripEmptySets(undefined)).toEqual([]);
+  });
+});
+
 describe('cloneLastSet', () => {
   test('clones the last set, marks it done, never a drop set', () => {
     const sets = [

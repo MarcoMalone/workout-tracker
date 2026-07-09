@@ -134,6 +134,10 @@ export async function renderSettingsTab(el) {
           <button class="pref-toggle" id="pref-haptics" role="switch" aria-label="Haptic feedback"></button>
         </div>
         <div class="pref-row">
+          <div class="pref-text"><span class="settings-label" style="margin:0">Auto rest timer</span><p class="settings-hint" style="margin:2px 0 0">Start a rest countdown automatically when you check off a set.</p></div>
+          <button class="pref-toggle" id="pref-restTimer" role="switch" aria-label="Auto rest timer"></button>
+        </div>
+        <div class="pref-row">
           <div class="pref-text"><span class="settings-label" style="margin:0">Rest-timer beep</span><p class="settings-hint" style="margin:2px 0 0">Play a short beep when the rest timer hits zero.</p></div>
           <button class="pref-toggle" id="pref-restBeep" role="switch" aria-label="Rest-timer beep"></button>
         </div>
@@ -151,13 +155,15 @@ export async function renderSettingsTab(el) {
         <input type="file" id="csv-file-input" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
       </div>
 
-      <p class="section-title" style="margin-top:20px">About</p>
-      <div class="settings-group card">
-        <p class="settings-label" style="margin:0">Workout Tracker <span style="color:var(--text-3);font-weight:700">v${esc(APP_VERSION)}</span></p>
-        <p class="settings-hint" style="margin:4px 0 12px">A private, on-device training log — no accounts, no servers.</p>
-        <p class="section-title" style="margin-bottom:6px">What's new</p>
-        ${CHANGELOG.slice(0, 3).map(c => `<div class="changelog-entry"><span class="changelog-v">v${esc(c.v)} · ${esc(c.date)}</span><ul class="whatsnew-list">${c.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join('')}
-      </div>
+      <details class="settings-collapsible" open>
+        <summary class="section-title" style="margin-top:20px">About <span class="collapse-caret">▾</span></summary>
+        <div class="settings-group card">
+          <p class="settings-label" style="margin:0">Workout Tracker <span style="color:var(--text-3);font-weight:700">v${esc(APP_VERSION)}</span></p>
+          <p class="settings-hint" style="margin:4px 0 12px">A private, on-device training log — no accounts, no servers.</p>
+          <p class="section-title" style="margin-bottom:6px">What's new</p>
+          ${CHANGELOG.slice(0, 3).map(c => `<div class="changelog-entry"><span class="changelog-v">v${esc(c.v)} · ${esc(c.date)}</span><ul class="whatsnew-list">${c.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join('')}
+        </div>
+      </details>
     </div>
   `;
 
@@ -166,6 +172,7 @@ export async function renderSettingsTab(el) {
 
   wirePrefToggle(el, 'pref-keepScreenOn', 'keepScreenOn', true);
   wirePrefToggle(el, 'pref-haptics', 'haptics', true);
+  wirePrefToggle(el, 'pref-restTimer', 'restTimer', true);
   wirePrefToggle(el, 'pref-restBeep', 'restBeep', false);
   el.querySelector('#paste-template-btn').addEventListener('click', () => showPasteTemplateModal(async () => {
     await renderTemplateLibrary(el.querySelector('#template-library'), el);
