@@ -41,7 +41,15 @@ beforeEach(async () => {
   container = document.createElement('div');
   document.body.appendChild(container);
 });
-afterEach(() => { container.remove(); document.querySelectorAll('#modal-overlay').forEach(o => o.remove()); });
+afterEach(() => { container.remove(); document.querySelectorAll('#modal-overlay, .toast').forEach(o => o.remove()); });
+
+async function startTemplate(overlay) {
+  await renderLogTab(container);
+  await flush();
+  container.querySelector('.template-card .template-name').click();
+  await waitFor(() => overlay.querySelector('#start-session-btn'));
+  overlay.querySelector('#start-session-btn').click();
+}
 
 test('Log home renders the Kinetic hero, week bars and cardio buttons', async () => {
   await addTemplate({ id: 'tpl-arm-a', name: 'Arm A', bodyPartGroup: 'arms', createdAt: 1, exercises: [] });
@@ -314,6 +322,42 @@ test('a unilateral exercise generates paired L/R sets — 3 per side, never odd'
   expect(container.querySelectorAll('.exercise-card .set-row')).toHaveLength(6);
   const sides = [...container.querySelectorAll('.exercise-card .set-side')].map(s => s.value);
   expect(sides).toEqual(['L', 'R', 'L', 'R', 'L', 'R']);
+  overlay.remove();
+});
+
+// ── Live PR celebration ───────────────────────────────────────────────────────
+async function seedPRScenario(priorWeight) {
+  await addExercise({ id: 'ex-a', name: 'Bench', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' });
+  await saveSession({ id: 's-prev', templateId: 'tpl-a', templateName: 'A', bodyPartGroup: 'arms', date: '2026-06-01', startedAt: 1, finishedAt: 2, preChecklist: {}, postChecklist: {}, sessionNotes: '',
+    exercises: [{ exerciseId: 'ex-a', exerciseName: 'Bench', notes: '', sets: [{ setNumber: 1, weight: priorWeight, reps: 5, seconds: null, side: null, isDropSet: false, parentSetIndex: null }] }] });
+  await addTemplate({ id: 'tpl-a', name: 'A', bodyPartGroup: 'arms', createdAt: 1, exercises: [{ exerciseId: 'ex-a', defaultSets: 1, targetReps: 5, defaultWeight: priorWeight, order: 0 }] });
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-overlay';
+  document.body.appendChild(overlay);
+  window.confirm = () => true;
+  await startTemplate(overlay);
+  await waitFor(() => container.querySelector('.exercise-card .w-input'));
+  return overlay;
+}
+
+test('a set that beats your best estimated 1RM fires a PR celebration', async () => {
+  const overlay = await seedPRScenario(100); // prior best 100×5 → e1RM 117
+  const w = container.querySelector('.exercise-card .w-input');
+  w.value = '150';                            // 150×5 → e1RM 175 > 117
+  w.dispatchEvent(new Event('input'));
+  container.querySelector('.exercise-card .set-check').click();
+  await waitFor(() => document.querySelector('.toast'));
+  expect(document.querySelector('.toast').textContent).toMatch(/New PR/i);
+  overlay.remove();
+});
+
+test('no PR celebration when the set only matches the prior best', async () => {
+  const overlay = await seedPRScenario(100); // prefilled 100×5 = the prior best, not beating it
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  container.querySelector('.exercise-card .set-check').click();
+  await flush();
+  const prToast = [...document.querySelectorAll('.toast')].find(t => /New PR/i.test(t.textContent));
+  expect(prToast).toBeFalsy();
   overlay.remove();
 });
 

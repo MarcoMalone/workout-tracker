@@ -52,8 +52,8 @@ export async function renderCoachTab(el) {
         <div id="body-map"></div>
       </div>
       <div class="coach-section card" id="pre-section">
-        <h2 class="coach-section-title">Pre-Workout Check-In</h2>
-        <p class="coach-hint">How are you feeling? Any soreness, tightness, or injuries to flag?</p>
+        <h2 class="coach-section-title">Ask the Coach</h2>
+        <p class="coach-hint">Anytime — how you're feeling, whether to train today, how to progress a lift, or what to watch. Pick the area so it pulls the right recent sessions.</p>
         <div class="coach-body-picker">
           <select class="input" id="body-part-select">
             <option value="arms">Arms</option>
@@ -61,7 +61,7 @@ export async function renderCoachTab(el) {
             <option value="core">Core</option>
           </select>
         </div>
-        <textarea class="input coach-input" id="pre-note" rows="3" placeholder="e.g. left shoulder tight, slept 6 hrs, legs still sore from Tuesday" ${!apiKey ? 'disabled' : ''}></textarea>
+        <textarea class="input coach-input" id="pre-note" rows="3" placeholder="e.g. shoulder's a little tight, slept 6 hrs — should I still do arms? / how do I get my bench moving again?" ${!apiKey ? 'disabled' : ''}></textarea>
         <button class="btn btn-primary btn-full" id="pre-ask-btn" ${!apiKey ? 'disabled' : ''}>Ask Coach</button>
         <div class="coach-response hidden" id="pre-response"></div>
       </div>

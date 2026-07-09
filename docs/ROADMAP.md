@@ -24,6 +24,10 @@ when shipped.
 - **Swipe-to-dismiss for sheets** — last WS-B item. Pure device-feel (drag
   velocity, dismiss threshold, not fighting content scroll), so best built when it
   can be felt on a phone. Backdrop-tap-to-close already ships as the safe fallback.
+- **Weight ± steppers on set rows** — the set row is already tight (weight input,
+  unit, rep ± steppers, check, remove) with `overflow:hidden`. Adding weight
+  steppers risks a cramped/clipped row on a narrow phone, so do it as a small
+  row-layout rework (maybe two-line) you can eyeball on-device. Reps already step.
 
 ## Coach
 
@@ -33,10 +37,8 @@ when shipped.
   supersets), previewed, then "Start this workout" saves it as a template and
   launches it. `buildPrescribedWorkout` + pure `parsePrescribedWorkout` /
   `buildTemplateFromPrescription` in claude-api.js.
-- **Rename / rebrand "Coach" framing.** "Pre-Workout Check-In" is too narrow — Coach
-  now also does the body check-in, post-workout debrief, goal coach, and health-
-  project export. Consider just calling the whole tab's assistant "Coach" and
-  reframing the section headers so it's clear he's not only pre/post-workout.
-  (Marco: back-burner, wanted noted so it isn't forgotten.)
-- **Document "talk to Coach to build a workout"** in About / Features / the
-  tutorial/onboarding — once the structured-prescription feature above ships.
+- ✅ **Rebranded "Coach" framing.** SHIPPED — "Pre-Workout Check-In" → "Ask the
+  Coach" with broadened copy (ask anytime, not just pre/post-workout).
+- ✅ **Documented "talk to Coach to build a workout".** SHIPPED — in the in-app Help
+  map (so the help assistant answers "how do I make a custom workout") and in the
+  About "What's new" changelog (v1.1.0).

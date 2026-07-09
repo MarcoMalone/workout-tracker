@@ -27,8 +27,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 #tab-content { flex: 1; overflow-y: auto; padding-top: var(--safe-t); padding-bottom: calc(var(--nav-h) + var(--safe-b) + 8px); }
 #bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b); background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: stretch; }
 #bottom-nav::before { content: ''; position: absolute; top: -1px; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%); opacity: 0.5; }
-.nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: none; border: none; color: var(--text-3); cursor: pointer; min-height: 48px; transition: color 0.15s; }
-.nav-tab.active { color: var(--blue); }
+.nav-tab { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: none; border: none; color: var(--text-3); cursor: pointer; min-height: 48px; transition: color 0.15s; }
+.nav-tab.active { color: var(--blue); font-weight: 800; }
+/* Non-color cue so the active tab reads without relying on color alone. */
+.nav-tab.active::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 26px; height: 3px; border-radius: 0 0 4px 4px; background: currentColor; }
 .nav-icon { width: 22px; height: 22px; }
 .nav-label { font-size: 10px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .hidden { display: none !important; }
@@ -205,6 +207,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 @keyframes setPulse { 0% { background: transparent; } 25% { background: rgba(198, 241, 53, 0.30); } 100% { background: transparent; } }
 .set-row.set-pulse { animation: setPulse 0.28s ease-out; border-radius: var(--r-sm); }
 @media (prefers-reduced-motion: reduce) { .set-row.set-pulse { animation: none; } }
+@keyframes prFlash { 0% { background: var(--accent); } 100% { background: transparent; } }
+.set-row.set-pr { animation: prFlash 0.9s ease-out; border-radius: var(--r-sm); }
+@media (prefers-reduced-motion: reduce) { .set-row.set-pr { animation: none; } }
 
 /* Settings on/off switches */
 .pref-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }

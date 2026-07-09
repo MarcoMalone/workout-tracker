@@ -1,5 +1,5 @@
-import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, saveSession, getSetting, setSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress, getPainLog } from './db.js';
-import { readinessScore, goalStreak, painSummary } from './metrics.js';
+import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, getSessionsForExercise, saveSession, getSetting, setSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress, getPainLog } from './db.js';
+import { readinessScore, goalStreak, painSummary, calcE1RM, getBestE1RM } from './metrics.js';
 import { showHelpCenter } from './ui-help.js';
 import { switchTab } from './app.js';
 import { haptic } from './haptics.js';
@@ -66,6 +66,12 @@ function computeHomeStats(sessions, runs, walks) {
 
 export let activeSession = null;
 let _persistBound = false;
+
+// Live-PR celebration state. _prBest = each exercise's best estimated 1RM from
+// PAST (saved) sessions, refreshed on render; _prCelebrated = the highest e1RM
+// already celebrated this session, so we fire once per new high, not every set.
+let _prBest = {};
+let _prCelebrated = {};
 
 // Test-only: reset module-level session state between test cases.
 export function _resetSessionForTest() { activeSession = null; }
@@ -433,6 +439,15 @@ async function renderActiveSession(el) {
     const prev = await getLastSessionForExercise(ex.exerciseId);
     ex.exerciseName = exDef.name;
     prefillFromLastSession(ex, exDef, prev); // start from what you actually did last time
+    // Best e1RM from past saved sessions — the bar a set must beat to be a PR.
+    if (!exDef.isTimed && !exDef.isBodyweight) {
+      let best = 0;
+      for (const p of await getSessionsForExercise(ex.exerciseId, 100)) {
+        const b = getBestE1RM(p.exercise.sets || []);
+        if (b && b > best) best = b;
+      }
+      _prBest[ex.exerciseId] = best;
+    }
     meta[i] = { exDef, prev };
   }
   for (const g of groupExercises(activeSession.exercises)) {
@@ -870,7 +885,7 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
     this.classList.toggle('done');
     row.classList.toggle('set-done');
     activeSession.exercises[exIdx].sets[sIdx].done = nowDone; // model-backed: survives re-render
-    if (nowDone) { haptic('tap'); pulseRow(row); if (opts.onCheck) opts.onCheck(); else startRest(exDef.id); }
+    if (nowDone) { haptic('tap'); pulseRow(row); maybeCelebratePR(exDef, exIdx, sIdx, row); if (opts.onCheck) opts.onCheck(); else startRest(exDef.id); }
   });
   row.querySelector('.set-remove-btn').addEventListener('click', () => {
     const setsArr = activeSession.exercises[exIdx].sets;
@@ -964,6 +979,24 @@ function clearRest() {
   restExId = null;
   const bar = document.getElementById('rest-timer');
   if (bar) { bar.classList.add('hidden'); bar.classList.remove('rest-done'); bar.innerHTML = ''; }
+}
+
+// When a just-checked weighted set beats the exercise's best estimated 1RM (from
+// past sessions and earlier this workout), celebrate it once — a success toast,
+// a PR haptic, and a gold flash on the row. Timed/bodyweight sets don't apply.
+function maybeCelebratePR(exDef, exIdx, sIdx, row) {
+  if (!exDef || exDef.isTimed || exDef.isBodyweight) return;
+  const set = activeSession.exercises[exIdx].sets[sIdx];
+  const e = calcE1RM(set.weight, set.reps);
+  if (!e) return;
+  const exId = exDef.id;
+  const bar = Math.max(_prBest[exId] || 0, _prCelebrated[exId] || 0);
+  if (e <= bar) return;
+  _prCelebrated[exId] = e;
+  haptic('pr');
+  if (row) { row.classList.remove('set-pr'); void row.offsetWidth; row.classList.add('set-pr'); }
+  const name = (exDef.name || '').replace(/_/g, ' ');
+  toast(`🎉 New PR — ${name}: ${e} lb est. 1RM`, { type: 'success', duration: 3500 });
 }
 
 // Short volt-lime flash on a set row to confirm a commit without reading text.
@@ -1180,6 +1213,8 @@ async function showPreChecklist(el, template, prefilledNote = '') {
 }
 
 async function startSession(el, template, answers, sorenessNote = '') {
+  _prBest = {};
+  _prCelebrated = {}; // fresh workout → celebrate PRs again
   const exercises = [];
   for (const e of template.exercises) {
     // Unilateral: defaultSets means sets PER SIDE, so generate twice as many rows

@@ -1,10 +1,19 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.1.0',
+    date: '2026-07-09',
+    items: [
+      'Ask the Coach to build you a workout: describe what you want and it designs one from your exercises, then starts it.',
+      'Supersets: link exercises (in a template or mid-workout) and log them in rounds.',
+      'Faster Progress tab and a tidier, collapsible Settings screen.',
+    ],
+  },
   {
     v: '1.0.0',
     date: '2026-07-08',
