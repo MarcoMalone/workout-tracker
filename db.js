@@ -2,6 +2,13 @@ import { openDB } from 'https://esm.sh/idb@8';
 
 let _db = null;
 
+// Monotonic counter bumped on every write to a store that feeds the Progress tab
+// (sessions / runs / walks / exercises). The Progress tab caches its built DOM
+// against this so switching to it is instant when nothing has changed. Settings
+// and templates don't feed Progress charts, so they deliberately don't bump it.
+let _dataVersion = 1;
+export function dataVersion() { return _dataVersion; }
+
 export async function initDB() {
   if (_db) return _db;
   _db = await openDB('workout-tracker', 2, {
@@ -50,6 +57,7 @@ export async function setSetting(key, value) {
 
 // ─── Exercise definitions ─────────────────────────────────────────────────────
 export async function addExercise(exercise) {
+  _dataVersion++;
   return (await db()).put('exercise_definitions', exercise);
 }
 export async function getExercises(bodyPartGroup = null) {
@@ -61,6 +69,7 @@ export async function getExercise(id) {
   return (await db()).get('exercise_definitions', id);
 }
 export async function deleteExercise(id) {
+  _dataVersion++;
   return (await db()).delete('exercise_definitions', id);
 }
 
@@ -82,9 +91,11 @@ export async function deleteTemplate(id) {
 
 // ─── Sessions ─────────────────────────────────────────────────────────────────
 export async function saveSession(session) {
+  _dataVersion++;
   return (await db()).put('logged_sessions', session);
 }
 export async function deleteSession(id) {
+  _dataVersion++;
   return (await db()).delete('logged_sessions', id);
 }
 export async function getSession(id) {
@@ -124,6 +135,7 @@ export async function getSessionsForExercise(exerciseId, limit = 12) {
 
 // ─── Run logs ─────────────────────────────────────────────────────────────────
 export async function addRunLog(run) {
+  _dataVersion++;
   return (await db()).put('run_logs', run);
 }
 export async function getRunLogs(limit = 20) {
@@ -131,11 +143,13 @@ export async function getRunLogs(limit = 20) {
   return all.sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
 }
 export async function deleteRunLog(id) {
+  _dataVersion++;
   return (await db()).delete('run_logs', id);
 }
 
 // ─── Walk logs ────────────────────────────────────────────────────────────────
 export async function addWalkLog(walk) {
+  _dataVersion++;
   return (await db()).put('walk_logs', walk);
 }
 export async function getWalkLogs(limit = 20) {
@@ -143,6 +157,7 @@ export async function getWalkLogs(limit = 20) {
   return all.sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
 }
 export async function deleteWalkLog(id) {
+  _dataVersion++;
   return (await db()).delete('walk_logs', id);
 }
 
@@ -235,6 +250,7 @@ export async function importAllData(data, { replace = false } = {}) {
     throw new Error('That file is not a valid workout-tracker backup.');
   }
   const d = await db();
+  _dataVersion++; // restore rewrites sessions/runs/walks/exercises → invalidate caches
   const counts = {};
   for (const s of BACKUP_STORES) {
     const arr = Array.isArray(data.stores[s]) ? data.stores[s] : [];

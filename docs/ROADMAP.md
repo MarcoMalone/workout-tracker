@@ -3,6 +3,15 @@
 Ideas and changes to build/discuss later. Newest first. Move items to BUILD-LOG.md
 when shipped.
 
+## ⚠ Pending Marco's on-device testing (remind him)
+
+- **Ad-hoc superset link/unlink** — mid-workout ⛓ on a card links it with the one
+  above; "unlink" on the block dissolves the group. Confirm the gesture feels
+  discoverable and that "unlink" (dissolves the whole group, not one member) reads
+  right.
+- **Full superset loop** — build Bench⛓Push-ups in the editor → log in rounds with
+  a drop set → finish → open in History and confirm the rounds read as expected.
+
 ## Coach
 
 - **Coach builds the workout (structured prescription → template).** Today the

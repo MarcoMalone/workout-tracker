@@ -8,7 +8,7 @@ import { initDB, getSetting, setSetting, addExercise, getExercises,
          addWalkLog, getWalkLogs, deleteWalkLog, getTemplate,
          exportAllData, importAllData, getReadiness, saveReadiness,
          getGoals, saveGoals, getGoalLog, setGoalProgress, getPainLog, setPain,
-         seedIfEmpty, _resetForTest } from '../db.js';
+         seedIfEmpty, _resetForTest, dataVersion } from '../db.js';
 
 beforeEach(async () => {
   // Replace globalThis.indexedDB with a fresh factory so each test starts
@@ -220,6 +220,28 @@ test('setGoalProgress clears a day when the count hits zero', async () => {
   await setGoalProgress('g1', '2026-07-07', 2);
   await setGoalProgress('g1', '2026-07-07', 0);
   expect((await getGoalLog()).g1['2026-07-07']).toBeUndefined();
+});
+
+// ─── dataVersion (Progress-tab cache invalidation) ────────────────────────────
+test('dataVersion bumps on writes that feed Progress, not on settings', async () => {
+  const v0 = dataVersion();
+  await saveSession({ id: 's1', date: '2026-07-01', bodyPartGroup: 'arms', exercises: [] });
+  const v1 = dataVersion();
+  expect(v1).toBeGreaterThan(v0);            // a logged session invalidates the cache
+
+  await addRunLog({ id: 'r1', date: '2026-07-01', distanceMiles: 2, durationMinutes: 20 });
+  await addWalkLog({ id: 'w1', date: '2026-07-01', durationMinutes: 30, speedMph: 2.2 });
+  await addExercise({ id: 'e1', name: 'X', bodyPartGroup: 'arms', unit: 'lbs' });
+  const v2 = dataVersion();
+  expect(v2).toBeGreaterThan(v1);            // cardio + exercise writes also invalidate
+
+  // Settings-backed data (goals/readiness/pain) does NOT feed Progress charts, so
+  // it must NOT invalidate the cache — else the cache would thrash on every goal tap.
+  const before = dataVersion();
+  await setSetting('theme', 'light');
+  await saveGoals([{ id: 'g', title: 'Hang', target: 1 }]);
+  await setPain('hips', 4, '', '2026-07-01');
+  expect(dataVersion()).toBe(before);
 });
 
 // ─── Pain / body map ──────────────────────────────────────────────────────────

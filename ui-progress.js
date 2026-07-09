@@ -1,7 +1,16 @@
-import { getRunLogs, getWalkLogs, getAllSessions, getExercises } from './db.js';
+import { getRunLogs, getWalkLogs, getAllSessions, getExercises, dataVersion } from './db.js';
 import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall } from './metrics.js';
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { switchTab } from './app.js';
+
+// The built Progress DOM is cached and reused across tab switches. Building it is
+// expensive (200-session read + ACWR/volume/stall compute + several Chart.js
+// canvases), and it doesn't change unless training data does — so we key the
+// cache on db.dataVersion() and just re-attach the same subtree when it matches.
+// This makes returning to Progress instant. Test-only reset: _resetProgressCache.
+let _cacheRoot = null;
+let _cacheVer = -1;
+export function _resetProgressCache() { _cacheRoot = null; _cacheVer = -1; }
 
 const CHART_COLORS = { line: '#c6f135', vol: 'rgba(198,241,53,0.28)', run: '#4CAF7D', walk: '#5BA4E0', grid: 'rgba(255,255,255,0.06)', text: '#77797f' };
 // Arms=purple, Legs=blue, Core=green, PT=orange, Run=coral, Walk=teal
@@ -12,9 +21,33 @@ const activeCharts = [];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export async function renderProgressTab(el) {
+  // Cache hit: nothing changed since we last built — re-attach the same subtree
+  // (charts keep their rendered canvases; seg-control listeners persist).
+  if (_cacheRoot && _cacheVer === dataVersion()) { el.appendChild(_cacheRoot); return; }
+
   activeCharts.forEach(c => { try { c.destroy(); } catch (e) {} });
   activeCharts.length = 0;
-  el.innerHTML = `
+
+  const [allSessions, runs, walks, exercises] = await Promise.all([getAllSessions(200), getRunLogs(50), getWalkLogs(50), getExercises()]);
+
+  if (allSessions.length === 0 && runs.length === 0 && walks.length === 0) {
+    _resetProgressCache();
+    el.innerHTML = `
+      <div class="screen">
+        <h1 class="tab-title">Progress</h1>
+        <div class="empty-state">
+          <div class="empty-icon">📈</div>
+          <h2 class="empty-title">Your trends will build here</h2>
+          <p class="empty-text">Log a few workouts and this tab starts showing your training load, weekly volume, and estimated 1-rep maxes. Most charts fill in after about 3–4 sessions.</p>
+          <button class="btn btn-primary" id="empty-log-cta">Log a workout</button>
+        </div>
+      </div>`;
+    el.querySelector('#empty-log-cta').addEventListener('click', () => switchTab('log'));
+    return;
+  }
+
+  const root = document.createElement('div');
+  root.innerHTML = `
     <div class="screen">
       <h1 class="tab-title">Progress</h1>
       <div id="layer-a-heatmap"></div>
@@ -30,29 +63,13 @@ export async function renderProgressTab(el) {
       <div id="charts-container"></div>
     </div>
   `;
-
-  const [allSessions, runs, walks, exercises] = await Promise.all([getAllSessions(200), getRunLogs(50), getWalkLogs(50), getExercises()]);
-
-  if (allSessions.length === 0 && runs.length === 0 && walks.length === 0) {
-    el.innerHTML = `
-      <div class="screen">
-        <h1 class="tab-title">Progress</h1>
-        <div class="empty-state">
-          <div class="empty-icon">📈</div>
-          <h2 class="empty-title">Your trends will build here</h2>
-          <p class="empty-text">Log a few workouts and this tab starts showing your training load, weekly volume, and estimated 1-rep maxes. Most charts fill in after about 3–4 sessions.</p>
-          <button class="btn btn-primary" id="empty-log-cta">Log a workout</button>
-        </div>
-      </div>`;
-    el.querySelector('#empty-log-cta').addEventListener('click', () => switchTab('log'));
-    return;
-  }
+  el.appendChild(root);
 
   const exGroupById = {};
   const exNameById = {};
   for (const ex of exercises) { exGroupById[ex.id] = ex.bodyPartGroup; exNameById[ex.id] = ex.name; }
   renderProgressSummary(
-    el.querySelector('#progress-summary'),
+    root.querySelector('#progress-summary'),
     computeACWR(allSessions, runs, walks),
     computeWeeklyVolume(allSessions, exGroupById),
     computeStalls(allSessions, exNameById)
@@ -62,19 +79,19 @@ export async function renderProgressTab(el) {
   const multiByDate = buildMultiActivityByDate(allSessions, runs, walks);
   const multiCells = buildMultiCells(multiByDate, 12);
   renderMultiHeatmap(
-    el.querySelector('#layer-a-heatmap'),
+    root.querySelector('#layer-a-heatmap'),
     multiCells,
     LAYER_A_COLORS,
     `12-week activity · <span class="heatmap-streak">${streakCaption(activityByDate)}</span>`
   );
 
   let currentPart = 'arms';
-  const container = el.querySelector('#charts-container');
+  const container = root.querySelector('#charts-container');
   await renderBodyPart(container, currentPart, allSessions, runs, walks);
 
-  el.querySelector('#body-part-seg').addEventListener('click', async e => {
+  root.querySelector('#body-part-seg').addEventListener('click', async e => {
     if (!e.target.classList.contains('seg-btn')) return;
-    el.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+    root.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
     e.target.classList.add('active');
     currentPart = e.target.dataset.part;
     activeCharts.forEach(c => c.destroy());
@@ -82,6 +99,9 @@ export async function renderProgressTab(el) {
     container.innerHTML = '';
     await renderBodyPart(container, currentPart, allSessions, runs, walks);
   });
+
+  _cacheRoot = root;
+  _cacheVer = dataVersion();
 }
 
 const prettyName = id => (id || '').replace(/^ex-/, '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
