@@ -11,6 +11,15 @@ when shipped.
   right.
 - **Full superset loop** — build Bench⛓Push-ups in the editor → log in rounds with
   a drop set → finish → open in History and confirm the rounds read as expected.
+- **WS-B changes** — confirm the Progress tab now switches instantly, Settings
+  sections collapse cleanly, tap-backdrop closes sheets, and the Progress jump
+  chips scroll correctly.
+
+## Deferred — needs on-device testing to build well
+
+- **Swipe-to-dismiss for sheets** — last WS-B item. Pure device-feel (drag
+  velocity, dismiss threshold, not fighting content scroll), so best built when it
+  can be felt on a phone. Backdrop-tap-to-close already ships as the safe fallback.
 
 ## Coach
 
