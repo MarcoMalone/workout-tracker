@@ -1,7 +1,65 @@
 import { getAllSessions, getRunLogs, getWalkLogs, deleteSession, saveSession, addRunLog, addWalkLog, deleteRunLog, deleteWalkLog } from './db.js';
 import { toast, undoToast } from './ui-feedback.js';
+import { groupExercises, roundSlots } from './supersets.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// Read-only value for one saved set (weight×reps / seconds), with side.
+function setValueText(s) {
+  const v = s.seconds != null ? `${esc(s.seconds)}s` : `${esc(s.weight)} × ${esc(s.reps)}`;
+  return `${v}${s.side ? ` (${esc(s.side)})` : ''}`;
+}
+
+// Build the exercises section of a saved session's detail view, interleaving any
+// supersets (consecutive shared supersetId) into rounds — mirroring how they were
+// logged. Standalone exercises render as a normal card. Each exercise keeps its
+// original array index so the note textarea (data-ex-idx) still saves correctly.
+function detailExercisesHTML(item, displayName) {
+  return groupExercises(item.exercises).map(g => {
+    if (g.exIdxs.length < 2) {
+      const i = g.exIdxs[0];
+      const ex = item.exercises[i];
+      const sets = ex.sets.map(s => `<div class="detail-set-row">
+          <span class="set-num">Set ${esc(s.setNumber)}${s.isDropSet ? ' ↓' : ''}</span>
+          <span>${setValueText(s)}</span>
+        </div>`).join('');
+      return `<div class="card detail-exercise">
+        <p class="ex-name">${esc(displayName(ex.exerciseName))}</p>
+        ${sets}
+        <textarea class="input detail-ex-note-input" data-ex-idx="${i}" rows="2" placeholder="Note for this exercise…" style="width:100%;box-sizing:border-box;margin-top:8px">${esc(ex.notes || '')}</textarea>
+      </div>`;
+    }
+    // Superset: interleave by round.
+    const names = g.exIdxs.map(i => displayName(item.exercises[i].exerciseName)).join(' + ');
+    const slotsByEx = {};
+    let roundCount = 0;
+    for (const i of g.exIdxs) { slotsByEx[i] = roundSlots(item.exercises[i].sets); roundCount = Math.max(roundCount, slotsByEx[i].length); }
+    let roundsHtml = '';
+    for (let r = 0; r < roundCount; r++) {
+      let rows = '';
+      for (const i of g.exIdxs) {
+        const ex = item.exercises[i];
+        const slot = slotsByEx[i][r];
+        if (!slot || slot.workIdx == null) continue;
+        const idxs = [slot.workIdx, ...slot.dropIdxs];
+        rows += idxs.map((si, k) => `<div class="detail-set-row">
+            <span class="set-num">${esc(displayName(ex.exerciseName))}${k > 0 ? ` ↓${k}` : ''}</span>
+            <span>${setValueText(ex.sets[si])}</span>
+          </div>`).join('');
+      }
+      roundsHtml += `<div class="detail-round"><div class="detail-round-hd">Round ${r + 1}</div>${rows}</div>`;
+    }
+    const notes = g.exIdxs.map(i => {
+      const ex = item.exercises[i];
+      return `<textarea class="input detail-ex-note-input" data-ex-idx="${i}" rows="2" placeholder="Note for ${esc(displayName(ex.exerciseName))}…" style="width:100%;box-sizing:border-box;margin-top:8px">${esc(ex.notes || '')}</textarea>`;
+    }).join('');
+    return `<div class="card detail-exercise detail-superset">
+      <p class="ex-name"><span class="superset-tag">⛓ Superset</span> ${esc(names)}</p>
+      ${roundsHtml}
+      ${notes}
+    </div>`;
+  }).join('');
+}
 
 function detailToast(msg) {
   toast(msg, { duration: 1500 });
@@ -120,16 +178,7 @@ function showDetail(el, item, type) {
       </div>
       <label class="form-label" style="margin:4px 0 4px">Session notes</label>
       <textarea class="input" id="detail-session-notes" rows="3" placeholder="Add a note about this session…" style="width:100%;box-sizing:border-box;margin-bottom:12px">${esc(item.sessionNotes || '')}</textarea>
-      ${item.exercises.map((ex, i) => `
-        <div class="card detail-exercise">
-          <p class="ex-name">${esc(displayName(ex.exerciseName))}</p>
-          ${ex.sets.map(s => `<div class="detail-set-row">
-            <span class="set-num">Set ${esc(s.setNumber)}${s.isDropSet ? ' ↓' : ''}</span>
-            <span>${s.seconds != null ? `${esc(s.seconds)}s` : `${esc(s.weight)} × ${esc(s.reps)}`}${s.side ? ` (${esc(s.side)})` : ''}</span>
-          </div>`).join('')}
-          <textarea class="input detail-ex-note-input" data-ex-idx="${i}" rows="2" placeholder="Note for this exercise…" style="width:100%;box-sizing:border-box;margin-top:8px">${esc(ex.notes || '')}</textarea>
-        </div>
-      `).join('')}
+      ${detailExercisesHTML(item, displayName)}
     </div>
   `;
   const sessionNotesEl = el.querySelector('#detail-session-notes');

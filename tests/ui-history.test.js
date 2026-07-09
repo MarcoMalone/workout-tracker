@@ -118,6 +118,43 @@ test('run detail edits and deletes persist to the DB', async () => {
   expect(await getRunLogs()).toHaveLength(0);
 });
 
+test('a saved superset renders interleaved rounds in the detail view', async () => {
+  await saveSession({
+    id: 's-ss', templateId: 't-ss', templateName: 'SS Day', bodyPartGroup: 'core',
+    date: '2026-06-20', startedAt: 1, finishedAt: 2, sessionRating: null,
+    preChecklist: {}, postChecklist: {}, sessionNotes: '',
+    exercises: [
+      { exerciseId: 'ex-a', exerciseName: 'Bench', notes: '', supersetId: 'grp1', sets: [
+        { setNumber: 1, weight: 135, reps: 8, seconds: null, side: null, isDropSet: false, parentSetIndex: null },
+        { setNumber: 2, weight: 135, reps: 6, seconds: null, side: null, isDropSet: false, parentSetIndex: null },
+      ] },
+      { exerciseId: 'ex-b', exerciseName: 'Pushups', notes: '', supersetId: 'grp1', sets: [
+        { setNumber: 1, weight: null, reps: 20, seconds: null, side: null, isDropSet: false, parentSetIndex: null },
+        { setNumber: 2, weight: null, reps: 15, seconds: null, side: null, isDropSet: false, parentSetIndex: null },
+      ] },
+    ],
+  });
+  await openDetail('workout');
+
+  // one interleaved superset card, not two separate exercise cards
+  const block = container.querySelector('.detail-superset');
+  expect(block).toBeTruthy();
+  expect(block.querySelectorAll('.detail-round')).toHaveLength(2);
+  // round 1 lists Bench then Pushups, in order
+  const round1 = block.querySelector('.detail-round');
+  const labels = [...round1.querySelectorAll('.set-num')].map(s => s.textContent.toLowerCase());
+  expect(labels[0]).toContain('bench');
+  expect(labels[1]).toContain('pushups');
+
+  // the two per-exercise note boxes still map to the right array indices
+  const notes = block.querySelectorAll('.detail-ex-note-input');
+  expect(notes).toHaveLength(2);
+  notes[1].value = 'to failure';
+  notes[1].dispatchEvent(new Event('change'));
+  await flush();
+  expect((await getSession('s-ss')).exercises[1].notes).toBe('to failure');
+});
+
 test('editing session and exercise notes on a logged workout persists', async () => {
   await saveSession({
     id: 's-1', templateId: 't-1', templateName: 'Arm A', bodyPartGroup: 'arms',

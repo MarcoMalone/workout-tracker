@@ -6,6 +6,8 @@ import { haptic } from './haptics.js';
 import { acquire as acquireWakeLock, release as releaseWakeLock, wakeLockEnabled, wakeLockSupported } from './wakelock.js';
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { toast, showToast, confirmSheet, undoToast } from './ui-feedback.js';
+import { groupExercises, roundSlots } from './supersets.js';
+export { groupExercises, roundSlots };
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function localDateStr(d = new Date()) {
@@ -600,41 +602,8 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
 }
 
 // ── Supersets (round-interleaved) ─────────────────────────────────────────────
-// Group consecutive session exercises that share a non-null supersetId. Each
-// group is { supersetId, exIdxs:[...] }; standalone exercises come back as their
-// own single-element group (rendered as a normal card). Pure — unit-tested.
-export function groupExercises(exercises) {
-  const groups = [];
-  let cur = null;
-  (exercises || []).forEach((ex, i) => {
-    const sid = ex.supersetId || null;
-    if (sid && cur && cur.supersetId === sid) {
-      cur.exIdxs.push(i);
-    } else {
-      cur = { supersetId: sid, exIdxs: [i] };
-      groups.push(cur);
-    }
-  });
-  return groups;
-}
-
-// Split an exercise's sets into "round slots": each working (non-drop) set opens
-// a slot; drop sets attach to the slot immediately above them. So round r is the
-// r-th working set plus any drops trailing it. Pure — unit-tested.
-export function roundSlots(sets) {
-  const slots = [];
-  let cur = null;
-  (sets || []).forEach((s, i) => {
-    if (s.isDropSet) {
-      if (!cur) { cur = { workIdx: null, dropIdxs: [] }; slots.push(cur); }
-      cur.dropIdxs.push(i);
-    } else {
-      cur = { workIdx: i, dropIdxs: [] };
-      slots.push(cur);
-    }
-  });
-  return slots;
-}
+// groupExercises / roundSlots are pure and shared with the history view; they
+// live in ./supersets.js and are re-exported here so existing imports/tests hold.
 
 // Subtle "do the next exercise" cue shown when an earlier exercise in a superset
 // round is checked (rest waits for the group's last exercise).
