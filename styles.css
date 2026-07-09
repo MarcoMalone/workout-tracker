@@ -396,6 +396,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .ss-add-drop { flex-shrink: 0; background: none; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-3); font-size: 12px; font-weight: 700; padding: 3px 10px; min-height: 28px; cursor: pointer; }
 .ss-add-drop:active { background: var(--surface-hi); }
 .ss-add-slot { min-height: 32px; font-size: 12px; padding: 4px 10px; margin-top: 4px; color: var(--text-3); }
+/* Progress — section jump chips */
+.progress-jump { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pj-chip { flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; color: var(--text-2); font-size: 12px; font-weight: 700; padding: 6px 14px; cursor: pointer; }
+.pj-chip:active { background: var(--surface-hi); border-color: var(--accent); color: var(--accent); }
 /* History detail — interleaved superset rounds */
 .detail-superset { border: 1px solid var(--accent); }
 .detail-superset .ex-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; text-transform: capitalize; }

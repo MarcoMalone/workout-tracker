@@ -49,6 +49,16 @@ async function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
   document.getElementById('resume-bar')?.addEventListener('click', () => switchTab('log'));
+  // Universal "tap the backdrop to close" for every sheet rendered into the shared
+  // overlay (same as its ✕). confirmSheet manages its own backdrop + resolves the
+  // promise, so we skip it here to avoid a dangling await.
+  const overlay = document.getElementById('modal-overlay');
+  overlay?.addEventListener('click', e => {
+    if (e.target === overlay && !overlay.querySelector('.confirm-sheet')) {
+      overlay.classList.add('hidden');
+      overlay.innerHTML = '';
+    }
+  });
   const needsOnboarding = await checkOnboarding();
   if (needsOnboarding) return;
   let startTab = null;

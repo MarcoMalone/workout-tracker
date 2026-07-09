@@ -50,6 +50,11 @@ export async function renderProgressTab(el) {
   root.innerHTML = `
     <div class="screen">
       <h1 class="tab-title">Progress</h1>
+      <div class="progress-jump" id="progress-jump">
+        <button class="pj-chip" data-target="layer-a-heatmap">Activity</button>
+        <button class="pj-chip" data-target="progress-summary">Load</button>
+        <button class="pj-chip" data-target="body-part-seg">Charts</button>
+      </div>
       <div id="layer-a-heatmap"></div>
       <div id="progress-summary"></div>
       <div class="seg-control" id="body-part-seg">
@@ -84,6 +89,11 @@ export async function renderProgressTab(el) {
     LAYER_A_COLORS,
     `12-week activity · <span class="heatmap-streak">${streakCaption(activityByDate)}</span>`
   );
+
+  root.querySelector('#progress-jump').addEventListener('click', e => {
+    const btn = e.target.closest('.pj-chip');
+    if (btn) root.querySelector('#' + btn.dataset.target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   let currentPart = 'arms';
   const container = root.querySelector('#charts-container');
