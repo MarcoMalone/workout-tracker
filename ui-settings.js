@@ -80,39 +80,47 @@ export async function renderSettingsTab(el) {
         </div>
       </div>
 
-      <p class="section-title" style="margin-top:20px">Coach Profile</p>
-      <div class="settings-group card">
-        <label class="settings-label">Your system prompt — shapes every coaching response</label>
-        <p class="settings-hint">Include your sport, injury history, current PT stage, and goals. This is injected into every Coach request so the AI knows who it's talking to.</p>
-        <textarea class="input" id="health-ctx" rows="7" placeholder="e.g. Recreational baseball player (pitcher). Managing right hip and groin issues — in PT for hip IR and VMO strengthening. Priority: stay active without aggravating hip. Flag any exercise that risks hip impingement or groin strain.">${esc(healthCtx)}</textarea>
-        <button class="btn btn-secondary settings-save-btn" id="save-health-ctx">Save</button>
-      </div>
-
-      <p class="section-title" style="margin-top:20px">Checklists</p>
-      <div class="settings-group card">
-        <label class="settings-label">Pre-Workout Items</label>
-        <div id="pre-cl-list"></div>
-        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost" id="add-pre-item" style="flex:1;min-width:100px">+ Add item</button>
-          <button class="btn btn-ghost" id="reset-pre-cl" style="flex:1;min-width:100px;color:var(--text-3)">↺ Reset defaults</button>
+      <details class="settings-collapsible">
+        <summary class="section-title" style="margin-top:20px">Coach Profile <span class="collapse-caret">▾</span></summary>
+        <div class="settings-group card">
+          <label class="settings-label">Your system prompt — shapes every coaching response</label>
+          <p class="settings-hint">Include your sport, injury history, current PT stage, and goals. This is injected into every Coach request so the AI knows who it's talking to.</p>
+          <textarea class="input" id="health-ctx" rows="7" placeholder="e.g. Recreational baseball player (pitcher). Managing right hip and groin issues — in PT for hip IR and VMO strengthening. Priority: stay active without aggravating hip. Flag any exercise that risks hip impingement or groin strain.">${esc(healthCtx)}</textarea>
+          <button class="btn btn-secondary settings-save-btn" id="save-health-ctx">Save</button>
         </div>
-        <button class="btn btn-secondary settings-save-btn" id="save-pre-cl" style="margin-top:8px">Save</button>
-      </div>
-      <div class="settings-group card">
-        <label class="settings-label">Post-Workout Items</label>
-        <div id="post-cl-list"></div>
-        <button class="btn btn-ghost" id="add-post-item">+ Add item</button>
-        <button class="btn btn-secondary settings-save-btn" id="save-post-cl" style="margin-top:8px">Save</button>
-      </div>
+      </details>
 
-      <p class="section-title" style="margin-top:20px">Exercise Library</p>
-      <div class="settings-group card" id="exercise-library"></div>
-      <button class="btn btn-ghost btn-full" id="add-exercise-btn" style="margin-top:8px">+ Add Exercise</button>
+      <details class="settings-collapsible">
+        <summary class="section-title" style="margin-top:20px">Checklists <span class="collapse-caret">▾</span></summary>
+        <div class="settings-group card">
+          <label class="settings-label">Pre-Workout Items</label>
+          <div id="pre-cl-list"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost" id="add-pre-item" style="flex:1;min-width:100px">+ Add item</button>
+            <button class="btn btn-ghost" id="reset-pre-cl" style="flex:1;min-width:100px;color:var(--text-3)">↺ Reset defaults</button>
+          </div>
+          <button class="btn btn-secondary settings-save-btn" id="save-pre-cl" style="margin-top:8px">Save</button>
+        </div>
+        <div class="settings-group card">
+          <label class="settings-label">Post-Workout Items</label>
+          <div id="post-cl-list"></div>
+          <button class="btn btn-ghost" id="add-post-item">+ Add item</button>
+          <button class="btn btn-secondary settings-save-btn" id="save-post-cl" style="margin-top:8px">Save</button>
+        </div>
+      </details>
 
-      <p class="section-title" style="margin-top:20px">Workout Templates</p>
-      <div class="settings-group card" id="template-library"></div>
-      <button class="btn btn-ghost btn-full" id="add-template-btn" style="margin-top:8px">+ New Template</button>
-      <button class="btn btn-ghost btn-full" id="paste-template-btn" style="margin-top:8px">Paste a template (AI-assisted)</button>
+      <details class="settings-collapsible">
+        <summary class="section-title" style="margin-top:20px">Exercise Library <span class="collapse-caret">▾</span></summary>
+        <div class="settings-group card" id="exercise-library"></div>
+        <button class="btn btn-ghost btn-full" id="add-exercise-btn" style="margin-top:8px">+ Add Exercise</button>
+      </details>
+
+      <details class="settings-collapsible">
+        <summary class="section-title" style="margin-top:20px">Workout Templates <span class="collapse-caret">▾</span></summary>
+        <div class="settings-group card" id="template-library"></div>
+        <button class="btn btn-ghost btn-full" id="add-template-btn" style="margin-top:8px">+ New Template</button>
+        <button class="btn btn-ghost btn-full" id="paste-template-btn" style="margin-top:8px">Paste a template (AI-assisted)</button>
+      </details>
 
       <p class="section-title" style="margin-top:20px">Appearance</p>
       <div class="settings-group card">
