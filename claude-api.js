@@ -118,12 +118,12 @@ export function buildPrescribedWorkoutPrompt(request, exerciseDefs, healthContex
   }).join('\n');
   const system = `You are a fitness coach building ONE workout for an athlete. Return ONLY valid JSON — no prose, no markdown.
 
-Choose exercises primarily from the athlete's LIBRARY, using the exact id. You MAY add a NEW exercise when genuinely needed: set "exerciseId" to null and provide "name" plus the flags isTimed/isUnilateral/isBodyweight.
+STRONGLY prefer exercises from the athlete's LIBRARY, using the exact id — reuse an existing exercise rather than duplicating it. Only add a NEW exercise when nothing in the library fits: set "exerciseId" to null and provide "name" plus the flags isTimed/isUnilateral/isBodyweight.
 
 Return exactly this shape:
-{"name": string, "bodyPartGroup": "arms"|"legs"|"core", "exercises": [{"exerciseId": string|null, "name": string, "isTimed": boolean, "isUnilateral": boolean, "isBodyweight": boolean, "sets": number, "reps": number|null, "seconds": number|null, "supersetGroup": number|null}]}
+{"name": string, "bodyPartGroup": "arms"|"legs"|"core", "exercises": [{"exerciseId": string|null, "name": string, "isTimed": boolean, "isUnilateral": boolean, "isBodyweight": boolean, "sets": number, "reps": number|null, "seconds": number|null, "weight": number|null, "supersetGroup": number|null}]}
 
-Rules: use reps for normal moves and seconds (with reps null) for timed holds; to superset two exercises, give them the SAME supersetGroup number AND place them adjacent in the list; keep the workout scoped to the request; prioritize injury prevention above all.${healthContext ? '\n\n' + healthContext : ''}`;
+Rules: use reps for normal moves and seconds (with reps null) for timed holds. Always give "weight" in lbs — your best starting estimate for THIS athlete based on their logged history — for any loaded (non-bodyweight, non-timed) exercise; use null only for bodyweight or timed moves. For a UNILATERAL exercise, "sets" means sets PER SIDE (e.g. 3 = 3 per arm). To superset two exercises, give them the SAME supersetGroup number AND place them adjacent in the list. Keep the workout scoped to the request; prioritize injury prevention above all.${healthContext ? '\n\n' + healthContext : ''}`;
   const userMessage = `LIBRARY:\n${lib || '(empty — you will need to add new exercises)'}\n\n${painNote || 'No active pain flagged.'}\n\n---\nBuild me this workout: ${request}`;
   return { system, userMessage };
 }
@@ -170,11 +170,13 @@ export function buildTemplateFromPrescription(pres, existingDefs, newId = () => 
       const k = String(pe.supersetGroup);
       supersetId = groupIdByNum[k] || (groupIdByNum[k] = newId());
     }
+    const loaded = !def.isTimed && !def.isBodyweight;
     exList.push({
       exerciseId: def.id,
       defaultSets: Math.max(1, Math.round(Number(pe.sets)) || 3),
       targetReps: def.isTimed ? null : (Math.round(Number(pe.reps)) || 10),
       defaultSeconds: def.isTimed ? (Math.round(Number(pe.seconds)) || 30) : null,
+      defaultWeight: loaded && Number(pe.weight) > 0 ? Math.round(Number(pe.weight)) : null,
       order: exList.length,
       supersetId,
     });

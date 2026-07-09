@@ -41,7 +41,7 @@ beforeEach(async () => {
   container = document.createElement('div');
   document.body.appendChild(container);
 });
-afterEach(() => container.remove());
+afterEach(() => { container.remove(); document.querySelectorAll('#modal-overlay').forEach(o => o.remove()); });
 
 test('Log home renders the Kinetic hero, week bars and cardio buttons', async () => {
   await addTemplate({ id: 'tpl-arm-a', name: 'Arm A', bodyPartGroup: 'arms', createdAt: 1, exercises: [] });
@@ -279,8 +279,10 @@ test('linking a card mid-session merges it into a superset block; unlink restore
   const overlay = await seedSessionAndStart(); // 4 standalone exercises
   expect(container.querySelectorAll('.exercise-card')).toHaveLength(4);
 
-  // link Bravo (card index 1) with Alpha (the card above)
+  // open the superset picker on Bravo (card index 1) and choose Alpha as the partner
   container.querySelectorAll('.exercise-card')[1].querySelector('.ex-link-btn').click();
+  await waitFor(() => overlay.querySelector('.ssp-pick'));
+  [...overlay.querySelectorAll('.ssp-pick')].find(b => b.textContent.toLowerCase().includes('alpha')).click();
   await waitFor(() => container.querySelector('.superset-block'));
   expect(container.querySelectorAll('.exercise-card')).toHaveLength(2); // Charlie + Delta remain
   const names = container.querySelector('.superset-block .superset-ex-names').textContent.toLowerCase();
@@ -291,6 +293,27 @@ test('linking a card mid-session merges it into a superset block; unlink restore
   container.querySelector('.superset-unlink').click();
   await waitFor(() => container.querySelectorAll('.exercise-card').length === 4);
   expect(container.querySelector('.superset-block')).toBeFalsy();
+  overlay.remove();
+});
+
+test('a unilateral exercise generates paired L/R sets — 3 per side, never odd', async () => {
+  await addExercise({ id: 'ex-uni', name: 'Single-Arm Raise', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: '' });
+  await addTemplate({ id: 'tpl-uni', name: 'Uni Day', bodyPartGroup: 'arms', createdAt: 1, exercises: [{ exerciseId: 'ex-uni', defaultSets: 3, targetReps: 12, defaultWeight: 15, order: 0 }] });
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-overlay';
+  document.body.appendChild(overlay);
+  window.confirm = () => true;
+  await renderLogTab(container);
+  await flush();
+  container.querySelector('.template-card .template-name').click();
+  await waitFor(() => overlay.querySelector('#start-session-btn'));
+  overlay.querySelector('#start-session-btn').click();
+  await waitFor(() => container.querySelector('.exercise-card .set-row'));
+
+  // defaultSets 3 for a unilateral exercise = 3 per side = 6 rows, alternating L/R
+  expect(container.querySelectorAll('.exercise-card .set-row')).toHaveLength(6);
+  const sides = [...container.querySelectorAll('.exercise-card .set-side')].map(s => s.value);
+  expect(sides).toEqual(['L', 'R', 'L', 'R', 'L', 'R']);
   overlay.remove();
 });
 

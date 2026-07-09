@@ -22,14 +22,28 @@ describe('parsePrescribedWorkout', () => {
 });
 
 describe('buildTemplateFromPrescription', () => {
-  test('maps a library id and normalizes sets/reps', () => {
+  test('maps a library id and normalizes sets/reps/weight', () => {
     const { template, newExercises } = buildTemplateFromPrescription(
-      { name: 'Arm Day', bodyPartGroup: 'arms', exercises: [{ exerciseId: 'ex-bench', sets: 4, reps: 8 }] },
+      { name: 'Arm Day', bodyPartGroup: 'arms', exercises: [{ exerciseId: 'ex-bench', sets: 4, reps: 8, weight: 45 }] },
       DEFS, counter()
     );
     expect(newExercises).toHaveLength(0);
-    expect(template.exercises[0]).toMatchObject({ exerciseId: 'ex-bench', defaultSets: 4, targetReps: 8, defaultSeconds: null, order: 0, supersetId: null });
+    expect(template.exercises[0]).toMatchObject({ exerciseId: 'ex-bench', defaultSets: 4, targetReps: 8, defaultWeight: 45, defaultSeconds: null, order: 0, supersetId: null });
     expect(template.bodyPartGroup).toBe('arms');
+  });
+
+  test('weight is null for bodyweight/timed and when unprescribed', () => {
+    const { template } = buildTemplateFromPrescription(
+      { bodyPartGroup: 'core', exercises: [
+        { exerciseId: null, name: 'Plank', isTimed: true, sets: 3, seconds: 40, weight: 999 },     // timed → no weight
+        { exerciseId: null, name: 'Push-ups', isBodyweight: true, sets: 3, reps: 20, weight: 999 }, // bodyweight → no weight
+        { exerciseId: 'ex-bench', sets: 3, reps: 8 },                                               // loaded, no weight given
+      ] },
+      DEFS, counter()
+    );
+    expect(template.exercises[0].defaultWeight).toBeNull();
+    expect(template.exercises[1].defaultWeight).toBeNull();
+    expect(template.exercises[2].defaultWeight).toBeNull();
   });
 
   test('creates a new exercise when exerciseId is null and a name is given', () => {

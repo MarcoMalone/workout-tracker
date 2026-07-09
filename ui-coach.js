@@ -224,7 +224,10 @@ function renderBuildPreview(container, built, existingDefs) {
     const d = byId[ex.exerciseId];
     const name = ((d && d.name) || ex.exerciseId).replace(/_/g, ' ');
     const isNew = newExercises.some(n => n.id === ex.exerciseId);
-    const scheme = d && d.isTimed ? `${ex.defaultSets} × ${ex.defaultSeconds}s` : `${ex.defaultSets} × ${ex.targetReps}`;
+    const perSide = d && d.isUnilateral ? '/side' : '';
+    const scheme = d && d.isTimed
+      ? `${ex.defaultSets} × ${ex.defaultSeconds}s${perSide}`
+      : `${ex.defaultSets} × ${ex.targetReps}${perSide}${ex.defaultWeight ? ` @ ${ex.defaultWeight} lb` : ''}`;
     const tags = `${ex.supersetId ? '<span class="uni-tag">superset</span>' : ''}${isNew ? '<span class="uni-tag">new</span>' : ''}`;
     return `<div class="build-row"><span class="build-name">${esc(name)} ${tags}</span><span class="build-scheme">${scheme}</span></div>`;
   }).join('');

@@ -516,7 +516,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
     <div class="ex-header">
       <span class="ex-name">${esc(displayName)}${machineLabel}</span>
       <div style="display:flex;gap:4px;align-items:center">
-        ${exIdx > 0 ? '<button class="ex-link-btn" title="Superset with the exercise above">⛓</button>' : ''}
+        ${activeSession.exercises.length > 1 ? '<button class="ex-link-btn" title="Superset with another exercise">⛓</button>' : ''}
         <button class="ex-note-btn" title="Add note">📝</button>
         <button class="ex-remove-btn" title="Remove exercise">✕</button>
       </div>
@@ -540,17 +540,10 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
   card.querySelector('.ex-note-btn').addEventListener('click', () => {
     card.querySelector(`#note-${exIdx}`).classList.toggle('hidden');
   });
-  // Ad-hoc superset: link this exercise with the one directly above it (join its
-  // group if it has one, else start a new one). Re-render merges them into a
+  // Ad-hoc superset: pick which exercise to pair with (any other in the workout,
+  // including one already in a superset). Re-render merges them into a
   // round-interleaved block; supersetId autosaves with the session.
-  card.querySelector('.ex-link-btn')?.addEventListener('click', () => {
-    const above = activeSession.exercises[exIdx - 1];
-    const gid = above.supersetId || crypto.randomUUID();
-    above.supersetId = gid;
-    activeSession.exercises[exIdx].supersetId = gid;
-    haptic('tap');
-    renderActiveSession(el);
-  });
+  card.querySelector('.ex-link-btn')?.addEventListener('click', () => showSupersetPicker(exIdx, el));
   card.querySelector('.ex-remove-btn').addEventListener('click', async () => {
     const removed = activeSession.exercises[exIdx];
     activeSession.exercises.splice(exIdx, 1);
@@ -564,12 +557,13 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
     activeSession.exercises[exIdx].notes = e.target.value;
   });
   card.querySelector('.ex-add-set').addEventListener('click', () => {
-    const newIdx = activeSession.exercises[exIdx].sets.length;
-    activeSession.exercises[exIdx].sets.push({
-      setNumber: newIdx + 1, weight: null, reps: null, seconds: null,
-      side: null, isDropSet: false, parentSetIndex: null
-    });
-    appendSetRow(setsEl, exIdx, newIdx, exDef, prev);
+    const sets = activeSession.exercises[exIdx].sets;
+    const n = exDef.isUnilateral ? 2 : 1; // unilateral adds an L/R pair, never a lone set
+    for (let k = 0; k < n; k++) {
+      const newIdx = sets.length;
+      sets.push({ setNumber: newIdx + 1, weight: null, reps: null, seconds: null, side: null, isDropSet: false, parentSetIndex: null });
+      appendSetRow(setsEl, exIdx, newIdx, exDef, prev);
+    }
   });
   card.querySelector('.ex-add-drop').addEventListener('click', () => {
     const sets = activeSession.exercises[exIdx].sets;
@@ -631,6 +625,55 @@ function showNextCue(name) {
   if (name) toast(`Next: ${name}`, { duration: 1600 });
 }
 
+// Ad-hoc superset: choose which other exercise to pair this one with. Lists every
+// other exercise in the session (including ones already supersetted — picking one
+// merges into that group).
+function showSupersetPicker(srcIdx, el) {
+  const others = activeSession.exercises.map((ex, i) => ({ ex, i })).filter(o => o.i !== srcIdx);
+  if (!others.length) return;
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('hidden');
+  const srcName = (activeSession.exercises[srcIdx].exerciseName || '').replace(/_/g, ' ');
+  overlay.innerHTML = `
+    <div class="modal-sheet">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <h2 class="modal-title" style="margin-bottom:0;text-transform:capitalize">Superset ${esc(srcName)} with…</h2>
+        <button class="modal-dismiss-btn" id="ssp-dismiss" aria-label="Dismiss">✕</button>
+      </div>
+      <p class="settings-hint" style="margin-bottom:10px">Pick the exercise to pair it with — it moves next to it and logs in rounds.</p>
+      ${others.map(o => {
+        const nm = (o.ex.exerciseName || o.ex.exerciseId).replace(/_/g, ' ');
+        const tag = o.ex.supersetId ? ' <span class="uni-tag">superset</span>' : '';
+        return `<button class="btn btn-ghost btn-full ssp-pick" data-i="${o.i}" style="text-align:left;text-transform:capitalize;margin-top:6px">${esc(nm)}${tag}</button>`;
+      }).join('')}
+    </div>`;
+  const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
+  overlay.querySelector('#ssp-dismiss').addEventListener('click', close);
+  overlay.querySelectorAll('.ssp-pick').forEach(b => b.addEventListener('click', () => {
+    const targetIdx = Number(b.dataset.i);
+    close();
+    linkExercises(srcIdx, targetIdx, el);
+  }));
+}
+
+// Merge the source exercise into the target's superset group: share a group id and
+// move the source to sit right after the target's group (adjacency drives grouping).
+function linkExercises(srcIdx, targetIdx, el) {
+  const exs = activeSession.exercises;
+  const src = exs[srcIdx];
+  const target = exs[targetIdx];
+  if (!src || !target) return;
+  const gid = target.supersetId || crypto.randomUUID();
+  target.supersetId = gid;
+  src.supersetId = gid;
+  exs.splice(exs.indexOf(src), 1);
+  let end = exs.indexOf(target);
+  while (end + 1 < exs.length && exs[end + 1].supersetId === gid) end++;
+  exs.splice(end + 1, 0, src);
+  haptic('tap');
+  renderActiveSession(el);
+}
+
 // A superset renders as rounds: round r shows, for each exercise in group order,
 // that exercise's r-th working set (+ its drops) as a labeled row. "+ drop" adds
 // a drop to that exercise in that round; "+ Add round" adds a set to every
@@ -654,7 +697,8 @@ function buildSupersetBlock(g, meta, el) {
   block.querySelector('.superset-add-round').addEventListener('click', () => {
     for (const i of g.exIdxs) {
       const sets = activeSession.exercises[i].sets;
-      sets.push({ setNumber: sets.length + 1, weight: null, reps: null, seconds: null, side: null, isDropSet: false, parentSetIndex: null });
+      const n = meta[i].exDef.isUnilateral ? 2 : 1; // unilateral member gets an L/R pair
+      for (let k = 0; k < n; k++) sets.push({ setNumber: sets.length + 1, weight: null, reps: null, seconds: null, side: null, isDropSet: false, parentSetIndex: null });
     }
     reRender();
   });
@@ -829,9 +873,16 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
     if (nowDone) { haptic('tap'); pulseRow(row); if (opts.onCheck) opts.onCheck(); else startRest(exDef.id); }
   });
   row.querySelector('.set-remove-btn').addEventListener('click', () => {
-    if (activeSession.exercises[exIdx].sets.length <= 1) return;
-    activeSession.exercises[exIdx].sets.splice(sIdx, 1);
-    activeSession.exercises[exIdx].sets.forEach((s, i) => { s.setNumber = i + 1; });
+    const setsArr = activeSession.exercises[exIdx].sets;
+    if (exDef.isUnilateral) {
+      if (setsArr.length <= 2) return;      // keep at least one L/R pair
+      const partner = sIdx ^ 1;             // remove the tapped row and its pair partner
+      [sIdx, partner].sort((a, b) => b - a).forEach(idx => { if (idx >= 0 && idx < setsArr.length) setsArr.splice(idx, 1); });
+    } else {
+      if (setsArr.length <= 1) return;
+      setsArr.splice(sIdx, 1);
+    }
+    setsArr.forEach((s, i) => { s.setNumber = i + 1; });
     if (opts.reRender) opts.reRender(); else refreshSets(setsEl, exIdx, exDef, prev);
   });
   // Restore a previously-committed set's checked state after any re-render.
@@ -1128,7 +1179,28 @@ async function showPreChecklist(el, template, prefilledNote = '') {
   });
 }
 
-function startSession(el, template, answers, sorenessNote = '') {
+async function startSession(el, template, answers, sorenessNote = '') {
+  const exercises = [];
+  for (const e of template.exercises) {
+    // Unilateral: defaultSets means sets PER SIDE, so generate twice as many rows
+    // (render alternates L/R by index) — a unilateral exercise is never odd.
+    let isUni = false;
+    try { const d = await getExercise(e.exerciseId); isUni = !!(d && d.isUnilateral); } catch (err) {}
+    const rows = (e.defaultSets || 1) * (isUni ? 2 : 1);
+    exercises.push({
+      exerciseId: e.exerciseId,
+      exerciseName: '',
+      supersetId: e.supersetId ?? null,
+      notes: '',
+      sets: Array.from({ length: rows }, (_, i) => ({
+        setNumber: i + 1,
+        weight: e.defaultWeight ?? null,
+        reps: e.targetReps ?? null,
+        seconds: e.defaultSeconds ?? null,
+        side: null, isDropSet: false, parentSetIndex: null
+      }))
+    });
+  }
   activeSession = {
     id: crypto.randomUUID(),
     templateId: template.id,
@@ -1142,19 +1214,7 @@ function startSession(el, template, answers, sorenessNote = '') {
     preChecklist: answers,
     postChecklist: {},
     sessionNotes: '',
-    exercises: template.exercises.map(e => ({
-      exerciseId: e.exerciseId,
-      exerciseName: '',
-      supersetId: e.supersetId ?? null,
-      notes: '',
-      sets: Array.from({ length: e.defaultSets }, (_, i) => ({
-        setNumber: i + 1,
-        weight: e.defaultWeight ?? null,
-        reps: e.targetReps ?? null,
-        seconds: e.defaultSeconds ?? null,
-        side: null, isDropSet: false, parentSetIndex: null
-      }))
-    }))
+    exercises,
   };
   renderActiveSession(el);
 }
