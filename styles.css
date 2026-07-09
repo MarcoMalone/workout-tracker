@@ -396,6 +396,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .ss-add-drop { flex-shrink: 0; background: none; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-3); font-size: 12px; font-weight: 700; padding: 3px 10px; min-height: 28px; cursor: pointer; }
 .ss-add-drop:active { background: var(--surface-hi); }
 .ss-add-slot { min-height: 32px; font-size: 12px; padding: 4px 10px; margin-top: 4px; color: var(--text-3); }
+/* Coach — build-a-workout preview */
+.build-title { font-weight: 800; margin: 0 0 8px; text-transform: capitalize; }
+.build-group { color: var(--text-3); font-weight: 700; }
+.build-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.build-row:last-of-type { border-bottom: none; }
+.build-name { text-transform: capitalize; font-weight: 600; min-width: 0; }
+.build-scheme { flex-shrink: 0; color: var(--text-2); font-variant-numeric: tabular-nums; font-size: 14px; }
 /* Progress — section jump chips */
 .progress-jump { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .pj-chip { flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; color: var(--text-2); font-size: 12px; font-weight: 700; padding: 6px 14px; cursor: pointer; }

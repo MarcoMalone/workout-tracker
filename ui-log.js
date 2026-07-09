@@ -91,6 +91,14 @@ export function setPendingCoachNote(note, bodyPart) {
   _pendingCoachNote = { note, bodyPart };
 }
 
+// Start a coach-built (or any) template: switch to the Log tab and open its
+// pre-workout checklist, exactly as tapping the template card would.
+export async function startPrescribedWorkout(template) {
+  await switchTab('log');
+  const el = document.getElementById('tab-content');
+  if (el) showPreChecklist(el, template);
+}
+
 function toTimeInput(ts) {
   const d = new Date(ts);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;

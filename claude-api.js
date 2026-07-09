@@ -34,7 +34,7 @@ export function buildPostWorkoutContext(justFinished, recentSessions, healthCont
   return { system, userMessage };
 }
 
-export async function callClaude(system, userMessage, apiKey) {
+export async function callClaude(system, userMessage, apiKey, maxTokens = 400) {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
   const MAX_RETRIES = 2;
   let lastErr;
@@ -42,7 +42,7 @@ export async function callClaude(system, userMessage, apiKey) {
     try {
       const response = await client.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 400,
+        max_tokens: maxTokens,
         system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: userMessage }]
       });
@@ -104,6 +104,90 @@ export async function buildGoalSuggestions(healthContext, recentSummaries, painN
   const { system, userMessage } = buildGoalSuggestionPrompt(healthContext, recentSummaries, painNote, currentGoalTitles);
   const response = await callClaude(system, userMessage, apiKey);
   return parseGoalSuggestions(response);
+}
+
+// ── Coach builds a workout ────────────────────────────────────────────────────
+// The coach designs a full workout from a natural-language request, choosing from
+// the athlete's exercise library (and proposing new exercises when needed), and it
+// becomes a real, startable template.
+
+export function buildPrescribedWorkoutPrompt(request, exerciseDefs, healthContext, painNote) {
+  const lib = (exerciseDefs || []).map(e => {
+    const tags = [e.isTimed && 'timed', e.isUnilateral && 'unilateral', e.isBodyweight && 'bodyweight'].filter(Boolean).join(',');
+    return `- ${e.id} — ${e.name} (${e.bodyPartGroup}${tags ? '; ' + tags : ''})`;
+  }).join('\n');
+  const system = `You are a fitness coach building ONE workout for an athlete. Return ONLY valid JSON — no prose, no markdown.
+
+Choose exercises primarily from the athlete's LIBRARY, using the exact id. You MAY add a NEW exercise when genuinely needed: set "exerciseId" to null and provide "name" plus the flags isTimed/isUnilateral/isBodyweight.
+
+Return exactly this shape:
+{"name": string, "bodyPartGroup": "arms"|"legs"|"core", "exercises": [{"exerciseId": string|null, "name": string, "isTimed": boolean, "isUnilateral": boolean, "isBodyweight": boolean, "sets": number, "reps": number|null, "seconds": number|null, "supersetGroup": number|null}]}
+
+Rules: use reps for normal moves and seconds (with reps null) for timed holds; to superset two exercises, give them the SAME supersetGroup number AND place them adjacent in the list; keep the workout scoped to the request; prioritize injury prevention above all.${healthContext ? '\n\n' + healthContext : ''}`;
+  const userMessage = `LIBRARY:\n${lib || '(empty — you will need to add new exercises)'}\n\n${painNote || 'No active pain flagged.'}\n\n---\nBuild me this workout: ${request}`;
+  return { system, userMessage };
+}
+
+// Parse the coach's workout reply (a JSON object, possibly wrapped in prose) into
+// a prescription. Returns null on anything unparseable or with no exercises.
+export function parsePrescribedWorkout(text) {
+  const m = (text || '').match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try {
+    const o = JSON.parse(m[0]);
+    if (!o || !Array.isArray(o.exercises) || !o.exercises.length) return null;
+    return o;
+  } catch { return null; }
+}
+
+// Turn a parsed prescription + the athlete's existing library into a template plus
+// any brand-new exercise definitions to persist. Pure (no DB): the caller saves
+// newExercises, then the template. An exercise with an unknown id and no usable
+// name is dropped; if nothing resolves, returns null. supersetGroup numbers become
+// shared supersetIds. `newId` is injectable for deterministic tests.
+export function buildTemplateFromPrescription(pres, existingDefs, newId = () => crypto.randomUUID()) {
+  if (!pres || !Array.isArray(pres.exercises)) return null;
+  const group = ['arms', 'legs', 'core'].includes(pres.bodyPartGroup) ? pres.bodyPartGroup : 'arms';
+  const byId = new Map((existingDefs || []).map(e => [e.id, e]));
+  const newExercises = [];
+  const exList = [];
+  const groupIdByNum = {};
+  for (const pe of pres.exercises) {
+    let def = pe.exerciseId ? byId.get(pe.exerciseId) : null;
+    if (!def) {
+      const name = (pe.name || '').trim();
+      if (!name) continue; // unknown id, no name → can't resolve; drop it
+      def = {
+        id: newId(), name, bodyPartGroup: group, equipment: '', machineId: null,
+        unit: pe.isBodyweight ? 'reps' : 'lbs',
+        isTimed: !!pe.isTimed, isUnilateral: !!pe.isUnilateral, isBodyweight: !!pe.isBodyweight, notes: '',
+      };
+      newExercises.push(def);
+      byId.set(def.id, def);
+    }
+    let supersetId = null;
+    if (pe.supersetGroup != null) {
+      const k = String(pe.supersetGroup);
+      supersetId = groupIdByNum[k] || (groupIdByNum[k] = newId());
+    }
+    exList.push({
+      exerciseId: def.id,
+      defaultSets: Math.max(1, Math.round(Number(pe.sets)) || 3),
+      targetReps: def.isTimed ? null : (Math.round(Number(pe.reps)) || 10),
+      defaultSeconds: def.isTimed ? (Math.round(Number(pe.seconds)) || 30) : null,
+      order: exList.length,
+      supersetId,
+    });
+  }
+  if (!exList.length) return null;
+  const template = { id: newId(), name: (pres.name || '').trim() || 'Coach Workout', bodyPartGroup: group, exercises: exList, createdAt: 0 };
+  return { template, newExercises };
+}
+
+export async function buildPrescribedWorkout(request, exerciseDefs, healthContext, painNote, apiKey) {
+  const { system, userMessage } = buildPrescribedWorkoutPrompt(request, exerciseDefs, healthContext, painNote);
+  const response = await callClaude(system, userMessage, apiKey, 1200);
+  return parsePrescribedWorkout(response);
 }
 
 export const APP_HELP_SYSTEM = `You are the in-app help assistant for a personal workout-tracker PWA. Answer the user's how-to / where-do-I question about USING THE APP — briefly and concretely (2-4 sentences), naming the exact tab and button. Do NOT give training or medical advice; for that, point them to the Coach tab. If you don't know, say so.

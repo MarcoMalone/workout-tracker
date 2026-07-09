@@ -14,6 +14,10 @@ when shipped.
 - **WS-B changes** — confirm the Progress tab now switches instantly, Settings
   sections collapse cleanly, tap-backdrop closes sheets, and the Progress jump
   chips scroll correctly.
+- **Coach builds a workout** — on the Coach tab (needs your API key), describe a
+  workout and confirm the preview → "Start this workout" flow: sensible exercises
+  from your library, any new ones created cleanly, supersets grouped right, and it
+  saved to Workouts. This is the one to poke hardest — it's a live Claude call.
 
 ## Deferred — needs on-device testing to build well
 
@@ -23,14 +27,12 @@ when shipped.
 
 ## Coach
 
-- **Coach builds the workout (structured prescription → template).** Today the
-  pre-workout "→ Start Workout" button only carries your free-text note to the Log
-  tab and asks you to tap an *existing* template. It does **not** turn Coach's
-  prescribed exercises into a workout. Feature: have Coach return a *structured*
-  workout (exercises + sets/reps, e.g. via Claude structured output / tool use),
-  then offer "Add as today's workout" that creates a real template/session from it.
-  Medium effort — needs a schema'd Claude call + a build-from-prescription path
-  that reuses the template data model (incl. supersets now that they exist).
+- ✅ **Coach builds the workout (structured prescription → template).** SHIPPED —
+  "Build Me a Workout" card on the Coach tab: describe what you want, Claude returns
+  a structured workout (mapped to your library, adding new exercises as needed, with
+  supersets), previewed, then "Start this workout" saves it as a template and
+  launches it. `buildPrescribedWorkout` + pure `parsePrescribedWorkout` /
+  `buildTemplateFromPrescription` in claude-api.js.
 - **Rename / rebrand "Coach" framing.** "Pre-Workout Check-In" is too narrow — Coach
   now also does the body check-in, post-workout debrief, goal coach, and health-
   project export. Consider just calling the whole tab's assistant "Coach" and

@@ -1,5 +1,5 @@
-import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, saveGoals, getGoalLog, getPainLog, setPain } from './db.js';
-import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary, buildSessionSummary, buildGoalSuggestions } from './claude-api.js';
+import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, saveGoals, getGoalLog, getPainLog, setPain, getExercises, addExercise, addTemplate } from './db.js';
+import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary, buildSessionSummary, buildGoalSuggestions, buildPrescribedWorkout, buildTemplateFromPrescription } from './claude-api.js';
 import { readinessScore, computeACWR, painSummary } from './metrics.js';
 import { toast, confirmSheet } from './ui-feedback.js';
 
@@ -22,7 +22,23 @@ function goalsNoteFor(goals, log, today) {
   return `Daily goals (help me stay on track / suggest adjustments):\n${lines.join('\n')}`;
 }
 import { switchTab } from './app.js';
-import { setPendingCoachNote } from './ui-log.js';
+import { setPendingCoachNote, startPrescribedWorkout } from './ui-log.js';
+
+// One-time consent before anything leaves the device for Anthropic. Returns
+// false if the user declines. Shared by every Coach action that calls the API.
+async function ensureCoachConsent() {
+  let consented;
+  try { consented = localStorage.getItem('coachConsent'); } catch (e) { return true; }
+  if (consented) return true;
+  const ok = await confirmSheet({
+    title: 'Send this to Anthropic?',
+    body: 'To answer, the app sends the workout details and your question to Anthropic using your own API key. Your key is stored only on this device and is never included in a backup.',
+    confirmLabel: 'OK, continue', cancelLabel: 'Not now',
+  });
+  if (!ok) return false;
+  try { localStorage.setItem('coachConsent', '1'); } catch (e) {}
+  return true;
+}
 
 export async function renderCoachTab(el) {
   const apiKey = await getSetting('anthropicApiKey');
@@ -48,6 +64,13 @@ export async function renderCoachTab(el) {
         <textarea class="input coach-input" id="pre-note" rows="3" placeholder="e.g. left shoulder tight, slept 6 hrs, legs still sore from Tuesday" ${!apiKey ? 'disabled' : ''}></textarea>
         <button class="btn btn-primary btn-full" id="pre-ask-btn" ${!apiKey ? 'disabled' : ''}>Ask Coach</button>
         <div class="coach-response hidden" id="pre-response"></div>
+      </div>
+      <div class="coach-section card" id="build-section">
+        <h2 class="coach-section-title">Build Me a Workout</h2>
+        <p class="coach-hint">Describe what you want — the coach designs it from your exercises (adding new ones if needed) and starts it for you.</p>
+        <textarea class="input coach-input" id="build-input" rows="2" placeholder="e.g. 40-min arm day, easy on the right shoulder — superset dumbbell bench with push-ups" ${!apiKey ? 'disabled' : ''}></textarea>
+        <button class="btn btn-primary btn-full" id="build-btn" ${!apiKey ? 'disabled' : ''}>Build workout</button>
+        <div class="coach-response hidden" id="build-preview"></div>
       </div>
       <div class="coach-section card" id="post-section">
         <h2 class="coach-section-title">Post-Workout Debrief</h2>
@@ -104,6 +127,30 @@ export async function renderCoachTab(el) {
         switchTab('log');
       });
       resp.after(startBtn);
+    }
+  });
+
+  el.querySelector('#build-btn').addEventListener('click', async () => {
+    const request = el.querySelector('#build-input').value.trim();
+    if (!request) { toast('Describe the workout you want first.', { type: 'error' }); return; }
+    if (!(await ensureCoachConsent())) return;
+    const btn = el.querySelector('#build-btn');
+    const preview = el.querySelector('#build-preview');
+    btn.disabled = true;
+    btn.textContent = 'Building…';
+    preview.classList.add('hidden');
+    preview.innerHTML = '';
+    try {
+      const [exercises, health, painLog] = await Promise.all([getExercises(), getSetting('healthContext'), getPainLog()]);
+      const pres = await buildPrescribedWorkout(request, exercises, health, painSummary(painLog), apiKey);
+      const built = pres && buildTemplateFromPrescription(pres, exercises);
+      if (!built) { toast('Could not build a workout — try rephrasing.', { type: 'error' }); return; }
+      renderBuildPreview(preview, built, exercises);
+    } catch (err) {
+      toast(`Error: ${err.message}`, { type: 'error' });
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Build workout';
     }
   });
 
@@ -167,18 +214,45 @@ export async function renderCoachTab(el) {
   });
 }
 
+// Show the coach's proposed workout with a Start / Discard choice. On Start we
+// persist any new exercises, save the template (chosen: it joins your Workouts),
+// then launch it through the normal pre-workout checklist.
+function renderBuildPreview(container, built, existingDefs) {
+  const { template, newExercises } = built;
+  const byId = Object.fromEntries([...(existingDefs || []), ...newExercises].map(e => [e.id, e]));
+  const rows = template.exercises.map(ex => {
+    const d = byId[ex.exerciseId];
+    const name = ((d && d.name) || ex.exerciseId).replace(/_/g, ' ');
+    const isNew = newExercises.some(n => n.id === ex.exerciseId);
+    const scheme = d && d.isTimed ? `${ex.defaultSets} × ${ex.defaultSeconds}s` : `${ex.defaultSets} × ${ex.targetReps}`;
+    const tags = `${ex.supersetId ? '<span class="uni-tag">superset</span>' : ''}${isNew ? '<span class="uni-tag">new</span>' : ''}`;
+    return `<div class="build-row"><span class="build-name">${esc(name)} ${tags}</span><span class="build-scheme">${scheme}</span></div>`;
+  }).join('');
+  container.innerHTML = `
+    <p class="build-title">${esc(template.name)} <span class="build-group">· ${esc(template.bodyPartGroup)}</span></p>
+    ${rows}
+    <button class="btn btn-primary btn-full" id="build-start" style="margin-top:12px">Start this workout</button>
+    <button class="btn btn-ghost btn-full" id="build-discard" style="margin-top:8px">Discard</button>
+  `;
+  container.classList.remove('hidden');
+  container.querySelector('#build-start').addEventListener('click', async () => {
+    const startBtn = container.querySelector('#build-start');
+    startBtn.disabled = true;
+    startBtn.textContent = 'Starting…';
+    for (const nx of newExercises) await addExercise(nx);
+    template.createdAt = Date.now();
+    await addTemplate(template);
+    await startPrescribedWorkout(template);
+  });
+  container.querySelector('#build-discard').addEventListener('click', () => {
+    container.classList.add('hidden');
+    container.innerHTML = '';
+  });
+}
+
 async function runCoach(el, btnSel, respSel, contextFn, apiKey) {
-  // One-time consent: the coach is the only place data leaves the device.
-  let consented; try { consented = localStorage.getItem('coachConsent'); } catch (e) { consented = '1'; }
-  if (!consented) {
-    const ok = await confirmSheet({
-      title: 'Send this to Anthropic?',
-      body: 'To answer, the app sends the workout details and your question to Anthropic using your own API key. Your key is stored only on this device and is never included in a backup.',
-      confirmLabel: 'OK, continue', cancelLabel: 'Not now',
-    });
-    if (!ok) return;
-    try { localStorage.setItem('coachConsent', '1'); } catch (e) {}
-  }
+  // The coach is the only place data leaves the device — gate on consent.
+  if (!(await ensureCoachConsent())) return;
   const btn = el.querySelector(btnSel);
   const resp = el.querySelector(respSel);
   btn.disabled = true;
