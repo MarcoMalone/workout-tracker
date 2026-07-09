@@ -459,7 +459,7 @@ export async function showTemplateEditor(el, existing, onSave) {
       const cfg = `<input class="tpl-mini" type="number" inputmode="numeric" min="1" value="${r.defaultSets}" data-i="${i}" data-f="defaultSets" aria-label="Sets"><span class="tpl-x">×</span><input class="tpl-mini" type="number" inputmode="numeric" value="${repVal}" data-i="${i}" data-f="${repField}" aria-label="${uni ? 'Per side' : 'Reps'}"><span class="tpl-x">${repLabel}</span>`;
       return `<div class="tpl-ex-row${r.linkedAbove ? ' tpl-linked' : ''}">
         ${i > 0 ? `<button class="tpl-link${r.linkedAbove ? ' on' : ''}" data-i="${i}" title="${r.linkedAbove ? 'Linked as a superset — tap to unlink' : 'Superset with the exercise above'}" aria-label="Superset with above">⛓</button>` : '<span class="tpl-link-spacer"></span>'}
-        <div class="tpl-ex-main">${r.linkedAbove ? '<span class="tpl-linked-tag">⛓ superset with above</span>' : ''}<span class="tpl-ex-name">${esc(name)}${uni ? ' <span class="uni-tag">per side</span>' : ''}</span><div class="tpl-ex-cfg">${cfg}</div></div>
+        <div class="tpl-ex-main">${r.linkedAbove ? '<span class="tpl-linked-tag">superset with above</span>' : ''}<span class="tpl-ex-name">${esc(name)}${uni ? ' <span class="uni-tag">per side</span>' : ''}</span><div class="tpl-ex-cfg">${cfg}</div></div>
         <div class="tpl-ex-ctrls">
           <button class="tpl-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
           <button class="tpl-move" data-i="${i}" data-d="1" ${i === chosen.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>

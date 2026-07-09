@@ -694,16 +694,15 @@ function renderRounds(roundsEl, g, meta, el) {
       const exWrap = document.createElement('div');
       exWrap.className = 'ss-ex';
       const uni = exDef.isUnilateral ? ' <span class="uni-tag">per side</span>' : '';
-      exWrap.innerHTML = `<div class="ss-ex-name">${esc((exDef.name || '').replace(/_/g, ' '))}${uni}</div><div class="ss-ex-sets"></div>`;
+      exWrap.innerHTML = `<div class="ss-ex-name"><span class="ss-ex-title">${esc((exDef.name || '').replace(/_/g, ' '))}${uni}</span></div><div class="ss-ex-sets"></div>`;
+      const nameEl = exWrap.querySelector('.ss-ex-name');
       const setsHost = exWrap.querySelector('.ss-ex-sets');
 
       if (slot && slot.workIdx != null) {
-        appendSetRow(setsHost, exIdx, slot.workIdx, exDef, prev, false, { label: `Set ${r + 1}`, onCheck, reRender });
-        slot.dropIdxs.forEach((di, k) => {
-          appendSetRow(setsHost, exIdx, di, exDef, prev, true, { label: `Drop ${k + 1}`, onCheck, reRender });
-        });
+        // "+ drop" rides on the exercise header line (right of the name, directly
+        // above Set 1) so it doesn't eat a full row; an added drop appears below.
         const dropBtn = document.createElement('button');
-        dropBtn.className = 'btn btn-ghost ss-add-drop';
+        dropBtn.className = 'ss-add-drop';
         dropBtn.textContent = '+ drop';
         dropBtn.addEventListener('click', () => {
           const sets = activeSession.exercises[exIdx].sets;
@@ -712,7 +711,11 @@ function renderRounds(roundsEl, g, meta, el) {
           sets.forEach((s, i) => { s.setNumber = i + 1; });
           reRender();
         });
-        exWrap.appendChild(dropBtn);
+        nameEl.appendChild(dropBtn);
+        appendSetRow(setsHost, exIdx, slot.workIdx, exDef, prev, false, { label: `Set ${r + 1}`, onCheck, reRender });
+        slot.dropIdxs.forEach((di, k) => {
+          appendSetRow(setsHost, exIdx, di, exDef, prev, true, { label: `Drop ${k + 1}`, onCheck, reRender });
+        });
       } else {
         // This exercise has fewer rounds than a linked partner — offer to catch up.
         const addBtn = document.createElement('button');
