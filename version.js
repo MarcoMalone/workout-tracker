@@ -1,10 +1,20 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.4.0',
+    date: '2026-07-23',
+    items: [
+      'Rotating grips: Arm A pulldowns now cycle close → machine-neutral → wide automatically, each its own chart. Tap to switch mid-workout.',
+      'Any template slot can rotate through variants — auto-advance (grips) or choice (optional swaps). Set it up in the template editor.',
+      'Added close-grip & wide-grip lat pulldown, plus landmine/bottoms-up KB press options for shoulder-stability swaps.',
+      'The Ask-the-Coach builder now runs on a smarter model (Claude Sonnet 5) at the same speed.',
+    ],
+  },
   {
     v: '1.3.0',
     date: '2026-07-23',

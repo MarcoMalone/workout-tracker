@@ -41,12 +41,18 @@ export async function callClaude(system, userMessage, apiKey, maxTokens = 400) {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const response = await client.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5',
         max_tokens: maxTokens,
+        // Thinking OFF: keeps the coach fast (no reasoning pause) and the response a
+        // single text block for these JSON/text tasks. Sonnet 5 is a straight quality
+        // upgrade over 4.6 at the same speed with thinking disabled.
+        thinking: { type: 'disabled' },
         system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: userMessage }]
       });
-      return response.content[0].text;
+      // Return the first text block (robust even if a non-text block ever leads).
+      const textBlock = (response.content || []).find(b => b.type === 'text');
+      return textBlock ? textBlock.text : '';
     } catch (err) {
       lastErr = err;
       const msg = (err.message || '').toLowerCase();

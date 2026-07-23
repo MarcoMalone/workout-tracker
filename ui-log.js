@@ -7,6 +7,7 @@ import { acquire as acquireWakeLock, release as releaseWakeLock, wakeLockEnabled
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { toast, showToast, confirmSheet, undoToast } from './ui-feedback.js';
 import { groupExercises, roundSlots } from './supersets.js';
+import { resolveVariant, isRotating } from './rotation.js';
 export { groupExercises, roundSlots };
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -448,12 +449,20 @@ async function renderActiveSession(el) {
       }
       _prBest[ex.exerciseId] = best;
     }
-    meta[i] = { exDef, prev };
+    // For a rotating slot, resolve the display names of every variant for the switcher.
+    let variants = null;
+    if (isRotating(ex)) {
+      variants = [];
+      for (const vid of ex.variantIds) {
+        try { const vd = await getExercise(vid); if (vd) variants.push({ id: vid, name: vd.name }); } catch (err) {}
+      }
+    }
+    meta[i] = { exDef, prev, variants };
   }
   for (const g of groupExercises(activeSession.exercises)) {
     if (g.exIdxs.length < 2) {
       const i = g.exIdxs[0];
-      cardsEl.appendChild(buildExerciseCard(i, meta[i].exDef, meta[i].prev, activeSession.exercises[i], el));
+      cardsEl.appendChild(buildExerciseCard(i, meta[i].exDef, meta[i].prev, activeSession.exercises[i], el, meta[i].variants));
     } else {
       cardsEl.appendChild(buildSupersetBlock(g, meta, el));
     }
@@ -515,10 +524,18 @@ function prefillFromLastSession(sessionEx, exDef, prev) {
   });
 }
 
-function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
+function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
   const card = document.createElement('div');
   card.className = 'exercise-card card';
   card.dataset.exIdx = exIdx;
+
+  // Rotating-slot variant switcher: chips for each variant, current one highlighted.
+  // Tapping another swaps this session's exercise and re-prefills from its history.
+  const variantSwitcher = (variants && variants.length > 1)
+    ? `<div class="ex-variants" role="group" aria-label="Choose variant">
+        ${variants.map(v => `<button type="button" class="ex-variant-chip${v.id === sessionEx.exerciseId ? ' on' : ''}" data-vid="${esc(v.id)}">${esc((v.name || '').replace(/_/g, ' '))}</button>`).join('')}
+      </div>`
+    : '';
 
   const prevSets = prev ? prev.sets.filter(s => s.seconds != null || s.weight != null || s.reps != null) : [];
   const prevText = prevSets.length
@@ -542,6 +559,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
         <button class="ex-remove-btn" title="Remove exercise">✕</button>
       </div>
     </div>
+    ${variantSwitcher}
     <div class="ex-prev">Previous: ${esc(prevText)}</div>
     ${progHint}
     <div class="ex-sets" id="sets-${exIdx}"></div>
@@ -558,6 +576,25 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
 
   const setsEl = card.querySelector(`#sets-${exIdx}`);
   refreshSets(setsEl, exIdx, exDef, prev);
+
+  // Variant switch: rebuild this exercise's sets for the picked variant (respecting
+  // its unilateral L/R doubling), clear logged values, and re-render so prefill +
+  // hint recompute from the new variant's own history.
+  card.querySelectorAll('.ex-variant-chip').forEach(chip => chip.addEventListener('click', async () => {
+    const vid = chip.dataset.vid;
+    const exObj = activeSession.exercises[exIdx];
+    if (!vid || vid === exObj.exerciseId) return;
+    let newUni = false;
+    try { const nd = await getExercise(vid); newUni = !!(nd && nd.isUnilateral); } catch (err) {}
+    const base = exDef.isUnilateral ? Math.max(1, Math.round(exObj.sets.length / 2)) : exObj.sets.length;
+    const rows = Math.max(1, base) * (newUni ? 2 : 1);
+    exObj.exerciseId = vid;
+    exObj.exerciseName = '';
+    exObj._prefilled = false;
+    exObj.sets = Array.from({ length: rows }, (_, i) => ({ setNumber: i + 1, weight: null, reps: exObj.targetReps ?? null, seconds: null, side: null, isDropSet: false, parentSetIndex: null }));
+    haptic('tap');
+    renderActiveSession(el);
+  }));
 
   card.querySelector('.ex-note-btn').addEventListener('click', () => {
     card.querySelector(`#note-${exIdx}`).classList.toggle('hidden');
@@ -1223,17 +1260,25 @@ async function startSession(el, template, answers, sorenessNote = '') {
   _prBest = {};
   _prCelebrated = {}; // fresh workout → celebrate PRs again
   const exercises = [];
+  // Past sessions of THIS template drive rotation (which grip/variant comes next).
+  const templateSessions = (await getAllSessions(200)).filter(s => s.templateId === template.id);
   for (const e of template.exercises) {
+    // Rotating slot → resolve which variant to use this session (auto advances,
+    // choice stays); a plain slot resolves to its own exerciseId.
+    const resolvedId = resolveVariant(e, templateSessions);
+    const rotating = isRotating(e);
     // Unilateral: defaultSets means sets PER SIDE, so generate twice as many rows
     // (render alternates L/R by index) — a unilateral exercise is never odd.
     let isUni = false;
-    try { const d = await getExercise(e.exerciseId); isUni = !!(d && d.isUnilateral); } catch (err) {}
+    try { const d = await getExercise(resolvedId); isUni = !!(d && d.isUnilateral); } catch (err) {}
     const rows = (e.defaultSets || 1) * (isUni ? 2 : 1);
     exercises.push({
-      exerciseId: e.exerciseId,
+      exerciseId: resolvedId,
       exerciseName: '',
       supersetId: e.supersetId ?? null,
       targetReps: e.targetReps ?? null, // kept for the progressive-overload hint
+      variantIds: rotating ? e.variantIds.slice() : null,   // carried for the in-workout switcher
+      variantMode: rotating ? (e.variantMode === 'choice' ? 'choice' : 'auto') : null,
       notes: '',
       sets: Array.from({ length: rows }, (_, i) => ({
         setNumber: i + 1,

@@ -500,6 +500,8 @@ export async function showTemplateEditor(el, existing, onSave) {
     defaultSets: e.defaultSets ?? 3,
     targetReps: e.targetReps ?? null,
     defaultSeconds: e.defaultSeconds ?? null,
+    variantIds: Array.isArray(e.variantIds) && e.variantIds.length > 1 ? e.variantIds.slice() : null,
+    variantMode: e.variantMode === 'choice' ? 'choice' : (Array.isArray(e.variantIds) && e.variantIds.length > 1 ? 'auto' : null),
     linkedAbove: i > 0 && !!e.supersetId && e.supersetId === sorted[i - 1].supersetId,
   }));
 
@@ -535,16 +537,24 @@ export async function showTemplateEditor(el, existing, onSave) {
       const repField = timed ? 'defaultSeconds' : 'targetReps';
       const repVal = timed ? (r.defaultSeconds ?? '') : (r.targetReps ?? '');
       const cfg = `<input class="tpl-mini" type="number" inputmode="numeric" min="1" value="${r.defaultSets}" data-i="${i}" data-f="defaultSets" aria-label="Sets"><span class="tpl-x">×</span><input class="tpl-mini" type="number" inputmode="numeric" value="${repVal}" data-i="${i}" data-f="${repField}" aria-label="${uni ? 'Per side' : 'Reps'}"><span class="tpl-x">${repLabel}</span>`;
+      const rotating = Array.isArray(r.variantIds) && r.variantIds.length > 1;
+      const rotTag = rotating
+        ? `<span class="tpl-rot-tag">⟳ ${r.variantIds.length} variants · ${r.variantMode === 'choice' ? 'choice' : 'auto'}</span>`
+        : '';
+      const displayName = rotating ? `${(exById[r.variantIds[0]]?.name || name).replace(/_/g, ' ')} +${r.variantIds.length - 1}` : name;
       return `<div class="tpl-ex-row${r.linkedAbove ? ' tpl-linked' : ''}">
         ${i > 0 ? `<button class="tpl-link${r.linkedAbove ? ' on' : ''}" data-i="${i}" title="${r.linkedAbove ? 'Linked as a superset — tap to unlink' : 'Superset with the exercise above'}" aria-label="Superset with above">⛓</button>` : '<span class="tpl-link-spacer"></span>'}
-        <div class="tpl-ex-main">${r.linkedAbove ? '<span class="tpl-linked-tag">superset with above</span>' : ''}<span class="tpl-ex-name">${esc(name)}${uni ? ' <span class="uni-tag">per side</span>' : ''}</span><div class="tpl-ex-cfg">${cfg}</div></div>
+        <div class="tpl-ex-main">${r.linkedAbove ? '<span class="tpl-linked-tag">superset with above</span>' : ''}<span class="tpl-ex-name">${esc(displayName)}${uni ? ' <span class="uni-tag">per side</span>' : ''}</span>${rotTag}<div class="tpl-ex-cfg">${cfg}</div></div>
         <div class="tpl-ex-ctrls">
+          <button class="tpl-rotate${rotating ? ' on' : ''}" data-i="${i}" title="Rotate through variants" aria-label="Rotate variants">⟳</button>
           <button class="tpl-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
           <button class="tpl-move" data-i="${i}" data-d="1" ${i === chosen.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
           <button class="tpl-remove" data-i="${i}" aria-label="Remove">✕</button>
         </div>
       </div>`;
     }).join('');
+    listEl.querySelectorAll('.tpl-rotate').forEach(b => b.addEventListener('click', () =>
+      showRotationEditor(chosen[+b.dataset.i], exercises, exById, () => renderList())));
     listEl.querySelectorAll('.tpl-mini').forEach(inp => inp.addEventListener('input', () => {
       chosen[+inp.dataset.i][inp.dataset.f] = inp.value === '' ? null : Number(inp.value);
     }));
@@ -584,21 +594,88 @@ export async function showTemplateEditor(el, existing, onSave) {
     if (!chosen.length) { toast('Add at least one exercise', { type: 'error' }); return; }
     const ids = assignSupersetIds(chosen.map(r => r.linkedAbove));
     const exList = chosen.map((r, i) => {
-      const d = exById[r.exerciseId];
-      return {
-        exerciseId: r.exerciseId,
+      const rotating = Array.isArray(r.variantIds) && r.variantIds.length > 1;
+      const primaryId = rotating ? r.variantIds[0] : r.exerciseId;
+      const d = exById[primaryId];
+      const entry = {
+        exerciseId: primaryId,
         defaultSets: Math.max(1, Number(r.defaultSets) || 1),
         targetReps: d?.isTimed ? null : (Number(r.targetReps) || null),
         defaultSeconds: d?.isTimed ? (Number(r.defaultSeconds) || null) : null,
         order: i,
         supersetId: ids[i],
       };
+      if (rotating) { entry.variantIds = r.variantIds.slice(); entry.variantMode = r.variantMode === 'choice' ? 'choice' : 'auto'; }
+      return entry;
     });
     await addTemplate({ id: existing?.id || crypto.randomUUID(), name, bodyPartGroup: overlay.querySelector('#tpl-part').value, exercises: exList, createdAt: existing?.createdAt || Date.now() });
     dismiss();
     if (onSave) await onSave();
     else await renderSettingsTab(el);
   });
+}
+
+// Rotation sub-editor for one template slot. Edits the slot's variant list (ordered)
+// and mode in place on `row`, then calls onDone() to re-render the template editor.
+// Writes row.variantIds (2+ = rotating; <2 clears it) + row.variantMode.
+function showRotationEditor(row, exercises, exById, onDone) {
+  const exByGroup = exercises.slice().sort((a, b) =>
+    a.bodyPartGroup.localeCompare(b.bodyPartGroup) || a.name.localeCompare(b.name));
+  // Seed the working list from the slot: existing variants, or just its current exercise.
+  let ids = (Array.isArray(row.variantIds) && row.variantIds.length ? row.variantIds.slice() : [row.exerciseId]).filter(Boolean);
+  let mode = row.variantMode === 'choice' ? 'choice' : 'auto';
+  const overlay = document.getElementById('modal-overlay');
+  // Nest this sheet above the template editor by stacking a second overlay node.
+  const host = document.createElement('div');
+  host.className = 'modal-overlay';
+  host.style.zIndex = '60';
+  document.body.appendChild(host);
+  const close = () => host.remove();
+
+  function render() {
+    const addOpts = exByGroup.filter(e => !ids.includes(e.id))
+      .map(e => `<option value="${esc(e.id)}">${esc(e.name)} (${esc(e.bodyPartGroup)})</option>`).join('');
+    host.innerHTML = `
+      <div class="modal-sheet">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <h2 class="modal-title" style="margin-bottom:0">Rotate Variants</h2>
+          <button class="modal-dismiss-btn" id="rot-dismiss">&times;</button>
+        </div>
+        <p class="settings-hint" style="margin-bottom:12px">Add the exercises that share this slot (e.g. close / machine-neutral / wide grip). Order sets the auto cycle. Need 2+ to rotate.</p>
+        <div class="rot-mode">
+          <button class="rot-mode-btn${mode === 'auto' ? ' on' : ''}" data-m="auto">Auto-rotate</button>
+          <button class="rot-mode-btn${mode === 'choice' ? ' on' : ''}" data-m="choice">Choice</button>
+        </div>
+        <p class="settings-hint" style="margin:6px 0 12px">${mode === 'auto' ? 'Advances to the next variant every session.' : 'Stays on your main one; swap in the alternates when you want.'}</p>
+        <div class="rot-list">${ids.map((id, i) => `
+          <div class="rot-row">
+            <span class="rot-order">${i + 1}</span>
+            <span class="rot-name">${esc((exById[id]?.name || id).replace(/_/g, ' '))}</span>
+            <button class="rot-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Up">↑</button>
+            <button class="rot-move" data-i="${i}" data-d="1" ${i === ids.length - 1 ? 'disabled' : ''} aria-label="Down">↓</button>
+            <button class="rot-del" data-i="${i}" aria-label="Remove">✕</button>
+          </div>`).join('')}</div>
+        <select class="input" id="rot-add" style="margin-top:10px"><option value="">+ Add a variant…</option>${addOpts}</select>
+        <button class="btn btn-primary btn-full" id="rot-done" style="margin-top:14px">Done</button>
+      </div>`;
+    host.querySelector('#rot-dismiss').addEventListener('click', close);
+    host.querySelectorAll('.rot-mode-btn').forEach(b => b.addEventListener('click', () => { mode = b.dataset.m; render(); }));
+    host.querySelectorAll('.rot-move').forEach(b => b.addEventListener('click', () => {
+      const i = +b.dataset.i, j = i + (+b.dataset.d);
+      if (j < 0 || j >= ids.length) return;
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+      render();
+    }));
+    host.querySelectorAll('.rot-del').forEach(b => b.addEventListener('click', () => { ids.splice(+b.dataset.i, 1); render(); }));
+    host.querySelector('#rot-add').addEventListener('change', e => { if (e.target.value) { ids.push(e.target.value); render(); } });
+    host.querySelector('#rot-done').addEventListener('click', () => {
+      if (ids.length > 1) { row.variantIds = ids.slice(); row.variantMode = mode; row.exerciseId = ids[0]; }
+      else { row.variantIds = null; row.variantMode = null; if (ids.length === 1) row.exerciseId = ids[0]; }
+      close();
+      onDone();
+    });
+  }
+  render();
 }
 
 // showToast/toast/confirmSheet now come from ui-feedback.js.

@@ -5,7 +5,13 @@ const MIGRATE_V = 6;
 // All exercise definitions — put() is an upsert, safe to re-run
 const ALL_EXERCISES = [
   // === ARM EXERCISES (updated to add isBodyweight where applicable) ===
-  { id: 'ex-mn-lat-pulldown', name: 'MN Lat Pulldown', bodyPartGroup: 'arms', equipment: 'machine', machineId: 'A18', unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
+  { id: 'ex-mn-lat-pulldown', name: 'Machine-Neutral Lat Pulldown', bodyPartGroup: 'arms', equipment: 'machine', machineId: 'A18', unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
+  // Lat-pulldown grip variants — rotate in Arm A (close → machine-neutral → wide).
+  { id: 'ex-cg-lat-pulldown', name: 'Close-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Narrow/neutral grip — more lat + lower-lat emphasis.' },
+  { id: 'ex-wg-lat-pulldown', name: 'Wide-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide pronated grip — upper-back / teres emphasis.' },
+  // Shoulder-stability options for an Arm B choice-swap slot.
+  { id: 'ex-half-kneeling-landmine-press', name: 'Half-Kneeling Landmine Press', bodyPartGroup: 'arms', equipment: 'barbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Shoulder stability — controlled press, ribs down.' },
+  { id: 'ex-bottoms-up-kb-press', name: 'Bottoms-Up KB Press', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Shoulder/cuff stability — kettlebell inverted, grip tight.' },
   { id: 'ex-semi-pronated-db-curls', name: 'Semi-Pronated DB Curls', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-rear-delt-fly-machine', name: 'Rear Delt Fly Machine', bodyPartGroup: 'arms', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-seated-cable-rows', name: 'Seated Cable Rows', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
@@ -92,7 +98,8 @@ const ALL_TEMPLATES = [
     bodyPartGroup: 'arms',
     createdAt: 1749600000000,
     exercises: [
-      { exerciseId: 'ex-mn-lat-pulldown', defaultSets: 3, targetReps: 12, defaultWeight: 110, order: 0 },
+      // Rotating grip slot: close → machine-neutral → wide, auto-advancing each session.
+      { exerciseId: 'ex-cg-lat-pulldown', variantIds: ['ex-cg-lat-pulldown', 'ex-mn-lat-pulldown', 'ex-wg-lat-pulldown'], variantMode: 'auto', defaultSets: 3, targetReps: 12, defaultWeight: 110, order: 0 },
       { exerciseId: 'ex-semi-pronated-db-curls', defaultSets: 3, targetReps: 12, defaultWeight: 25, order: 1 },
       { exerciseId: 'ex-rear-delt-fly-machine', defaultSets: 3, targetReps: 12, defaultWeight: 70, order: 2 },
       { exerciseId: 'ex-seated-cable-rows', defaultSets: 3, targetReps: 12, defaultWeight: 80, order: 3 },
@@ -238,4 +245,26 @@ export async function migrateNewTemplates() {
     // and the sync never re-runs.
     await setSetting(REWORK_SYNC_KEY, true);
   }
+
+  await ensurePulldownRotation();
+}
+
+// One-time, targeted, non-destructive patch: turn Arm A's single machine-neutral
+// pulldown into an auto-rotating close → machine-neutral → wide grip slot. Only
+// touches that one slot (finishers and any other edits are preserved), only on a
+// device that already has Arm A, and only once.
+const PULLDOWN_ROTATION_KEY = 'tplSync_pulldownRotation_2026_07';
+async function ensurePulldownRotation() {
+  if (await getSetting(PULLDOWN_ROTATION_KEY)) return;
+  const armA = await getTemplate('tpl-arm-a');
+  if (armA && Array.isArray(armA.exercises)) {
+    const slot = armA.exercises.find(e => e.exerciseId === 'ex-mn-lat-pulldown' && !e.variantIds);
+    if (slot) {
+      slot.exerciseId = 'ex-cg-lat-pulldown';
+      slot.variantIds = ['ex-cg-lat-pulldown', 'ex-mn-lat-pulldown', 'ex-wg-lat-pulldown'];
+      slot.variantMode = 'auto';
+      await addTemplate(armA);
+    }
+  }
+  await setSetting(PULLDOWN_ROTATION_KEY, true);
 }
