@@ -1,10 +1,21 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.3.0',
+    date: '2026-07-23',
+    items: [
+      'Progressive overload: when you hit all your reps, the exercise suggests a small weight bump next time.',
+      'Progress tab now shows your weekly running and walking, not just lifting volume.',
+      'Ask-the-Coach workout builder is more reliable and tells you why if it can\'t build one.',
+      'Coach-built workouts reuse your existing exercises instead of making near-duplicates.',
+      'New in Settings: merge duplicate exercises so their history and charts combine.',
+    ],
+  },
   {
     v: '1.2.0',
     date: '2026-07-23',

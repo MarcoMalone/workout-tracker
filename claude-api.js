@@ -123,7 +123,7 @@ STRONGLY prefer exercises from the athlete's LIBRARY, using the exact id — reu
 Return exactly this shape:
 {"name": string, "bodyPartGroup": "arms"|"legs"|"core", "exercises": [{"exerciseId": string|null, "name": string, "isTimed": boolean, "isUnilateral": boolean, "isBodyweight": boolean, "sets": number, "reps": number|null, "seconds": number|null, "weight": number|null, "supersetGroup": number|null}]}
 
-Rules: use reps for normal moves and seconds (with reps null) for timed holds. Always give "weight" in lbs — your best starting estimate for THIS athlete based on their logged history — for any loaded (non-bodyweight, non-timed) exercise; use null only for bodyweight or timed moves. For a UNILATERAL exercise, "sets" means sets PER SIDE (e.g. 3 = 3 per arm). To superset two exercises, give them the SAME supersetGroup number AND place them adjacent in the list. Keep the workout scoped to the request; prioritize injury prevention above all.${healthContext ? '\n\n' + healthContext : ''}`;
+Rules: use reps for normal moves and seconds (with reps null) for timed holds. Always give "weight" in lbs — your best starting estimate for THIS athlete based on their logged history — for any loaded (non-bodyweight, non-timed) exercise; use null only for bodyweight or timed moves. For a UNILATERAL exercise, "sets" means sets PER SIDE (e.g. 3 = 3 per arm). To superset two exercises, give them the SAME supersetGroup number AND place them adjacent in the list. You may include lighter warm-up / ramp-up sets by giving an exercise extra sets at a lower weight. If the athlete gives a time limit, keep the total number of exercises and sets realistic for that limit. Keep the workout scoped to the request; prioritize injury prevention above all. Output ONLY the JSON object — no explanation before or after.${healthContext ? '\n\n' + healthContext : ''}`;
   const userMessage = `LIBRARY:\n${lib || '(empty — you will need to add new exercises)'}\n\n${painNote || 'No active pain flagged.'}\n\n---\nBuild me this workout: ${request}`;
   return { system, userMessage };
 }
@@ -131,13 +131,22 @@ Rules: use reps for normal moves and seconds (with reps null) for timed holds. A
 // Parse the coach's workout reply (a JSON object, possibly wrapped in prose) into
 // a prescription. Returns null on anything unparseable or with no exercises.
 export function parsePrescribedWorkout(text) {
-  const m = (text || '').match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try {
-    const o = JSON.parse(m[0]);
-    if (!o || !Array.isArray(o.exercises) || !o.exercises.length) return null;
-    return o;
-  } catch { return null; }
+  let raw = (text || '').trim();
+  if (!raw) return null;
+  // Strip a ```json … ``` (or bare ```) code fence if the model wrapped the JSON.
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) raw = fence[1].trim();
+  // Try a direct parse first (clean JSON), then fall back to the outermost braces.
+  const candidates = [raw];
+  const braces = raw.match(/\{[\s\S]*\}/);
+  if (braces) candidates.push(braces[0]);
+  for (const c of candidates) {
+    try {
+      const o = JSON.parse(c);
+      if (o && Array.isArray(o.exercises) && o.exercises.length) return o;
+    } catch { /* try next candidate */ }
+  }
+  return null;
 }
 
 // Turn a parsed prescription + the athlete's existing library into a template plus
@@ -149,11 +158,17 @@ export function buildTemplateFromPrescription(pres, existingDefs, newId = () => 
   if (!pres || !Array.isArray(pres.exercises)) return null;
   const group = ['arms', 'legs', 'core'].includes(pres.bodyPartGroup) ? pres.bodyPartGroup : 'arms';
   const byId = new Map((existingDefs || []).map(e => [e.id, e]));
+  // Match on a normalized name so the coach reuses an existing exercise instead of
+  // minting a near-duplicate ("Cable Row" → the existing "Seated Cable Rows"),
+  // which would otherwise show up as a separate exercise in the Progress tab.
+  const normName = n => (n || '').replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  const byNorm = new Map((existingDefs || []).map(e => [normName(e.name), e]));
   const newExercises = [];
   const exList = [];
   const groupIdByNum = {};
   for (const pe of pres.exercises) {
     let def = pe.exerciseId ? byId.get(pe.exerciseId) : null;
+    if (!def && pe.name) def = byNorm.get(normName(pe.name)) || null; // reuse an existing exercise by name
     if (!def) {
       const name = (pe.name || '').trim();
       if (!name) continue; // unknown id, no name → can't resolve; drop it
@@ -164,6 +179,7 @@ export function buildTemplateFromPrescription(pres, existingDefs, newId = () => 
       };
       newExercises.push(def);
       byId.set(def.id, def);
+      byNorm.set(normName(def.name), def); // so a repeated name later in the same plan reuses this one
     }
     let supersetId = null;
     if (pe.supersetGroup != null) {
@@ -188,7 +204,9 @@ export function buildTemplateFromPrescription(pres, existingDefs, newId = () => 
 
 export async function buildPrescribedWorkout(request, exerciseDefs, healthContext, painNote, apiKey) {
   const { system, userMessage } = buildPrescribedWorkoutPrompt(request, exerciseDefs, healthContext, painNote);
-  const response = await callClaude(system, userMessage, apiKey, 1200);
+  // 2500 tokens: a full multi-exercise workout with warm-ups can exceed the old
+  // 1200-token cap, which truncated the JSON mid-object and looked like a failure.
+  const response = await callClaude(system, userMessage, apiKey, 2500);
   return parsePrescribedWorkout(response);
 }
 

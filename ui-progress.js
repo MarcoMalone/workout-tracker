@@ -1,5 +1,5 @@
 import { getRunLogs, getWalkLogs, getAllSessions, getExercises, dataVersion } from './db.js';
-import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall } from './metrics.js';
+import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall, computeWeeklyCardio } from './metrics.js';
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { switchTab } from './app.js';
 
@@ -77,7 +77,8 @@ export async function renderProgressTab(el) {
     root.querySelector('#progress-summary'),
     computeACWR(allSessions, runs, walks),
     computeWeeklyVolume(allSessions, exGroupById),
-    computeStalls(allSessions, exNameById)
+    computeStalls(allSessions, exNameById),
+    computeWeeklyCardio(runs, walks)
   );
 
   const activityByDate = buildActivityByDate(allSessions, runs, walks);
@@ -140,7 +141,7 @@ function computeStalls(sessions, exNameById) {
 }
 
 // ACWR training-load gauge + weekly sets-per-group volume board + stall watch.
-function renderProgressSummary(container, acwr, volume, stalls = []) {
+function renderProgressSummary(container, acwr, volume, stalls = [], cardio = null) {
   if (!container) return;
   let acwrBody;
   if (!acwr.hasBaseline) {
@@ -190,6 +191,16 @@ function renderProgressSummary(container, acwr, volume, stalls = []) {
     </div>`;
   }).join('');
 
+  // Cardio is invisible in the hard-set volume board (strength only) — surface it
+  // as its own line so running/walking counts toward the week's picture.
+  let cardioLine = '';
+  if (cardio) {
+    const parts = [];
+    if (cardio.runCount) parts.push(`🏃 ${cardio.runMin} min${cardio.runMiles ? ` · ${cardio.runMiles} mi` : ''}`);
+    if (cardio.walkCount) parts.push(`🚶 ${cardio.walkMin} min${cardio.walkMiles ? ` · ${cardio.walkMiles} mi` : ''}`);
+    cardioLine = `<div class="vol-cardio">${parts.length ? parts.join(' &nbsp;·&nbsp; ') : 'No running or walking logged this week'}</div>`;
+  }
+
   container.innerHTML = `
     <div class="card summary-card">
       <div class="sum-head"><b>Training Load</b><div class="sum-right"><span>7-day vs 28-day</span>${infoBtnHTML('acwr')}</div></div>
@@ -198,6 +209,7 @@ function renderProgressSummary(container, acwr, volume, stalls = []) {
     <div class="card summary-card">
       <div class="sum-head"><b>This Week's Volume</b><div class="sum-right"><span>${termSpan('hard sets', 'volume')} · target ${LOW}–${HIGH}</span></div></div>
       ${volRows}
+      ${cardioLine ? `<div class="vol-cardio-label">Cardio</div>${cardioLine}` : ''}
     </div>
     ${stalls.length ? `
     <div class="card summary-card">

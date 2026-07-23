@@ -1,4 +1,45 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio } from '../metrics.js';
+
+// ── suggestProgression ─────────────────────────────────────────────────────────
+test('suggestProgression: +5 lb when every set hit the target (machine)', () => {
+  const prev = [{ weight: 100, reps: 12 }, { weight: 100, reps: 12 }, { weight: 100, reps: 13 }];
+  expect(suggestProgression(prev, 12, { equipment: 'machine' })).toEqual({ from: 100, to: 105, inc: 5 });
+});
+test('suggestProgression: +2.5 lb for dumbbells', () => {
+  const r = suggestProgression([{ weight: 30, reps: 10 }], 10, { equipment: 'dumbbell' });
+  expect(r).toEqual({ from: 30, to: 32.5, inc: 2.5 });
+});
+test('suggestProgression: null when any working set missed the target', () => {
+  expect(suggestProgression([{ weight: 100, reps: 12 }, { weight: 100, reps: 8 }], 12, {})).toBeNull();
+});
+test('suggestProgression: ignores drop sets, uses the top working weight', () => {
+  const prev = [{ weight: 100, reps: 12 }, { weight: 80, reps: 20, isDropSet: true }];
+  expect(suggestProgression(prev, 12, {})).toEqual({ from: 100, to: 105, inc: 5 });
+});
+test('suggestProgression: null for timed / bodyweight / empty / missing target', () => {
+  expect(suggestProgression([{ seconds: 30 }], 3, { isTimed: true })).toBeNull();
+  expect(suggestProgression([{ reps: 20 }], 15, { isBodyweight: true })).toBeNull();
+  expect(suggestProgression([], 10, {})).toBeNull();
+  expect(suggestProgression(null, 10, {})).toBeNull();
+  expect(suggestProgression([{ weight: 100, reps: 12 }], null, {})).toBeNull();
+});
+
+// ── computeWeeklyCardio ──────────────────────────────────────────────────────────
+test('computeWeeklyCardio: sums this week (Mon–Sun), excludes prior weeks', () => {
+  const today = new Date('2026-07-22T12:00:00'); // Wednesday; week Mon 2026-07-20 → Sun 2026-07-26
+  const runs = [
+    { date: '2026-07-20', durationMinutes: 16, distanceMiles: 2 },
+    { date: '2026-07-22', durationMinutes: 20, distanceMiles: 2.5 },
+    { date: '2026-07-13', durationMinutes: 99, distanceMiles: 9 }, // prior week → excluded
+  ];
+  const walks = [{ date: '2026-07-21', durationMinutes: 30, distanceMiles: 1.5 }];
+  const c = computeWeeklyCardio(runs, walks, today);
+  expect(c).toMatchObject({ runMin: 36, runMiles: 4.5, runCount: 2, walkMin: 30, walkMiles: 1.5, walkCount: 1 });
+});
+test('computeWeeklyCardio: all zeros when nothing logged', () => {
+  expect(computeWeeklyCardio([], [], new Date('2026-07-22T12:00:00')))
+    .toMatchObject({ runMin: 0, walkMin: 0, runCount: 0, walkCount: 0 });
+});
 
 // ── painSummary ───────────────────────────────────────────────────────────────
 test('painSummary: empty when nothing hurts', () => {

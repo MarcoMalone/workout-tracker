@@ -1,4 +1,4 @@
-﻿import { getSetting, setSetting, getExercises, addExercise, deleteExercise, getTemplates, addTemplate, deleteTemplate, getAllSessions, getRunLogs, exportAllData, importAllData, backupSummary } from './db.js';
+﻿import { getSetting, setSetting, getExercises, addExercise, deleteExercise, getTemplates, addTemplate, deleteTemplate, getAllSessions, getRunLogs, exportAllData, importAllData, backupSummary, getExerciseUsageCounts, mergeExercises } from './db.js';
 import { showHelpCenter, openFeedback } from './ui-help.js';
 import { showPasteTemplateModal } from './template-import.js';
 import { toast, showToast, confirmSheet } from './ui-feedback.js';
@@ -113,6 +113,8 @@ export async function renderSettingsTab(el) {
         <summary class="section-title" style="margin-top:20px">Exercise Library <span class="collapse-caret">▾</span></summary>
         <div class="settings-group card" id="exercise-library"></div>
         <button class="btn btn-ghost btn-full" id="add-exercise-btn" style="margin-top:8px">+ Add Exercise</button>
+        <button class="btn btn-ghost btn-full" id="merge-exercises-btn" style="margin-top:8px">⇄ Merge duplicate exercises</button>
+        <p class="settings-hint" style="margin-top:6px">Combine two exercises that are really the same (e.g. a coach-built "Cable Row" and your "Seated Cable Rows") so their history and charts merge.</p>
       </details>
 
       <details class="settings-collapsible">
@@ -244,6 +246,7 @@ export async function renderSettingsTab(el) {
   // Exercise library
   await renderExerciseLibrary(el.querySelector('#exercise-library'), el);
   el.querySelector('#add-exercise-btn').addEventListener('click', () => showExerciseForm(el, null));
+  el.querySelector('#merge-exercises-btn').addEventListener('click', () => showMergeExercises(el));
 
   // Template library
   await renderTemplateLibrary(el.querySelector('#template-library'), el);
@@ -343,6 +346,73 @@ async function renderTemplateLibrary(container, el) {
     btn.addEventListener('click', () => { const tpl = templates.find(t => t.id === btn.dataset.id); if (tpl) showTemplateEditor(el, tpl); });
   });
   container.querySelector('#tpl-lib-toggle')?.addEventListener('click', () => { tplLibExpanded = !tplLibExpanded; renderTemplateLibrary(container, el); });
+}
+
+// Merge duplicate exercises. Lists the library with per-exercise logged-session
+// counts; the athlete checks the ones that are really the same movement, picks
+// which to keep (defaults to the one with the most history), and merges — all
+// logged sets and template entries repoint onto the keeper. See mergeExercises().
+async function showMergeExercises(el) {
+  const [exercises, usage] = await Promise.all([getExercises(), getExerciseUsageCounts()]);
+  const sorted = exercises.slice().sort((a, b) =>
+    a.bodyPartGroup.localeCompare(b.bodyPartGroup) || a.name.localeCompare(b.name));
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('hidden');
+  const rows = sorted.map(ex => {
+    const n = usage[ex.id] || 0;
+    return `<label class="merge-row">
+      <input type="checkbox" class="merge-cb" data-id="${esc(ex.id)}" data-name="${esc(ex.name)}">
+      <span class="merge-name">${esc(ex.name)} <span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></span>
+      <span class="merge-count">${n} logged</span>
+    </label>`;
+  }).join('');
+  overlay.innerHTML = `
+    <div class="modal-sheet">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 class="modal-title" style="margin-bottom:0">Merge Duplicates</h2>
+        <button class="modal-dismiss-btn" id="merge-dismiss">&times;</button>
+      </div>
+      <p class="settings-hint" style="margin-bottom:12px">Check the exercises that are the same movement, choose which one to keep, then merge. All logged history moves onto the kept exercise. This can't be undone — back up first if unsure.</p>
+      <div class="merge-list">${rows}</div>
+      <label class="form-label" style="margin-top:14px">Keep</label>
+      <select class="input" id="merge-keep"><option value="">— select 2+ above —</option></select>
+      <button class="btn btn-primary btn-full" id="merge-go" style="margin-top:14px" disabled>Merge</button>
+    </div>
+  `;
+  const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
+  const keepSel = overlay.querySelector('#merge-keep');
+  const goBtn = overlay.querySelector('#merge-go');
+  const refresh = () => {
+    const checked = [...overlay.querySelectorAll('.merge-cb:checked')];
+    keepSel.innerHTML = checked.length
+      ? checked.map(c => `<option value="${esc(c.dataset.id)}">${esc(c.dataset.name)}</option>`).join('')
+      : '<option value="">— select 2+ above —</option>';
+    // Default the keeper to the checked exercise with the most logged history.
+    if (checked.length) {
+      let best = checked[0];
+      for (const c of checked) if ((usage[c.dataset.id] || 0) > (usage[best.dataset.id] || 0)) best = c;
+      keepSel.value = best.dataset.id;
+    }
+    goBtn.disabled = checked.length < 2;
+  };
+  overlay.querySelectorAll('.merge-cb').forEach(cb => cb.addEventListener('change', refresh));
+  overlay.querySelector('#merge-dismiss').addEventListener('click', close);
+  goBtn.addEventListener('click', async () => {
+    const checked = [...overlay.querySelectorAll('.merge-cb:checked')];
+    const keepId = keepSel.value;
+    const fromIds = checked.map(c => c.dataset.id).filter(id => id !== keepId);
+    if (!keepId || !fromIds.length) return;
+    const keepName = checked.find(c => c.dataset.id === keepId)?.dataset.name || 'it';
+    if (!(await confirmSheet({ title: `Merge ${fromIds.length + 1} into "${keepName}"?`, body: 'Logged history and templates will repoint onto the kept exercise; the others are deleted.', confirmLabel: 'Merge', danger: true }))) return;
+    try {
+      const res = await mergeExercises(keepId, fromIds);
+      close();
+      showToast(`Merged — ${res.removed} removed, ${res.sessions} session${res.sessions === 1 ? '' : 's'} updated`);
+      await renderExerciseLibrary(el.querySelector('#exercise-library'), el);
+    } catch (err) {
+      toast(err.message || 'Merge failed', { type: 'error' });
+    }
+  });
 }
 
 function showExerciseForm(el, existing) {

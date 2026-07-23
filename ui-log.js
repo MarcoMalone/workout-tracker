@@ -1,5 +1,5 @@
 import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, getSessionsForExercise, saveSession, getSetting, setSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress, getPainLog } from './db.js';
-import { readinessScore, goalStreak, painSummary, calcE1RM, getBestE1RM } from './metrics.js';
+import { readinessScore, goalStreak, painSummary, calcE1RM, getBestE1RM, suggestProgression } from './metrics.js';
 import { showHelpCenter } from './ui-help.js';
 import { switchTab } from './app.js';
 import { haptic } from './haptics.js';
@@ -526,6 +526,12 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
     : 'No previous data';
   const displayName = (exDef.name || '').replace(/_/g, ' ');
   const machineLabel = exDef.machineId ? ` (${esc(exDef.machineId)})` : '';
+  // Progressive-overload nudge: if every working set last time hit the rep target,
+  // suggest a small load bump. Purely informational — the athlete still types the weight.
+  const prog = suggestProgression(prev ? prev.sets : null, sessionEx.targetReps, exDef);
+  const progHint = prog
+    ? `<div class="ex-progress-hint">↑ You hit all your reps last time — try ${prog.to} ${esc(exDef.unit || 'lbs')} today</div>`
+    : '';
 
   card.innerHTML = `
     <div class="ex-header">
@@ -537,6 +543,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el) {
       </div>
     </div>
     <div class="ex-prev">Previous: ${esc(prevText)}</div>
+    ${progHint}
     <div class="ex-sets" id="sets-${exIdx}"></div>
     ${exDef.isUnilateral ? `<div class="asym-chip hidden" id="asym-${exIdx}"></div>` : ''}
     <div class="ex-note-row hidden" id="note-${exIdx}">
@@ -1226,6 +1233,7 @@ async function startSession(el, template, answers, sorenessNote = '') {
       exerciseId: e.exerciseId,
       exerciseName: '',
       supersetId: e.supersetId ?? null,
+      targetReps: e.targetReps ?? null, // kept for the progressive-overload hint
       notes: '',
       sets: Array.from({ length: rows }, (_, i) => ({
         setNumber: i + 1,

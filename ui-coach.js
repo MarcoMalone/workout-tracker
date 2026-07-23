@@ -143,8 +143,14 @@ export async function renderCoachTab(el) {
     try {
       const [exercises, health, painLog] = await Promise.all([getExercises(), getSetting('healthContext'), getPainLog()]);
       const pres = await buildPrescribedWorkout(request, exercises, health, painSummary(painLog), apiKey);
-      const built = pres && buildTemplateFromPrescription(pres, exercises);
-      if (!built) { toast('Could not build a workout — try rephrasing.', { type: 'error' }); return; }
+      if (!pres) {
+        // Reply came back but couldn't be read as a workout — usually a very large
+        // request (truncated JSON). Point at the real fix, not a generic retry.
+        toast('The coach\'s plan didn\'t come back readable — usually the request was too big. Try trimming it: fewer exercises, and skip warm-up/ramp detail (the app adds those sets).', { type: 'error', duration: 6000 });
+        return;
+      }
+      const built = buildTemplateFromPrescription(pres, exercises);
+      if (!built) { toast('The plan didn\'t map to any exercises. Try naming the movements more simply.', { type: 'error', duration: 5000 }); return; }
       renderBuildPreview(preview, built, exercises);
     } catch (err) {
       toast(`Error: ${err.message}`, { type: 'error' });

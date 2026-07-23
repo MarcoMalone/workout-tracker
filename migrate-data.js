@@ -38,6 +38,8 @@ const ALL_EXERCISES = [
   { id: 'ex-curtsy-lateral-lunge', name: 'Curtsy Lunge to Lateral Lunge', bodyPartGroup: 'legs', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: '' },
   { id: 'ex-split-squat', name: 'Split Squat', bodyPartGroup: 'legs', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Front foot planted, lower back knee toward the floor, controlled tempo — not a jump. Start light (new to the rotation).' },
   { id: 'ex-side-lying-hip-abduction', name: 'Side-Lying Hip Abduction', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: true, isBodyweight: true, notes: '3 lb ankle weight (home). Replaces Standing Cable Hip Abduction.' },
+  // Wide-grip row variant for upper-back emphasis (pairs with existing Seated Cable Rows = close/neutral).
+  { id: 'ex-wide-grip-row', name: 'Wide-Grip Row', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide, high-elbow pull — biases upper back / rear delts.' },
   { id: 'ex-toe-flexion-band', name: 'Toe Flexion with Band', bodyPartGroup: 'legs', equipment: 'band', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: 'Standard grip' },
   { id: 'ex-toe-abduction-band', name: 'Toe Abduction with Band', bodyPartGroup: 'legs', equipment: 'band', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: 'Variant of toe flexion with band' },
   { id: 'ex-tibia-bar-raises', name: 'Tibia Bar Raises', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: '' },
@@ -206,8 +208,12 @@ const ALL_TEMPLATES = [
 // not a brand-new install). After it runs once, in-app template edits win.
 // Bump the _vN suffix whenever these templates change, to re-run the sync on
 // devices that already synced an earlier version.
-const REWORK_SYNC_KEY = 'tplSync_legsRework_2026_07_v2';
-const REWORK_TEMPLATE_IDS = ['tpl-arm-a', 'tpl-arm-b', 'tpl-legs-a', 'tpl-legs-b', 'tpl-legs-c'];
+// NOTE: Arm A/B are intentionally NOT force-synced anymore — Marco curates those
+// in-app (e.g. the 3-grip pulldowns), and overwriting them from the repo would
+// wipe those edits. Only the leg templates are pushed. Arm changes (finishers,
+// wide-grip row) are delivered as library exercises he adds in-app himself.
+const REWORK_SYNC_KEY = 'tplSync_legsRework_2026_07_v3';
+const REWORK_TEMPLATE_IDS = ['tpl-legs-a', 'tpl-legs-b', 'tpl-legs-c'];
 const OLD_TEMPLATE_IDS_TO_REMOVE = ['tpl-leg-a', 'tpl-leg-b'];
 // A device "has Marco's split" if it carries either the old Leg A/B templates
 // (pre-rework) or any of the new Legs A/B/C (already synced once). Either way the

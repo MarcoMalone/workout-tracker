@@ -166,6 +166,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .ex-remove-btn { background: none; border: 1px solid rgba(224,82,82,0.3); border-radius: 50%; width: 26px; height: 26px; color: var(--danger); font-size: 13px; cursor: pointer; padding: 0; line-height: 1; opacity: 0.7; }
 .ex-remove-btn:active { background: rgba(224,82,82,0.15); opacity: 1; }
 .ex-prev { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
+.ex-progress-hint { font-size: 12px; font-weight: 700; color: #45B29A; background: rgba(69,178,154,0.12); border: 1px solid rgba(69,178,154,0.35); border-radius: var(--r-sm); padding: 6px 10px; margin: -4px 0 10px; }
 .asym-chip { display: block; margin: 10px 0 2px; font-size: 12px; font-weight: 700; color: #e0a72e; background: rgba(224,167,46,0.12); border: 1px solid rgba(224,167,46,0.4); border-radius: var(--r-sm); padding: 7px 11px; }
 .set-row { display: flex; align-items: center; gap: 3px; padding: 6px 0; border-bottom: 1px solid var(--border); overflow: hidden; }
 .set-row.drop-set { padding-left: 12px; border-left: 2px solid var(--accent-dim); }
@@ -308,6 +309,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .vol-fill.v-in { background: var(--success); }
 .vol-fill.v-over { background: #d99a1f; }
 .vol-count { width: 26px; text-align: right; font-family: var(--font-mono); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.vol-cardio-label { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); }
+.vol-cardio { font-size: 13px; color: var(--text-2); margin-top: 6px; }
 .stall-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); }
 .stall-name { font-size: 14px; font-weight: 700; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .stall-meta { font-family: var(--font-mono); font-size: 12px; color: #d99a1f; white-space: nowrap; flex-shrink: 0; }
@@ -362,6 +365,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .collapse-toggle:hover { color: var(--text); }
 .lib-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .lib-row:last-child { border-bottom: none; }
+.merge-list { max-height: 46vh; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 4px 10px; }
+.merge-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.merge-row:last-child { border-bottom: none; }
+.merge-name { flex: 1; font-size: 14px; }
+.merge-count { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cl-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .cl-remove-btn { background: none; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-3); cursor: pointer; padding: 0 10px; min-height: 44px; }
 .tpl-ex-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 15px; }

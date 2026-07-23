@@ -46,6 +46,21 @@ describe('buildTemplateFromPrescription', () => {
     expect(template.exercises[2].defaultWeight).toBeNull();
   });
 
+  test('reuses an existing exercise by normalized name instead of creating a duplicate', () => {
+    // exerciseId null but the name matches an existing def (case/spacing-insensitive)
+    const { template, newExercises } = buildTemplateFromPrescription(
+      { bodyPartGroup: 'arms', exercises: [{ exerciseId: null, name: 'dumbbell bench', sets: 3, reps: 8 }] },
+      DEFS, counter()
+    );
+    expect(newExercises).toHaveLength(0);
+    expect(template.exercises[0].exerciseId).toBe('ex-bench');
+  });
+
+  test('parses JSON wrapped in a ```json code fence', () => {
+    const o = parsePrescribedWorkout('```json\n{"bodyPartGroup":"arms","exercises":[{"exerciseId":"ex-bench","sets":3,"reps":10}]}\n```');
+    expect(o.exercises).toHaveLength(1);
+  });
+
   test('creates a new exercise when exerciseId is null and a name is given', () => {
     const { template, newExercises } = buildTemplateFromPrescription(
       { bodyPartGroup: 'arms', exercises: [{ exerciseId: null, name: 'Push-ups', isBodyweight: true, sets: 3, reps: 20 }] },

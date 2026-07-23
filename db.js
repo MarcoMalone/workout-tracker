@@ -73,6 +73,47 @@ export async function deleteExercise(id) {
   return (await db()).delete('exercise_definitions', id);
 }
 
+// How many logged sessions reference each exerciseId — lets the merge UI show
+// which of two near-duplicate exercises actually holds the history.
+export async function getExerciseUsageCounts() {
+  const sessions = await (await db()).getAll('logged_sessions');
+  const counts = {};
+  for (const s of sessions) {
+    const seen = new Set();
+    for (const ex of (s.exercises || [])) {
+      if (ex.exerciseId && !seen.has(ex.exerciseId)) { seen.add(ex.exerciseId); counts[ex.exerciseId] = (counts[ex.exerciseId] || 0) + 1; }
+    }
+  }
+  return counts;
+}
+
+// Merge duplicate exercises into one. Repoints every logged-session set and every
+// template entry from `fromIds` onto `toId` (so no history is lost), then deletes
+// the merged-away definitions. Returns how many sessions/templates were touched.
+export async function mergeExercises(toId, fromIds) {
+  const d = await db();
+  const from = new Set((fromIds || []).filter(id => id && id !== toId));
+  if (!from.size) return { sessions: 0, templates: 0, removed: 0 };
+  const target = await d.get('exercise_definitions', toId);
+  if (!target) throw new Error('The exercise to keep no longer exists.');
+  let sessions = 0, templates = 0;
+  for (const s of await d.getAll('logged_sessions')) {
+    let changed = false;
+    for (const ex of (s.exercises || [])) {
+      if (from.has(ex.exerciseId)) { ex.exerciseId = toId; ex.exerciseName = target.name; changed = true; }
+    }
+    if (changed) { await d.put('logged_sessions', s); sessions++; }
+  }
+  for (const t of await d.getAll('workout_templates')) {
+    let changed = false;
+    for (const e of (t.exercises || [])) { if (from.has(e.exerciseId)) { e.exerciseId = toId; changed = true; } }
+    if (changed) { await d.put('workout_templates', t); templates++; }
+  }
+  for (const id of from) await d.delete('exercise_definitions', id);
+  _dataVersion++;
+  return { sessions, templates, removed: from.size };
+}
+
 // ─── Workout templates ────────────────────────────────────────────────────────
 export async function addTemplate(template) {
   return (await db()).put('workout_templates', template);

@@ -8,7 +8,8 @@ import { initDB, getSetting, setSetting, addExercise, getExercises,
          addWalkLog, getWalkLogs, deleteWalkLog, getTemplate,
          exportAllData, importAllData, getReadiness, saveReadiness,
          getGoals, saveGoals, getGoalLog, setGoalProgress, getPainLog, setPain,
-         seedIfEmpty, _resetForTest, dataVersion } from '../db.js';
+         seedIfEmpty, _resetForTest, dataVersion,
+         getExerciseUsageCounts, mergeExercises } from '../db.js';
 
 beforeEach(async () => {
   // Replace globalThis.indexedDB with a fresh factory so each test starts
@@ -33,6 +34,39 @@ test('addExercise and getExercises', async () => {
   const all = await getExercises();
   expect(all).toHaveLength(1);
   expect(all[0].name).toBe('Barbell Curl');
+});
+
+test('mergeExercises: repoints logged sets + templates onto the keeper and deletes the rest', async () => {
+  await addExercise({ id: 'ex-keep', name: 'Seated Cable Rows', bodyPartGroup: 'arms', unit: 'lbs' });
+  await addExercise({ id: 'ex-dupe', name: 'Cable Row', bodyPartGroup: 'arms', unit: 'lbs' });
+  await saveSession({ id: 's-1', date: '2026-07-01', bodyPartGroup: 'arms',
+    exercises: [{ exerciseId: 'ex-dupe', exerciseName: 'Cable Row', sets: [{ weight: 80, reps: 10 }] }] });
+  await addTemplate({ id: 'tpl-1', name: 'Arm A', bodyPartGroup: 'arms',
+    exercises: [{ exerciseId: 'ex-dupe', defaultSets: 3, targetReps: 10, order: 0 }] });
+
+  const before = await getExerciseUsageCounts();
+  expect(before['ex-dupe']).toBe(1);
+
+  const res = await mergeExercises('ex-keep', ['ex-dupe']);
+  expect(res).toMatchObject({ sessions: 1, templates: 1, removed: 1 });
+
+  // Definition removed, and both the session and template now point at the keeper.
+  expect((await getExercises()).map(e => e.id)).toEqual(['ex-keep']);
+  const usage = await getExerciseUsageCounts();
+  expect(usage['ex-keep']).toBe(1);
+  expect(usage['ex-dupe']).toBeUndefined();
+  const sess = await getSessionsByBodyPart('arms');
+  expect(sess[0].exercises[0].exerciseId).toBe('ex-keep');
+  expect(sess[0].exercises[0].exerciseName).toBe('Seated Cable Rows');
+  const tpl = await getTemplate('tpl-1');
+  expect(tpl.exercises[0].exerciseId).toBe('ex-keep');
+});
+
+test('mergeExercises: throws if the keeper is gone, no-ops with empty fromIds', async () => {
+  await addExercise({ id: 'ex-a', name: 'A', bodyPartGroup: 'arms', unit: 'lbs' });
+  await expect(mergeExercises('ex-missing', ['ex-a'])).rejects.toThrow();
+  expect(await mergeExercises('ex-a', [])).toMatchObject({ removed: 0 });
+  expect(await mergeExercises('ex-a', ['ex-a'])).toMatchObject({ removed: 0 }); // self-merge is a no-op
 });
 
 test('getExercises filters by bodyPartGroup', async () => {

@@ -78,6 +78,39 @@ export function computeWeeklyVolume(sessions, exerciseGroupById = {}, today = ne
   return counts;
 }
 
+// Weekly (Mon–Sun) running + walking totals, so cardio is visible on the Progress
+// tab (the hard-set volume board counts strength only — runs/walks are invisible
+// there by design). Pure. Minutes are rounded; miles kept to one decimal.
+export function computeWeeklyCardio(runs, walks, today = new Date()) {
+  const dow = today.getDay();
+  const fromMon = dow === 0 ? 6 : dow - 1;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - fromMon);
+  const weekKeys = new Set();
+  for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); weekKeys.add(dayKey(d)); }
+  let runMin = 0, walkMin = 0, runMiles = 0, walkMiles = 0, runCount = 0, walkCount = 0;
+  for (const r of (runs || [])) if (weekKeys.has(r.date)) { runMin += Math.round(r.durationMinutes || 0); runMiles += r.distanceMiles || 0; runCount++; }
+  for (const w of (walks || [])) if (weekKeys.has(w.date)) { walkMin += Math.round(w.durationMinutes || 0); walkMiles += w.distanceMiles || 0; walkCount++; }
+  const round1 = n => Math.round(n * 10) / 10;
+  return { runMin, walkMin, runMiles: round1(runMiles), walkMiles: round1(walkMiles), runCount, walkCount };
+}
+
+// Progressive-overload nudge: if EVERY working set of the last session hit or beat
+// the rep target, suggest bumping the load next time. +5 lb for machines/barbell,
+// +2.5 lb for dumbbells (finer jumps). Only for loaded lifts — never timed or
+// bodyweight moves. Returns { from, to, inc } or null. Pure.
+export function suggestProgression(prevSets, targetReps, exDef) {
+  if (!prevSets || !prevSets.length || !targetReps) return null;
+  if (exDef && (exDef.isTimed || exDef.isBodyweight)) return null;
+  const working = prevSets.filter(s => s && !s.isDropSet && s.weight != null && s.reps != null);
+  if (!working.length) return null;
+  if (!working.every(s => s.reps >= targetReps)) return null;
+  const topWeight = Math.max(...working.map(s => s.weight));
+  if (!(topWeight > 0)) return null;
+  const inc = (exDef && exDef.equipment === 'dumbbell') ? 2.5 : 5;
+  return { from: topWeight, to: topWeight + inc, inc };
+}
+
 // One-line summary of active pain regions (level > 0), worst first, for the
 // coach context and AI template adjustment. Empty string when nothing hurts.
 export function painSummary(painLog = {}) {
