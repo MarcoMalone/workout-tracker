@@ -3,12 +3,15 @@
 // which variant a new session should use, derived from the template's own history
 // (no stored counter — can't drift, survives edits):
 //   auto   → the variant AFTER the one done last time (wraps); first if no history.
-//   choice → the SAME variant done last time (stays); first if no history.
+//   choice → always the PRIMARY (first) variant; swap manually per session.
 // A slot with no variantIds resolves to its plain exerciseId (unchanged behavior).
 export function resolveVariant(slot, templateSessions) {
   const ids = slot && Array.isArray(slot.variantIds) ? slot.variantIds : null;
   if (!ids || !ids.length) return slot ? slot.exerciseId : undefined;
   const mode = slot.variantMode === 'choice' ? 'choice' : 'auto';
+  // Choice always defaults to your main (first) variant — you swap it in-workout.
+  if (mode === 'choice') return ids[0];
+  // Auto advances from the most recent session of this template.
   const sorted = (templateSessions || []).slice().sort((a, b) =>
     (b.date || '').localeCompare(a.date || '') || (b.startedAt || 0) - (a.startedAt || 0));
   let last = null;
@@ -18,7 +21,6 @@ export function resolveVariant(slot, templateSessions) {
     }
     if (last) break;
   }
-  if (mode === 'choice') return last || ids[0];
   if (!last) return ids[0];
   const i = ids.indexOf(last);
   return ids[(i + 1) % ids.length];

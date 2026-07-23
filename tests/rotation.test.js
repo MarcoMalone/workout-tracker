@@ -33,8 +33,8 @@ test('auto: uses the most recent session by date/startedAt, ignores non-variant 
   expect(resolveVariant(slotAuto, sessions)).toBe('ex-wg'); // mn → wg
 });
 
-test('choice: stays on the last-done variant; first when no history', () => {
-  expect(resolveVariant(slotChoice, [sess('2026-07-15', 'ex-mn')])).toBe('ex-mn');
+test('choice: always defaults to the primary variant, ignoring history', () => {
+  expect(resolveVariant(slotChoice, [sess('2026-07-15', 'ex-mn')])).toBe('ex-cg');
   expect(resolveVariant(slotChoice, [])).toBe('ex-cg');
 });
 

@@ -1,10 +1,21 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.4.1';
+export const APP_VERSION = '1.5.0';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.5.0',
+    date: '2026-07-23',
+    items: [
+      'Create exercise variations: check "Has variations" when adding an exercise, list the grips/angles, and it makes one linked exercise each.',
+      'Group existing exercises: a new Settings tool links exercises that are variations of one movement.',
+      'Add a whole variation group to a workout slot in one tap in the template editor.',
+      'Arm B triceps now default to Overhead and swap to Pushdowns for bad-wrist days (tap to switch).',
+      'Choice slots now always start on your main variant.',
+    ],
+  },
   {
     v: '1.4.1',
     date: '2026-07-23',

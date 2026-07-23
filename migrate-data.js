@@ -5,23 +5,24 @@ const MIGRATE_V = 6;
 // All exercise definitions — put() is an upsert, safe to re-run
 const ALL_EXERCISES = [
   // === ARM EXERCISES (updated to add isBodyweight where applicable) ===
-  { id: 'ex-mn-lat-pulldown', name: 'Neutral-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
+  { id: 'ex-mn-lat-pulldown', name: 'Neutral-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '', variationGroupId: 'grp-lat-pulldown', variationBase: 'Lat Pulldown', variationLabel: 'Neutral-Grip' },
   // Lat-pulldown grip variants — rotate in Arm A (close → machine-neutral → wide).
-  { id: 'ex-cg-lat-pulldown', name: 'Close-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Narrow/neutral grip — more lat + lower-lat emphasis.' },
-  { id: 'ex-wg-lat-pulldown', name: 'Wide-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide pronated grip — upper-back / teres emphasis.' },
+  { id: 'ex-cg-lat-pulldown', name: 'Close-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Narrow/neutral grip — more lat + lower-lat emphasis.', variationGroupId: 'grp-lat-pulldown', variationBase: 'Lat Pulldown', variationLabel: 'Close-Grip' },
+  { id: 'ex-wg-lat-pulldown', name: 'Wide-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide pronated grip — upper-back / teres emphasis.', variationGroupId: 'grp-lat-pulldown', variationBase: 'Lat Pulldown', variationLabel: 'Wide-Grip' },
   // Shoulder-stability options for an Arm B choice-swap slot.
   { id: 'ex-half-kneeling-landmine-press', name: 'Half-Kneeling Landmine Press', bodyPartGroup: 'arms', equipment: 'barbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Shoulder stability — controlled press, ribs down.' },
   { id: 'ex-bottoms-up-kb-press', name: 'Bottoms-Up KB Press', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Shoulder/cuff stability — kettlebell inverted, grip tight.' },
   { id: 'ex-semi-pronated-db-curls', name: 'Semi-Pronated DB Curls', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-rear-delt-fly-machine', name: 'Rear Delt Fly Machine', bodyPartGroup: 'arms', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
-  { id: 'ex-seated-cable-rows', name: 'Close-Grip Seated Row', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Close/neutral grip — mid-back + lat.' },
+  { id: 'ex-seated-cable-rows', name: 'Close-Grip Seated Row', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Close/neutral grip — mid-back + lat.', variationGroupId: 'grp-seated-row', variationBase: 'Seated Row', variationLabel: 'Close-Grip' },
   { id: 'ex-hammer-curls', name: 'Hammer Curls', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-reverse-cable-flys', name: 'Reverse Cable Flys', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-dead-hangs', name: 'Dead Hangs', bodyPartGroup: 'arms', equipment: 'bodyweight', machineId: null, unit: 'seconds', isTimed: true, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-seated-shoulder-press', name: 'Seated Shoulder Press', bodyPartGroup: 'arms', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-db-bench', name: 'DB Bench', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-push-ups', name: 'Push-Ups', bodyPartGroup: 'arms', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: '' },
-  { id: 'ex-rope-tricep-pushdowns', name: 'Rope Tricep Pushdowns', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
+  { id: 'ex-rope-tricep-pushdowns', name: 'Rope Tricep Pushdowns', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '', variationGroupId: 'grp-triceps', variationBase: 'Triceps', variationLabel: 'Pushdown' },
+  { id: 'ex-overhead-tricep-extension', name: 'Overhead Tricep Extension', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Overhead cable/rope extension — long-head emphasis. Swap to pushdowns if the wrist complains.', variationGroupId: 'grp-triceps', variationBase: 'Triceps', variationLabel: 'Overhead' },
   { id: 'ex-face-pulls', name: 'Face Pulls', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-pec-flys-machine', name: 'Pec Flys Machine', bodyPartGroup: 'arms', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-single-arm-lateral-raises', name: 'Single-Arm Lateral Raises', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: '' },
@@ -45,7 +46,7 @@ const ALL_EXERCISES = [
   { id: 'ex-split-squat', name: 'Split Squat', bodyPartGroup: 'legs', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Front foot planted, lower back knee toward the floor, controlled tempo — not a jump. Start light (new to the rotation).' },
   { id: 'ex-side-lying-hip-abduction', name: 'Side-Lying Hip Abduction', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: true, isBodyweight: true, notes: '3 lb ankle weight (home). Replaces Standing Cable Hip Abduction.' },
   // Wide-grip row variant for upper-back emphasis (pairs with existing Seated Cable Rows = close/neutral).
-  { id: 'ex-wide-grip-row', name: 'Wide-Grip Seated Row', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide, high-elbow pull — biases upper back / rear delts.' },
+  { id: 'ex-wide-grip-row', name: 'Wide-Grip Seated Row', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide, high-elbow pull — biases upper back / rear delts.', variationGroupId: 'grp-seated-row', variationBase: 'Seated Row', variationLabel: 'Wide-Grip' },
   { id: 'ex-toe-flexion-band', name: 'Toe Flexion with Band', bodyPartGroup: 'legs', equipment: 'band', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: 'Standard grip' },
   { id: 'ex-toe-abduction-band', name: 'Toe Abduction with Band', bodyPartGroup: 'legs', equipment: 'band', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: 'Variant of toe flexion with band' },
   { id: 'ex-tibia-bar-raises', name: 'Tibia Bar Raises', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: '' },
@@ -249,6 +250,7 @@ export async function migrateNewTemplates() {
 
   await ensurePulldownRotation();
   await ensureRowRotation();
+  await ensureTricepChoice();
 }
 
 // One-time, targeted, non-destructive patch: turn Arm A's single machine-neutral
@@ -285,4 +287,23 @@ async function ensureRowRotation() {
     }
   }
   await setSetting(ROW_ROTATION_KEY, true);
+}
+
+// One-time targeted patch: turn Arm B's tricep-pushdown slot into a CHOICE slot
+// defaulting to Overhead Tricep Extension, so it starts on overhead each session
+// and you swap to pushdowns on bad-wrist days. Preserves other slots.
+const TRICEP_CHOICE_KEY = 'tplSync_tricepChoice_2026_07';
+async function ensureTricepChoice() {
+  if (await getSetting(TRICEP_CHOICE_KEY)) return;
+  const armB = await getTemplate('tpl-arm-b');
+  if (armB && Array.isArray(armB.exercises)) {
+    const slot = armB.exercises.find(e => e.exerciseId === 'ex-rope-tricep-pushdowns' && !e.variantIds);
+    if (slot) {
+      slot.exerciseId = 'ex-overhead-tricep-extension';
+      slot.variantIds = ['ex-overhead-tricep-extension', 'ex-rope-tricep-pushdowns'];
+      slot.variantMode = 'choice';
+      await addTemplate(armB);
+    }
+  }
+  await setSetting(TRICEP_CHOICE_KEY, true);
 }

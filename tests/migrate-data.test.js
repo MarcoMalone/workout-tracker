@@ -34,6 +34,21 @@ test('row rotation: patches Arm A seated-row slot into a close → wide auto rot
   expect(await getSetting('tplSync_rowRotation_2026_07')).toBe(true);
 });
 
+test('tricep choice: turns Arm B pushdown slot into a choice slot defaulting to overhead', async () => {
+  await addTemplate({ id: 'tpl-arm-b', name: 'Arm B', bodyPartGroup: 'arms', exercises: [
+    { exerciseId: 'ex-db-bench', defaultSets: 3, targetReps: 12, order: 0 },
+    { exerciseId: 'ex-rope-tricep-pushdowns', defaultSets: 3, targetReps: 12, order: 1 },
+  ] });
+  await migrateNewTemplates();
+  const armB = await getTemplate('tpl-arm-b');
+  const slot = armB.exercises[1];
+  expect(slot.exerciseId).toBe('ex-overhead-tricep-extension'); // primary = overhead
+  expect(slot.variantIds).toEqual(['ex-overhead-tricep-extension', 'ex-rope-tricep-pushdowns']);
+  expect(slot.variantMode).toBe('choice');
+  expect(armB.exercises[0].exerciseId).toBe('ex-db-bench'); // preserved
+  expect(await getSetting('tplSync_tricepChoice_2026_07')).toBe(true);
+});
+
 test('pulldown rotation: runs once — a later-added Arm A is not re-patched', async () => {
   await migrateNewTemplates(); // no Arm A present → flag set, no-op
   expect(await getSetting('tplSync_pulldownRotation_2026_07')).toBe(true);

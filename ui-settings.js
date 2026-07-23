@@ -1,6 +1,7 @@
 ﻿import { getSetting, setSetting, getExercises, addExercise, deleteExercise, getTemplates, addTemplate, deleteTemplate, getAllSessions, getRunLogs, exportAllData, importAllData, backupSummary, getExerciseUsageCounts, mergeExercises } from './db.js';
 import { showHelpCenter, openFeedback } from './ui-help.js';
 import { showPasteTemplateModal } from './template-import.js';
+import { buildVariationExercises, deriveVariationGroup, VARIATION_PRESETS } from './variations.js';
 import { toast, showToast, confirmSheet } from './ui-feedback.js';
 import { APP_VERSION, CHANGELOG } from './version.js';
 
@@ -115,6 +116,8 @@ export async function renderSettingsTab(el) {
         <button class="btn btn-ghost btn-full" id="add-exercise-btn" style="margin-top:8px">+ Add Exercise</button>
         <button class="btn btn-ghost btn-full" id="merge-exercises-btn" style="margin-top:8px">⇄ Merge duplicate exercises</button>
         <p class="settings-hint" style="margin-top:6px">Combine two exercises that are really the same (e.g. a coach-built "Cable Row" and your "Seated Cable Rows") so their history and charts merge.</p>
+        <button class="btn btn-ghost btn-full" id="group-var-btn" style="margin-top:8px">⟳ Group exercise variations</button>
+        <p class="settings-hint" style="margin-top:6px">Link existing exercises that are variations of one movement (e.g. close / neutral / wide grip) so you can drop them into a workout as a rotation.</p>
       </details>
 
       <details class="settings-collapsible">
@@ -247,6 +250,7 @@ export async function renderSettingsTab(el) {
   await renderExerciseLibrary(el.querySelector('#exercise-library'), el);
   el.querySelector('#add-exercise-btn').addEventListener('click', () => showExerciseForm(el, null));
   el.querySelector('#merge-exercises-btn').addEventListener('click', () => showMergeExercises(el));
+  el.querySelector('#group-var-btn').addEventListener('click', () => showGroupVariations(el));
 
   // Template library
   await renderTemplateLibrary(el.querySelector('#template-library'), el);
@@ -320,7 +324,7 @@ async function renderExerciseLibrary(container, el) {
   const exercises = await getExercises();
   if (exercises.length === 0) { container.innerHTML = '<p style="color:var(--text-3);padding:12px">No exercises yet</p>'; return; }
   const shown = exLibExpanded ? exercises : exercises.slice(0, COLLAPSE_LIMIT);
-  const rowHtml = ex => `<div class="lib-row"><span>${esc(ex.name)}${ex.isUnilateral ? ' <span class="uni-tag">per side</span>' : ''} <span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></span><div style="display:flex;gap:4px"><button class="btn btn-ghost lib-edit-btn" style="min-height:36px;font-size:13px" data-id="${esc(ex.id)}">Edit</button><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px;color:var(--danger)" data-id="${esc(ex.id)}">Del</button></div></div>`;
+  const rowHtml = ex => `<div class="lib-row"><span>${esc(ex.name)}${ex.isUnilateral ? ' <span class="uni-tag">per side</span>' : ''}${ex.variationGroupId ? ` <span class="var-tag">variation${ex.variationBase ? ' · ' + esc(ex.variationBase) : ''}</span>` : ''} <span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></span><div style="display:flex;gap:4px"><button class="btn btn-ghost lib-edit-btn" style="min-height:36px;font-size:13px" data-id="${esc(ex.id)}">Edit</button><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px;color:var(--danger)" data-id="${esc(ex.id)}">Del</button></div></div>`;
   container.innerHTML = shown.map(rowHtml).join('')
     + (exercises.length > COLLAPSE_LIMIT ? `<button type="button" class="collapse-toggle" id="ex-lib-toggle">${exLibExpanded ? 'Show fewer ▴' : `Show all ${exercises.length} ▾`}</button>` : '');
   container.querySelectorAll('.lib-edit-btn').forEach(btn => {
@@ -415,6 +419,57 @@ async function showMergeExercises(el) {
   });
 }
 
+// Retrofit tool: link existing exercises into a variation group. Derives a base +
+// per-member labels from the names, stamps a shared variationGroupId, and upserts.
+async function showGroupVariations(el) {
+  const exercises = await getExercises();
+  const byId = Object.fromEntries(exercises.map(e => [e.id, e]));
+  const sorted = exercises.slice().sort((a, b) => a.bodyPartGroup.localeCompare(b.bodyPartGroup) || a.name.localeCompare(b.name));
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('hidden');
+  const rows = sorted.map(ex => `<label class="merge-row">
+    <input type="checkbox" class="grp-cb" data-id="${esc(ex.id)}" data-name="${esc(ex.name)}">
+    <span class="merge-name">${esc(ex.name)}${ex.variationGroupId ? ' <span class="var-tag">grouped</span>' : ''} <span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></span>
+  </label>`).join('');
+  overlay.innerHTML = `
+    <div class="modal-sheet">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 class="modal-title" style="margin-bottom:0">Group Variations</h2>
+        <button class="modal-dismiss-btn" id="grp-dismiss">&times;</button>
+      </div>
+      <p class="settings-hint" style="margin-bottom:12px">Check 2+ exercises that are variations of one movement. They stay separate (own history) but get linked so you can rotate between them in a workout.</p>
+      <div class="merge-list">${rows}</div>
+      <div id="grp-preview" class="settings-hint" style="margin-top:12px">Select 2+ above.</div>
+      <button class="btn btn-primary btn-full" id="grp-go" style="margin-top:12px" disabled>Group</button>
+    </div>`;
+  const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
+  const goBtn = overlay.querySelector('#grp-go');
+  const preview = overlay.querySelector('#grp-preview');
+  const refresh = () => {
+    const checked = [...overlay.querySelectorAll('.grp-cb:checked')];
+    if (checked.length >= 2) {
+      const d = deriveVariationGroup(checked.map(c => c.dataset.name));
+      preview.innerHTML = `Base: <b>${esc(d.base || '(none)')}</b> &nbsp;·&nbsp; Labels: ${d.labels.map(esc).join(', ')}`;
+    } else preview.textContent = 'Select 2+ above.';
+    goBtn.disabled = checked.length < 2;
+  };
+  overlay.querySelectorAll('.grp-cb').forEach(cb => cb.addEventListener('change', refresh));
+  overlay.querySelector('#grp-dismiss').addEventListener('click', close);
+  goBtn.addEventListener('click', async () => {
+    const checked = [...overlay.querySelectorAll('.grp-cb:checked')];
+    const derived = deriveVariationGroup(checked.map(c => c.dataset.name));
+    if (!derived) return;
+    const gid = crypto.randomUUID();
+    for (let i = 0; i < checked.length; i++) {
+      const ex = byId[checked[i].dataset.id];
+      if (ex) await addExercise({ ...ex, variationGroupId: gid, variationBase: derived.base, variationLabel: derived.labels[i] });
+    }
+    close();
+    showToast(`Grouped ${checked.length} variations`);
+    await renderSettingsTab(el);
+  });
+}
+
 function showExerciseForm(el, existing) {
   const overlay = document.getElementById('modal-overlay');
   overlay.classList.remove('hidden');
@@ -443,6 +498,14 @@ function showExerciseForm(el, existing) {
         <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="ex-uni" ${existing?.isUnilateral ? 'checked' : ''}> Unilateral</label>
         <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="ex-bw" ${existing?.isBodyweight ? 'checked' : ''}> Bodyweight (no weight field)</label>
       </div>
+      ${existing ? '' : `
+      <label style="display:flex;align-items:center;gap:6px;margin-top:12px"><input type="checkbox" id="ex-hasvar"> Has variations (grips / angles)</label>
+      <div id="ex-var-wrap" class="hidden" style="margin-top:8px">
+        <p class="settings-hint" style="margin-bottom:6px">The name above is the base (e.g. "Lat Pulldown"). Pick or type each variation — one exercise is created per variation, named "{variation} {base}".</p>
+        <div class="var-presets">${VARIATION_PRESETS.map(p => `<button type="button" class="var-preset" data-p="${esc(p)}">${esc(p)}</button>`).join('')}</div>
+        <div style="display:flex;gap:6px;margin-top:8px"><input class="input" id="ex-var-custom" placeholder="Type a variation…" style="flex:1"><button type="button" class="btn btn-ghost" id="ex-var-add" style="min-height:38px">Add</button></div>
+        <div id="ex-var-list" style="margin-top:8px"></div>
+      </div>`}
       <button class="btn btn-primary btn-full" id="save-ex-btn" style="margin-top:16px">Save</button>
     </div>
   `;
@@ -451,10 +514,29 @@ function showExerciseForm(el, existing) {
   const bwChk = overlay.querySelector('#ex-bw');
   bwChk.addEventListener('change', () => { if (bwChk.checked) unitSel.value = 'reps'; });
   unitSel.addEventListener('change', () => { if (unitSel.value === 'reps') bwChk.checked = true; });
+
+  // Variations editor (add-mode only).
+  const varLabels = [];
+  const hasVarChk = overlay.querySelector('#ex-hasvar');
+  const varWrap = overlay.querySelector('#ex-var-wrap');
+  const varListEl = overlay.querySelector('#ex-var-list');
+  const renderVarList = () => {
+    if (!varListEl) return;
+    varListEl.innerHTML = varLabels.length
+      ? varLabels.map((l, i) => `<span class="var-chip">${esc(l)}<button type="button" class="var-chip-x" data-i="${i}" aria-label="Remove">×</button></span>`).join('')
+      : '<span class="settings-hint">No variations added yet.</span>';
+    varListEl.querySelectorAll('.var-chip-x').forEach(b => b.addEventListener('click', () => { varLabels.splice(+b.dataset.i, 1); renderVarList(); }));
+  };
+  const addLabel = l => { const t = (l || '').trim(); if (t && !varLabels.includes(t)) { varLabels.push(t); renderVarList(); } };
+  if (hasVarChk) {
+    hasVarChk.addEventListener('change', () => { varWrap.classList.toggle('hidden', !hasVarChk.checked); });
+    overlay.querySelectorAll('.var-preset').forEach(b => b.addEventListener('click', () => addLabel(b.dataset.p)));
+    overlay.querySelector('#ex-var-add').addEventListener('click', () => { const inp = overlay.querySelector('#ex-var-custom'); addLabel(inp.value); inp.value = ''; });
+    renderVarList();
+  }
+
   overlay.querySelector('#save-ex-btn').addEventListener('click', async () => {
-    const exercise = {
-      id: existing?.id || crypto.randomUUID(),
-      name: overlay.querySelector('#ex-name').value.trim(),
+    const attrs = {
       bodyPartGroup: overlay.querySelector('#ex-part').value,
       equipment: overlay.querySelector('#ex-equip').value.trim(),
       machineId: overlay.querySelector('#ex-machine').value.trim() || null,
@@ -462,10 +544,21 @@ function showExerciseForm(el, existing) {
       isTimed: overlay.querySelector('#ex-timed').checked,
       isUnilateral: overlay.querySelector('#ex-uni').checked,
       isBodyweight: bwChk.checked,
-      notes: ''
+      notes: '',
     };
-    if (!exercise.name) { toast('Name required', { type: 'error' }); return; }
-    await addExercise(exercise);
+    const name = overlay.querySelector('#ex-name').value.trim();
+    if (!name) { toast('Name required', { type: 'error' }); return; }
+    // Variations mode: create one grouped exercise per label from the base name.
+    if (hasVarChk && hasVarChk.checked) {
+      const group = buildVariationExercises(name, varLabels, attrs);
+      if (!group) { toast('Add at least 2 variations (or uncheck "Has variations").', { type: 'error' }); return; }
+      for (const ex of group) await addExercise(ex);
+      overlay.classList.add('hidden'); overlay.innerHTML = '';
+      showToast(`Created ${group.length} variations of ${name}`);
+      await renderSettingsTab(el);
+      return;
+    }
+    await addExercise({ id: existing?.id || crypto.randomUUID(), name, ...attrs });
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
     await renderSettingsTab(el);
@@ -635,6 +728,13 @@ function showRotationEditor(row, exercises, exById, onDone) {
   function render() {
     const addOpts = exByGroup.filter(e => !ids.includes(e.id))
       .map(e => `<option value="${esc(e.id)}">${esc(e.name)} (${esc(e.bodyPartGroup)})</option>`).join('');
+    // If the primary variant belongs to a variation group, offer to add the whole group at once.
+    const primary = exById[ids[0]];
+    const gid = primary && primary.variationGroupId;
+    const groupMembers = gid ? exByGroup.filter(e => e.variationGroupId === gid) : [];
+    const groupBtn = (groupMembers.length > 1 && !groupMembers.every(m => ids.includes(m.id)))
+      ? `<button type="button" class="btn btn-ghost btn-full" id="rot-add-group" style="margin-top:8px">+ Add all from "${esc(primary.variationBase || 'group')}" (${groupMembers.length})</button>`
+      : '';
     host.innerHTML = `
       <div class="modal-sheet">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -656,9 +756,14 @@ function showRotationEditor(row, exercises, exById, onDone) {
             <button class="rot-del" data-i="${i}" aria-label="Remove">✕</button>
           </div>`).join('')}</div>
         <select class="input" id="rot-add" style="margin-top:10px"><option value="">+ Add a variant…</option>${addOpts}</select>
+        ${groupBtn}
         <button class="btn btn-primary btn-full" id="rot-done" style="margin-top:14px">Done</button>
       </div>`;
     host.querySelector('#rot-dismiss').addEventListener('click', close);
+    host.querySelector('#rot-add-group')?.addEventListener('click', () => {
+      for (const m of groupMembers) if (!ids.includes(m.id)) ids.push(m.id);
+      render();
+    });
     host.querySelectorAll('.rot-mode-btn').forEach(b => b.addEventListener('click', () => { mode = b.dataset.m; render(); }));
     host.querySelectorAll('.rot-move').forEach(b => b.addEventListener('click', () => {
       const i = +b.dataset.i, j = i + (+b.dataset.d);
