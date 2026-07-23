@@ -175,7 +175,7 @@ const ALL_TEMPLATES = [
       { exerciseId: 'ex-copenhagen-adduction', defaultSets: 3, targetReps: 10, order: 4 },
       { exerciseId: 'ex-butterfly-bridge', defaultSets: 3, targetReps: 8, order: 5 },
       { exerciseId: 'ex-straight-leg-raise-vmo', defaultSets: 3, targetReps: 10, order: 6 }, // 3 per side, 3s hold
-      { exerciseId: 'ex-side-star-plank', defaultSets: 5, targetReps: null, defaultSeconds: 25, order: 7 }, // 5 per side, 25s hold
+      { exerciseId: 'ex-side-star-plank', defaultSets: 3, targetReps: null, defaultSeconds: 25, order: 7 }, // 3 per side (6 total), 25s hold
       { exerciseId: 'ex-weighted-step-ups', defaultSets: 3, targetReps: 8, order: 8 }, // 3 per leg
       { exerciseId: 'ex-curtsy-lateral-lunge', defaultSets: 3, targetReps: 10, order: 9 }, // 3 per side
       { exerciseId: 'ex-pelvic-floor-elevators', defaultSets: 3, targetReps: null, defaultSeconds: 25, order: 10 }, // 3×5, 5s hold
@@ -187,10 +187,10 @@ const ALL_TEMPLATES = [
       { exerciseId: 'ex-modified-pigeon', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 16 }, // 2 per side
       // 3. Core Block (loaded/dynamic)
       { exerciseId: 'ex-weighted-side-plank-hip-drops', defaultSets: 2, targetReps: null, defaultWeight: 45, order: 17 }, // 2 per side, ALAP — adjust
-      { exerciseId: 'ex-x-man-crunch', defaultSets: 3, targetReps: 12, order: 18 },
-      { exerciseId: 'ex-step-through-planks', defaultSets: 3, targetReps: null, defaultSeconds: 45, order: 19 },
-      { exerciseId: 'ex-alternating-jackknives', defaultSets: 3, targetReps: null, defaultSeconds: 45, order: 20 },
-      { exerciseId: 'ex-stationary-bikes', defaultSets: 3, targetReps: null, defaultSeconds: 30, order: 21 },
+      { exerciseId: 'ex-x-man-crunch', defaultSets: 2, targetReps: 12, order: 18 },
+      { exerciseId: 'ex-step-through-planks', defaultSets: 2, targetReps: null, defaultSeconds: 45, order: 19 },
+      { exerciseId: 'ex-alternating-jackknives', defaultSets: 2, targetReps: null, defaultSeconds: 45, order: 20 },
+      { exerciseId: 'ex-stationary-bikes', defaultSets: 2, targetReps: null, defaultSeconds: 30, order: 21 },
       // 4. Foot/Toe Work (fixed every session)
       { exerciseId: 'ex-toe-flexion-band', defaultSets: 2, targetReps: 15, order: 22 },
       { exerciseId: 'ex-toe-abduction-band', defaultSets: 2, targetReps: 15, order: 23 },
@@ -204,9 +204,15 @@ const ALL_TEMPLATES = [
 // upsert the five affected templates once — guarded by REWORK_SYNC_KEY and gated
 // so it only runs on a device that already had the old Leg A/Leg B split (i.e.
 // not a brand-new install). After it runs once, in-app template edits win.
-const REWORK_SYNC_KEY = 'tplSync_legsRework_2026_07';
+// Bump the _vN suffix whenever these templates change, to re-run the sync on
+// devices that already synced an earlier version.
+const REWORK_SYNC_KEY = 'tplSync_legsRework_2026_07_v2';
 const REWORK_TEMPLATE_IDS = ['tpl-arm-a', 'tpl-arm-b', 'tpl-legs-a', 'tpl-legs-b', 'tpl-legs-c'];
 const OLD_TEMPLATE_IDS_TO_REMOVE = ['tpl-leg-a', 'tpl-leg-b'];
+// A device "has Marco's split" if it carries either the old Leg A/B templates
+// (pre-rework) or any of the new Legs A/B/C (already synced once). Either way the
+// sync should (re)apply; a brand-new install has none, so it never gets pushed.
+const MARCO_SPLIT_IDS = ['tpl-leg-a', 'tpl-leg-b', 'tpl-legs-a', 'tpl-legs-b', 'tpl-legs-c'];
 
 export async function migrateNewTemplates() {
   // Always upsert all exercise definitions (safe, idempotent) so the library
@@ -215,8 +221,9 @@ export async function migrateNewTemplates() {
 
   // One-time legs-rework template sync (see comment above).
   if (!(await getSetting(REWORK_SYNC_KEY))) {
-    const hadOldSplit = (await getTemplate('tpl-leg-a')) || (await getTemplate('tpl-leg-b'));
-    if (hadOldSplit) {
+    let hasMarcoSplit = false;
+    for (const id of MARCO_SPLIT_IDS) { if (await getTemplate(id)) { hasMarcoSplit = true; break; } }
+    if (hasMarcoSplit) {
       for (const id of OLD_TEMPLATE_IDS_TO_REMOVE) await deleteTemplate(id);
       const byId = Object.fromEntries(ALL_TEMPLATES.map(t => [t.id, t]));
       for (const id of REWORK_TEMPLATE_IDS) if (byId[id]) await addTemplate(byId[id]);
