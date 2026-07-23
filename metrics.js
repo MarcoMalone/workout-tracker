@@ -95,6 +95,30 @@ export function computeWeeklyCardio(runs, walks, today = new Date()) {
   return { runMin, walkMin, runMiles: round1(runMiles), walkMiles: round1(walkMiles), runCount, walkCount };
 }
 
+// Weekly cardio series for the Progress bar chart: one entry per week (oldest→
+// newest), each with that week's sessions (date + miles + minutes) and total miles.
+// Pure. `logs` are run OR walk logs (each has date + distanceMiles + durationMinutes).
+export function weeklyCardioSeries(logs, weeks = 8, today = new Date()) {
+  const dow = today.getDay();
+  const fromMon = dow === 0 ? 6 : dow - 1;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - fromMon);
+  monday.setHours(0, 0, 0, 0);
+  const out = [];
+  for (let w = weeks - 1; w >= 0; w--) {
+    const start = new Date(monday); start.setDate(monday.getDate() - w * 7);
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    const startKey = dayKey(start), endKey = dayKey(end);
+    const sessions = (logs || [])
+      .filter(l => l && l.date >= startKey && l.date <= endKey)
+      .map(l => ({ date: l.date, miles: l.distanceMiles || 0, durationMinutes: l.durationMinutes || 0 }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const total = Math.round(sessions.reduce((s, x) => s + x.miles, 0) * 10) / 10;
+    out.push({ weekStart: startKey, label: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), sessions, total });
+  }
+  return out;
+}
+
 // Progressive-overload nudge: if EVERY working set of the last session hit or beat
 // the rep target, suggest bumping the load next time. +5 lb for machines/barbell,
 // +2.5 lb for dumbbells (finer jumps). Only for loaded lifts — never timed or

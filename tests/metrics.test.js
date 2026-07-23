@@ -1,4 +1,26 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries } from '../metrics.js';
+
+// ── weeklyCardioSeries ───────────────────────────────────────────────────────────
+test('weeklyCardioSeries: one entry per week oldest→newest, grouping sessions + totals', () => {
+  const today = new Date('2026-07-22T12:00:00'); // Wed; this week Mon 2026-07-20
+  const logs = [
+    { date: '2026-07-20', distanceMiles: 2, durationMinutes: 16 },
+    { date: '2026-07-22', distanceMiles: 2.5, durationMinutes: 20 },
+    { date: '2026-07-15', distanceMiles: 3, durationMinutes: 24 }, // prior week
+  ];
+  const series = weeklyCardioSeries(logs, 3, today);
+  expect(series).toHaveLength(3);
+  expect(series[2].weekStart).toBe('2026-07-20');      // newest week last
+  expect(series[2].sessions.map(s => s.miles)).toEqual([2, 2.5]); // sorted by date
+  expect(series[2].total).toBe(4.5);
+  expect(series[1].total).toBe(3);                     // prior week
+  expect(series[0].total).toBe(0);                     // empty oldest week
+});
+test('weeklyCardioSeries: handles empty logs', () => {
+  const series = weeklyCardioSeries([], 4, new Date('2026-07-22T12:00:00'));
+  expect(series).toHaveLength(4);
+  expect(series.every(w => w.total === 0 && w.sessions.length === 0)).toBe(true);
+});
 
 // ── suggestProgression ─────────────────────────────────────────────────────────
 test('suggestProgression: +5 lb when every set hit the target (machine)', () => {

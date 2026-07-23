@@ -1,5 +1,5 @@
 import { getRunLogs, getWalkLogs, getAllSessions, getExercises, dataVersion } from './db.js';
-import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall, computeWeeklyCardio } from './metrics.js';
+import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall, computeWeeklyCardio, weeklyCardioSeries } from './metrics.js';
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { switchTab } from './app.js';
 
@@ -116,6 +116,57 @@ export async function renderProgressTab(el) {
 }
 
 const prettyName = id => (id || '').replace(/^ex-/, '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+const shortDate = dateStr => new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+function hexToRgb(hex) {
+  const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex || '');
+  return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : { r: 91, g: 164, b: 224 };
+}
+
+// Weekly cardio bars: each week's bar is stacked into per-session segments, shaded
+// by distance (further = more saturated). Tapping a bar lists that week's sessions.
+function renderCardioBars(container, series, baseHex, unitLabel, title) {
+  const maxSessions = Math.max(1, ...series.map(w => w.sessions.length));
+  const maxMi = Math.max(0.1, ...series.flatMap(w => w.sessions.map(s => s.miles)));
+  const { r, g, b } = hexToRgb(baseHex);
+  const shade = mi => `rgba(${r},${g},${b},${(0.4 + 0.6 * Math.min(1, mi / maxMi)).toFixed(2)})`;
+  const datasets = [];
+  for (let i = 0; i < maxSessions; i++) {
+    datasets.push({
+      label: `#${i + 1}`, stack: 'mi', borderWidth: 1, borderColor: 'rgba(0,0,0,0.25)',
+      data: series.map(w => (w.sessions[i] ? w.sessions[i].miles : 0)),
+      backgroundColor: series.map(w => (w.sessions[i] ? shade(w.sessions[i].miles) : 'rgba(0,0,0,0)')),
+    });
+  }
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<p class="section-title">${esc(title)}</p><div class="chart-wrap"><canvas></canvas></div><div class="cardio-detail"></div>`;
+  container.appendChild(wrap);
+  const detailEl = wrap.querySelector('.cardio-detail');
+  const renderDetail = wi => {
+    const wk = series[wi];
+    if (!wk) return;
+    detailEl.innerHTML = `<div class="cardio-detail-hd">Week of ${esc(wk.label)} — <b>${wk.total} ${esc(unitLabel)}</b></div>` +
+      (wk.sessions.length
+        ? wk.sessions.map(s => `<div class="cardio-detail-row"><span>${esc(shortDate(s.date))}</span><span>${s.miles} ${esc(unitLabel)}${s.durationMinutes ? ` · ${Math.round(s.durationMinutes)} min` : ''}</span></div>`).join('')
+        : '<div class="cardio-detail-row" style="color:var(--text-3)">No sessions this week</div>');
+  };
+  activeCharts.push(new Chart(wrap.querySelector('canvas'), {
+    type: 'bar',
+    data: { labels: series.map(w => w.label), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { title: items => `Week of ${items[0].label}`, label: ctx => (ctx.parsed.y ? `${ctx.parsed.y} ${unitLabel}` : null) } },
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: CHART_COLORS.text } },
+        y: { stacked: true, beginAtZero: true, grid: { color: CHART_COLORS.grid }, ticks: { color: CHART_COLORS.text } },
+      },
+      onClick: (e, els) => { if (els.length) renderDetail(els[0].index); },
+    },
+  }));
+  renderDetail(series.length - 1); // default to the current week
+}
 
 // Scan every weighted exercise's e1RM history for stalls (no recent PR).
 function computeStalls(sessions, exNameById) {
@@ -395,31 +446,15 @@ function renderBodyPart(container, part, allSessions, runs, walks) {
     return;
   }
 
-  const layerBEl = document.createElement('div');
-  renderHeatmap(layerBEl, buildConsistencyMap(partActivity, 12), LAYER_B_COLORS, `12-week ${part} activity`);
-  container.appendChild(layerBEl);
-
-  // Walk-only or Run-only tabs: just show the cardio chart
+  // Walk / Run: weekly miles bar chart (stacked per session, shaded by distance).
   if (part === 'walk') {
     if (walks.length < 1) { container.appendChild(Object.assign(document.createElement('p'), { textContent: 'No walks logged yet', style: 'color:var(--text-3);text-align:center;padding:24px' })); }
-    else {
-      const walkSection = document.createElement('div');
-      walkSection.innerHTML = '<p class="section-title">Treadmill Walks</p><div class="chart-wrap"><canvas id="walk-chart-b"></canvas></div>';
-      container.appendChild(walkSection);
-      const sortedWalks = walks.slice().reverse();
-      activeCharts.push(new Chart(walkSection.querySelector('#walk-chart-b'), { type: 'line', data: { labels: sortedWalks.map(w => w.date), datasets: [{ label: 'Miles', data: sortedWalks.map(w => w.distanceMiles), borderColor: CHART_COLORS.walk, backgroundColor: 'rgba(91,164,224,0.2)', tension: 0.3, fill: true, pointRadius: 4, yAxisID: 'y' }] }, options: baseChartOptions('mi') }));
-    }
+    else renderCardioBars(container, weeklyCardioSeries(walks, 8), CHART_COLORS.walk, 'mi', 'Treadmill Walks — miles / week');
     return;
   }
   if (part === 'run') {
     if (runs.length < 1) { container.appendChild(Object.assign(document.createElement('p'), { textContent: 'No runs logged yet', style: 'color:var(--text-3);text-align:center;padding:24px' })); }
-    else {
-      const runSection = document.createElement('div');
-      runSection.innerHTML = '<p class="section-title">Runs</p><div class="chart-wrap"><canvas id="run-chart-b"></canvas></div>';
-      container.appendChild(runSection);
-      const sortedRuns = runs.slice().reverse();
-      activeCharts.push(new Chart(runSection.querySelector('#run-chart-b'), { type: 'line', data: { labels: sortedRuns.map(r => r.date), datasets: [{ label: 'Miles', data: sortedRuns.map(r => r.distanceMiles), borderColor: CHART_COLORS.run, backgroundColor: 'rgba(76,175,125,0.2)', tension: 0.3, fill: true, pointRadius: 4, yAxisID: 'y' }] }, options: baseChartOptions('mi') }));
-    }
+    else renderCardioBars(container, weeklyCardioSeries(runs, 8), CHART_COLORS.run, 'mi', 'Runs — miles / week');
     return;
   }
 
