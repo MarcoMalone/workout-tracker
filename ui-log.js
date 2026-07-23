@@ -1479,8 +1479,8 @@ function showRunForm(el) {
         <input type="date" class="input" id="run-date" value="${localDateStr()}">
         <label class="form-label">Distance (miles)</label>
         <input type="number" class="input" id="run-dist" step="0.01" inputmode="decimal" placeholder="2.5">
-        <label class="form-label">Duration (mm:ss)</label>
-        <input type="text" class="input" id="run-dur" placeholder="28:30" pattern="[0-9]+:[0-5][0-9]">
+        <label class="form-label">Duration (minutes or mm:ss)</label>
+        <input type="text" class="input" id="run-dur" placeholder="16 or 28:30" pattern="[0-9]+(:[0-5][0-9])?">
         <label class="form-label">Perceived Effort (1–10)</label>
         <input type="range" id="run-effort" min="1" max="10" value="6">
         <div style="text-align:center; color:var(--accent); font-size:20px; font-weight:700" id="effort-display">6</div>
@@ -1498,10 +1498,16 @@ function showRunForm(el) {
   el.querySelector('#cancel-run').addEventListener('click', () => renderLogTab(el));
   el.querySelector('#save-run-btn').addEventListener('click', async () => {
     const dist = parseFloat(el.querySelector('#run-dist').value);
-    const durStr = el.querySelector('#run-dur').value;
-    const [min, sec] = durStr.split(':').map(Number);
-    const durationMinutes = min + (sec / 60);
-    if (!dist || !durStr.includes(':')) { toast('Enter distance and duration.', { type: 'error' }); return; }
+    const durStr = el.querySelector('#run-dur').value.trim();
+    // Accept either whole minutes ("16") or mm:ss ("28:30").
+    let durationMinutes;
+    if (durStr.includes(':')) {
+      const [min, sec] = durStr.split(':').map(Number);
+      durationMinutes = min + (sec / 60);
+    } else {
+      durationMinutes = parseFloat(durStr);
+    }
+    if (!dist || !durationMinutes || durationMinutes <= 0) { toast('Enter distance and duration.', { type: 'error' }); return; }
     await addRunLog({
       id: crypto.randomUUID(),
       date: el.querySelector('#run-date').value,
