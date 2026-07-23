@@ -23,6 +23,17 @@ test('pulldown rotation: patches Arm A pulldown into a 3-grip auto rotation, pre
   expect(await getSetting('tplSync_pulldownRotation_2026_07')).toBe(true);
 });
 
+test('row rotation: patches Arm A seated-row slot into a close → wide auto rotation', async () => {
+  await addTemplate({ id: 'tpl-arm-a', name: 'Arm A', bodyPartGroup: 'arms', exercises: [
+    { exerciseId: 'ex-seated-cable-rows', defaultSets: 3, targetReps: 12, order: 0 },
+  ] });
+  await migrateNewTemplates();
+  const slot = (await getTemplate('tpl-arm-a')).exercises[0];
+  expect(slot.variantIds).toEqual(['ex-seated-cable-rows', 'ex-wide-grip-row']);
+  expect(slot.variantMode).toBe('auto');
+  expect(await getSetting('tplSync_rowRotation_2026_07')).toBe(true);
+});
+
 test('pulldown rotation: runs once — a later-added Arm A is not re-patched', async () => {
   await migrateNewTemplates(); // no Arm A present → flag set, no-op
   expect(await getSetting('tplSync_pulldownRotation_2026_07')).toBe(true);

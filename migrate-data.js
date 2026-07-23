@@ -5,7 +5,7 @@ const MIGRATE_V = 6;
 // All exercise definitions — put() is an upsert, safe to re-run
 const ALL_EXERCISES = [
   // === ARM EXERCISES (updated to add isBodyweight where applicable) ===
-  { id: 'ex-mn-lat-pulldown', name: 'Machine-Neutral Lat Pulldown', bodyPartGroup: 'arms', equipment: 'machine', machineId: 'A18', unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
+  { id: 'ex-mn-lat-pulldown', name: 'Neutral-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   // Lat-pulldown grip variants — rotate in Arm A (close → machine-neutral → wide).
   { id: 'ex-cg-lat-pulldown', name: 'Close-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Narrow/neutral grip — more lat + lower-lat emphasis.' },
   { id: 'ex-wg-lat-pulldown', name: 'Wide-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide pronated grip — upper-back / teres emphasis.' },
@@ -14,7 +14,7 @@ const ALL_EXERCISES = [
   { id: 'ex-bottoms-up-kb-press', name: 'Bottoms-Up KB Press', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Shoulder/cuff stability — kettlebell inverted, grip tight.' },
   { id: 'ex-semi-pronated-db-curls', name: 'Semi-Pronated DB Curls', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-rear-delt-fly-machine', name: 'Rear Delt Fly Machine', bodyPartGroup: 'arms', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
-  { id: 'ex-seated-cable-rows', name: 'Seated Cable Rows', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
+  { id: 'ex-seated-cable-rows', name: 'Close-Grip Seated Row', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Close/neutral grip — mid-back + lat.' },
   { id: 'ex-hammer-curls', name: 'Hammer Curls', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-reverse-cable-flys', name: 'Reverse Cable Flys', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-dead-hangs', name: 'Dead Hangs', bodyPartGroup: 'arms', equipment: 'bodyweight', machineId: null, unit: 'seconds', isTimed: true, isUnilateral: false, isBodyweight: false, notes: '' },
@@ -45,7 +45,7 @@ const ALL_EXERCISES = [
   { id: 'ex-split-squat', name: 'Split Squat', bodyPartGroup: 'legs', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Front foot planted, lower back knee toward the floor, controlled tempo — not a jump. Start light (new to the rotation).' },
   { id: 'ex-side-lying-hip-abduction', name: 'Side-Lying Hip Abduction', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: true, isBodyweight: true, notes: '3 lb ankle weight (home). Replaces Standing Cable Hip Abduction.' },
   // Wide-grip row variant for upper-back emphasis (pairs with existing Seated Cable Rows = close/neutral).
-  { id: 'ex-wide-grip-row', name: 'Wide-Grip Row', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide, high-elbow pull — biases upper back / rear delts.' },
+  { id: 'ex-wide-grip-row', name: 'Wide-Grip Seated Row', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide, high-elbow pull — biases upper back / rear delts.' },
   { id: 'ex-toe-flexion-band', name: 'Toe Flexion with Band', bodyPartGroup: 'legs', equipment: 'band', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: 'Standard grip' },
   { id: 'ex-toe-abduction-band', name: 'Toe Abduction with Band', bodyPartGroup: 'legs', equipment: 'band', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: 'Variant of toe flexion with band' },
   { id: 'ex-tibia-bar-raises', name: 'Tibia Bar Raises', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: '' },
@@ -102,7 +102,8 @@ const ALL_TEMPLATES = [
       { exerciseId: 'ex-cg-lat-pulldown', variantIds: ['ex-cg-lat-pulldown', 'ex-mn-lat-pulldown', 'ex-wg-lat-pulldown'], variantMode: 'auto', defaultSets: 3, targetReps: 12, defaultWeight: 110, order: 0 },
       { exerciseId: 'ex-semi-pronated-db-curls', defaultSets: 3, targetReps: 12, defaultWeight: 25, order: 1 },
       { exerciseId: 'ex-rear-delt-fly-machine', defaultSets: 3, targetReps: 12, defaultWeight: 70, order: 2 },
-      { exerciseId: 'ex-seated-cable-rows', defaultSets: 3, targetReps: 12, defaultWeight: 80, order: 3 },
+      // Rotating grip slot: close → wide, auto-advancing each session.
+      { exerciseId: 'ex-seated-cable-rows', variantIds: ['ex-seated-cable-rows', 'ex-wide-grip-row'], variantMode: 'auto', defaultSets: 3, targetReps: 12, defaultWeight: 80, order: 3 },
       { exerciseId: 'ex-hammer-curls', defaultSets: 3, targetReps: 10, defaultWeight: 25, order: 4 },
       { exerciseId: 'ex-reverse-cable-flys', defaultSets: 3, targetReps: 12, defaultWeight: 50, order: 5 },
       // Core finisher — inserted immediately before Dead Hangs
@@ -247,6 +248,7 @@ export async function migrateNewTemplates() {
   }
 
   await ensurePulldownRotation();
+  await ensureRowRotation();
 }
 
 // One-time, targeted, non-destructive patch: turn Arm A's single machine-neutral
@@ -267,4 +269,20 @@ async function ensurePulldownRotation() {
     }
   }
   await setSetting(PULLDOWN_ROTATION_KEY, true);
+}
+
+// Same targeted one-time patch for Arm A's seated row slot → close → wide rotation.
+const ROW_ROTATION_KEY = 'tplSync_rowRotation_2026_07';
+async function ensureRowRotation() {
+  if (await getSetting(ROW_ROTATION_KEY)) return;
+  const armA = await getTemplate('tpl-arm-a');
+  if (armA && Array.isArray(armA.exercises)) {
+    const slot = armA.exercises.find(e => e.exerciseId === 'ex-seated-cable-rows' && !e.variantIds);
+    if (slot) {
+      slot.variantIds = ['ex-seated-cable-rows', 'ex-wide-grip-row'];
+      slot.variantMode = 'auto';
+      await addTemplate(armA);
+    }
+  }
+  await setSetting(ROW_ROTATION_KEY, true);
 }
