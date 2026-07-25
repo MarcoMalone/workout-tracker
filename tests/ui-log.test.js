@@ -9,7 +9,17 @@ vi.mock('../app.js', () => ({ switchTab: () => {} }));
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog, saveGoals } from '../db.js';
-import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest } from '../ui-log.js';
+import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration } from '../ui-log.js';
+
+test('parseDuration: whole minutes, mm:ss, and blank/invalid', () => {
+  expect(parseDuration('47')).toBe(47);
+  expect(parseDuration('47:23')).toBeCloseTo(47 + 23 / 60, 5);
+  expect(parseDuration('0:30')).toBeCloseTo(0.5, 5);
+  expect(parseDuration('2.5')).toBe(2.5);
+  expect(parseDuration('')).toBeNull();
+  expect(parseDuration(null)).toBeNull();
+  expect(parseDuration('abc')).toBeNull();
+});
 
 // The base test env's localStorage is a non-functional stub; ui-log now
 // transitively imports localStorage-reading modules (wakelock/haptics/help).

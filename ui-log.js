@@ -15,6 +15,20 @@ function localDateStr(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+// Parse a cardio duration typed as whole minutes ("47") or mm:ss ("47:23") into
+// minutes (float). Returns null if blank/unparseable. Shared by the run + walk forms.
+export function parseDuration(str) {
+  const s = String(str ?? '').trim();
+  if (!s) return null;
+  if (s.includes(':')) {
+    const [m, sec] = s.split(':').map(Number);
+    if (Number.isNaN(m) || Number.isNaN(sec)) return null;
+    return m + sec / 60;
+  }
+  const min = parseFloat(s);
+  return Number.isNaN(min) ? null : min;
+}
+
 // Build the Log-home "This Week" bars + activity streak from logged data.
 // Strength days scale by volume; cardio-only days show a short bar. Streak
 // counts consecutive days of any activity ending today (or yesterday if today
@@ -1464,8 +1478,8 @@ function showWalkForm(el) {
       <div class="run-form">
         <label class="form-label">Date</label>
         <input type="date" class="input" id="walk-date" value="${todayStr}">
-        <label class="form-label">Duration (minutes)</label>
-        <input type="number" class="input" id="walk-dur" step="1" inputmode="numeric" placeholder="90">
+        <label class="form-label">Duration (minutes or mm:ss)</label>
+        <input type="text" class="input" id="walk-dur" placeholder="90 or 47:23" pattern="[0-9]+(:[0-5][0-9])?">
         <label class="form-label">Speed (mph)</label>
         <input type="number" class="input" id="walk-speed" step="0.1" inputmode="decimal" value="2.2">
         <p class="walk-dist-preview" id="walk-dist-preview"></p>
@@ -1483,7 +1497,7 @@ function showWalkForm(el) {
   `;
 
   function updateDistPreview() {
-    const dur = parseFloat(el.querySelector('#walk-dur').value);
+    const dur = parseDuration(el.querySelector('#walk-dur').value);
     const speed = parseFloat(el.querySelector('#walk-speed').value);
     const preview = el.querySelector('#walk-dist-preview');
     if (dur && speed) {
@@ -1498,9 +1512,9 @@ function showWalkForm(el) {
   el.querySelector('#walk-speed').addEventListener('input', updateDistPreview);
   el.querySelector('#cancel-walk').addEventListener('click', () => renderLogTab(el));
   el.querySelector('#save-walk-btn').addEventListener('click', async () => {
-    const dur = parseFloat(el.querySelector('#walk-dur').value);
+    const dur = parseDuration(el.querySelector('#walk-dur').value);
     const speed = parseFloat(el.querySelector('#walk-speed').value);
-    if (!dur || !speed) { toast('Enter duration and speed.', { type: 'error' }); return; }
+    if (!dur || dur <= 0 || !speed) { toast('Enter duration and speed.', { type: 'error' }); return; }
     const overrideVal = el.querySelector('#walk-dist-override').value;
     const distanceMiles = overrideVal
       ? parseFloat(overrideVal)
@@ -1551,15 +1565,7 @@ function showRunForm(el) {
   el.querySelector('#cancel-run').addEventListener('click', () => renderLogTab(el));
   el.querySelector('#save-run-btn').addEventListener('click', async () => {
     const dist = parseFloat(el.querySelector('#run-dist').value);
-    const durStr = el.querySelector('#run-dur').value.trim();
-    // Accept either whole minutes ("16") or mm:ss ("28:30").
-    let durationMinutes;
-    if (durStr.includes(':')) {
-      const [min, sec] = durStr.split(':').map(Number);
-      durationMinutes = min + (sec / 60);
-    } else {
-      durationMinutes = parseFloat(durStr);
-    }
+    const durationMinutes = parseDuration(el.querySelector('#run-dur').value); // minutes or mm:ss
     if (!dist || !durationMinutes || durationMinutes <= 0) { toast('Enter distance and duration.', { type: 'error' }); return; }
     await addRunLog({
       id: crypto.randomUUID(),

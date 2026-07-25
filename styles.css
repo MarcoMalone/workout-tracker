@@ -316,7 +316,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .vol-cardio { font-size: 13px; color: var(--text-2); margin-top: 6px; }
 .cardio-detail { margin-top: 10px; }
 .cardio-detail-hd { font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
-.cardio-detail-row { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.cardio-detail-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-2); padding: 5px 0; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
 .cardio-detail-row:last-child { border-bottom: none; }
 .stall-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); }
 .stall-name { font-size: 14px; font-weight: 700; flex: 1; min-width: 0; overflow-wrap: anywhere; }
