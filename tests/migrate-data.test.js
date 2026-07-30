@@ -34,6 +34,18 @@ test('row rotation: patches Arm A seated-row slot into a close → wide auto rot
   expect(await getSetting('tplSync_rowRotation_2026_07')).toBe(true);
 });
 
+test('legs A goblet: swaps the leg-press slot for sumo goblet squat, keeps position', async () => {
+  await addTemplate({ id: 'tpl-legs-a', name: 'Legs A', bodyPartGroup: 'legs', exercises: [
+    { exerciseId: 'ex-bulgarian-split-squat', defaultSets: 3, targetReps: 10, order: 0 },
+    { exerciseId: 'ex-leg-press', defaultSets: 3, targetReps: 10, defaultWeight: 180, order: 5 },
+  ] });
+  await migrateNewTemplates();
+  const slot = (await getTemplate('tpl-legs-a')).exercises.find(e => e.order === 5);
+  expect(slot.exerciseId).toBe('ex-sumo-goblet-squat');
+  expect(slot).toMatchObject({ defaultSets: 3, targetReps: 12, defaultWeight: 25 });
+  expect(await getSetting('tplSync_legsAGoblet_2026_07')).toBe(true);
+});
+
 test('tricep choice: turns Arm B pushdown slot into a choice slot defaulting to overhead', async () => {
   await addTemplate({ id: 'tpl-arm-b', name: 'Arm B', bodyPartGroup: 'arms', exercises: [
     { exerciseId: 'ex-db-bench', defaultSets: 3, targetReps: 12, order: 0 },

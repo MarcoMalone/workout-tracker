@@ -1,14 +1,17 @@
 import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries } from '../metrics.js';
 
 // ── getBestE1RM alt-drop exclusion ────────────────────────────────────────────────
-test('getBestE1RM: ignores cross-exercise drop sets (altExerciseId)', () => {
-  // A heavy pushdown drop must not become the overhead-extension best-e1RM.
-  const sets = [
-    { weight: 40, reps: 10 },                              // e1RM ≈ 53
-    { weight: 120, reps: 12, isDropSet: true, altExerciseId: 'ex-pushdowns' }, // must be ignored
-  ];
-  expect(getBestE1RM(sets)).toBe(calcE1RM(40, 10));
-  expect(getBestE1RM([{ weight: 100, reps: 5, altExerciseId: 'x' }])).toBeNull(); // only an alt drop → null
+test('getBestE1RM: ignores drop sets (same-exercise and cross-exercise)', () => {
+  // A heavy drop (or cross-exercise drop) must not become the best e1RM.
+  expect(getBestE1RM([
+    { weight: 40, reps: 10 },
+    { weight: 120, reps: 12, isDropSet: true, altExerciseId: 'ex-pushdowns' },
+  ])).toBe(calcE1RM(40, 10));
+  expect(getBestE1RM([
+    { weight: 50, reps: 8 },
+    { weight: 200, reps: 1, isDropSet: true }, // same-exercise drop, also ignored
+  ])).toBe(calcE1RM(50, 8));
+  expect(getBestE1RM([{ weight: 100, reps: 5, isDropSet: true }])).toBeNull(); // only a drop → null
 });
 
 // ── weeklyCardioSeries ───────────────────────────────────────────────────────────

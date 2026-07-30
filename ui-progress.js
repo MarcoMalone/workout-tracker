@@ -473,6 +473,10 @@ function renderBodyPart(container, part, allSessions, runs, walks) {
       if (EXCLUDED_NAMES.some(n => lname.includes(n))) return;
       const key = normName(exercise.exerciseName);
       const displayName = (exercise.exerciseName || '').replace(/_/g, ' ');
+      // Drop sets are excluded from all charts/PR math — they're intentionally lighter
+      // and would drag the trend. (They still appear in the Log tab's "Previous" line.)
+      const workingSets = (exercise.sets || []).filter(s => !s.isDropSet);
+      if (!workingSets.length) return;
       if (!exMap.has(key)) {
         exMap.set(key, { ex: { id: exercise.exerciseId, name: displayName }, history: [] });
       } else if (exMap.get(key).ex.name.includes('_') && !displayName.includes('_')) {
@@ -481,9 +485,9 @@ function renderBodyPart(container, part, allSessions, runs, walks) {
       const entry = exMap.get(key);
       const existing = entry.history.find(h => h.date === session.date);
       if (existing) {
-        existing.exercise = { ...existing.exercise, sets: [...existing.exercise.sets, ...exercise.sets] };
+        existing.exercise = { ...existing.exercise, sets: [...existing.exercise.sets, ...workingSets] };
       } else {
-        entry.history.push({ date: session.date, exercise: { ...exercise, sets: [...exercise.sets] }, sessionNotes: session.sessionNotes || '', workoutContext: session.workoutContext || '' });
+        entry.history.push({ date: session.date, exercise: { ...exercise, sets: [...workingSets] }, sessionNotes: session.sessionNotes || '', workoutContext: session.workoutContext || '' });
       }
     });
   });

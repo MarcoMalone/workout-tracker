@@ -36,6 +36,7 @@ const ALL_EXERCISES = [
   { id: 'ex-leg-extensions', name: 'Leg Extensions', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-bulgarian-split-squat', name: 'Bulgarian Split Squat', bodyPartGroup: 'legs', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: '' },
   { id: 'ex-leg-press', name: 'Leg Press', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
+  { id: 'ex-sumo-goblet-squat', name: 'Sumo Goblet Squat', bodyPartGroup: 'legs', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide stance, dumbbell held at the chest.' },
   { id: 'ex-hip-abduction-machine', name: 'Hip Abduction Machine', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-hip-adduction-machine', name: 'Hip Adduction Machine', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Primary adductor strength day — progressive overload' },
   { id: 'ex-back-extensions', name: 'Back Extensions', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: true, notes: '' },
@@ -148,7 +149,7 @@ const ALL_TEMPLATES = [
       { exerciseId: 'ex-bulgarian-split-squat', defaultSets: 3, targetReps: 10, defaultWeight: 25, order: 2 }, // 3 per leg
       { exerciseId: 'ex-calf-raises', defaultSets: 3, targetReps: 15, defaultWeight: 50, order: 3 },
       { exerciseId: 'ex-leg-extensions', defaultSets: 3, targetReps: 12, defaultWeight: 70, order: 4 },
-      { exerciseId: 'ex-leg-press', defaultSets: 3, targetReps: 10, defaultWeight: 180, order: 5 }, // cut first if burnt out
+      { exerciseId: 'ex-sumo-goblet-squat', defaultSets: 3, targetReps: 12, defaultWeight: 25, order: 5 }, // replaced leg press (too much quad volume)
     ]
   },
 
@@ -251,6 +252,7 @@ export async function migrateNewTemplates() {
   await ensurePulldownRotation();
   await ensureRowRotation();
   await ensureTricepChoice();
+  await ensureLegsAGoblet();
 }
 
 // One-time, targeted, non-destructive patch: turn Arm A's single machine-neutral
@@ -306,4 +308,23 @@ async function ensureTricepChoice() {
     }
   }
   await setSetting(TRICEP_CHOICE_KEY, true);
+}
+
+// One-time targeted patch: swap Legs A's leg-press slot for Sumo Goblet Squat
+// (too much quad volume alongside Bulgarians + leg extensions). Keeps its position.
+const LEGSA_GOBLET_KEY = 'tplSync_legsAGoblet_2026_07';
+async function ensureLegsAGoblet() {
+  if (await getSetting(LEGSA_GOBLET_KEY)) return;
+  const legsA = await getTemplate('tpl-legs-a');
+  if (legsA && Array.isArray(legsA.exercises)) {
+    const slot = legsA.exercises.find(e => e.exerciseId === 'ex-leg-press');
+    if (slot) {
+      slot.exerciseId = 'ex-sumo-goblet-squat';
+      slot.defaultSets = 3;
+      slot.targetReps = 12;
+      slot.defaultWeight = 25;
+      await addTemplate(legsA);
+    }
+  }
+  await setSetting(LEGSA_GOBLET_KEY, true);
 }
