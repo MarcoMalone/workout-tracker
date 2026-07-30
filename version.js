@@ -1,10 +1,19 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.6.1';
+export const APP_VERSION = '1.7.0';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.0',
+    date: '2026-07-30',
+    items: [
+      'Linked (superset) exercises now show their previous reps/weights and grip/variant switcher, and have a shared note.',
+      'Cross-exercise drop sets: tap ⇄ on any drop to make it a different exercise (e.g. pushdowns as the drop for overhead extension).',
+      'Link 3+ exercises into one circuit.',
+    ],
+  },
   {
     v: '1.6.1',
     date: '2026-07-23',

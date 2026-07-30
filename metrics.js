@@ -178,7 +178,9 @@ export function calcE1RM(weight, reps) {
 }
 
 export function getBestE1RM(sets) {
-  const vals = sets.map(s => calcE1RM(s.weight, s.reps)).filter(v => v != null);
+  // Skip cross-exercise drop sets (altExerciseId) — a different movement's numbers
+  // must not pollute this exercise's e1RM / PR / stall / chart.
+  const vals = (sets || []).filter(s => s && !s.altExerciseId).map(s => calcE1RM(s.weight, s.reps)).filter(v => v != null);
   return vals.length ? Math.max(...vals) : null;
 }
 

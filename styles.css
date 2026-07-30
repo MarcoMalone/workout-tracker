@@ -432,6 +432,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .ss-ex-title { text-transform: capitalize; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ss-add-drop { flex-shrink: 0; background: none; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-3); font-size: 12px; font-weight: 700; padding: 3px 10px; min-height: 28px; cursor: pointer; }
 .ss-add-drop:active { background: var(--surface-hi); }
+.ss-ex-prev { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); margin: 0 0 6px; }
+.ss-note-row { margin: 0 0 10px; }
+.ss-note-input { width: 100%; box-sizing: border-box; }
+.drop-ex-btn { flex-shrink: 0; background: none; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--accent); font-size: 12px; font-weight: 700; padding: 3px 8px; min-height: 34px; cursor: pointer; white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
 .ss-add-slot { min-height: 32px; font-size: 12px; padding: 4px 10px; margin-top: 4px; color: var(--text-3); }
 /* Coach — build-a-workout preview */
 .build-title { font-weight: 800; margin: 0 0 8px; text-transform: capitalize; }

@@ -88,6 +88,10 @@ let _persistBound = false;
 let _prBest = {};
 let _prCelebrated = {};
 
+// id→exercise-definition cache, refreshed each active-session render. Lets set rows
+// resolve a cross-exercise drop's (altExerciseId) name/flags synchronously.
+let _exDefById = {};
+
 // Test-only: reset module-level session state between test cases.
 export function _resetSessionForTest() { activeSession = null; }
 
@@ -445,6 +449,9 @@ async function renderActiveSession(el) {
   // deleted or added. Each card resolves its own definition by exerciseId.
   const cardsEl = el.querySelector('#exercise-cards');
   // Resolve each exercise's definition + prior session once, then render.
+  // Refresh the id→def cache (used by cross-exercise drop rows + the drop picker).
+  try { _exDefById = {}; for (const d of await getExercises()) _exDefById[d.id] = d; } catch (e) {}
+
   // Consecutive exercises sharing a supersetId render as one round-interleaved
   // superset block; everything else is a standalone card (unchanged).
   const meta = [];
@@ -698,6 +705,44 @@ function showNextCue(name) {
   if (name) toast(`Next: ${name}`, { duration: 1600 });
 }
 
+// Choose the exercise for a cross-exercise drop set (or reset it to a normal
+// same-exercise drop). Variation-group siblings of the parent are listed first.
+function showDropExercisePicker(exIdx, sIdx, parentDef, reRender) {
+  const set = activeSession.exercises[exIdx].sets[sIdx];
+  const all = Object.values(_exDefById);
+  const gid = parentDef && parentDef.variationGroupId;
+  const siblings = gid ? all.filter(d => d.variationGroupId === gid && d.id !== parentDef.id) : [];
+  const sibIds = new Set(siblings.map(d => d.id));
+  const others = all.filter(d => d.id !== (parentDef && parentDef.id) && !sibIds.has(d.id))
+    .sort((a, b) => (a.bodyPartGroup || '').localeCompare(b.bodyPartGroup || '') || a.name.localeCompare(b.name));
+  const optBtn = d => `<button class="btn btn-ghost btn-full dpick" data-id="${esc(d.id)}" style="text-align:left;text-transform:capitalize;margin-top:6px">${esc((d.name || '').replace(/_/g, ' '))}</button>`;
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <div class="modal-sheet">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <h2 class="modal-title" style="margin-bottom:0">Drop into…</h2>
+        <button class="modal-dismiss-btn" id="dpick-dismiss" aria-label="Dismiss">✕</button>
+      </div>
+      <p class="settings-hint" style="margin-bottom:8px">Pick the movement for this drop — it logs under that exercise's name and won't affect ${esc((parentDef && parentDef.name || 'this exercise').replace(/_/g, ' '))}'s 1-rep-max.</p>
+      <button class="btn btn-ghost btn-full dpick" data-id="" style="text-align:left;margin-top:2px">↩ Same exercise (normal drop)</button>
+      ${siblings.length ? `<p class="settings-hint" style="margin:10px 0 0">Variations</p>${siblings.map(optBtn).join('')}` : ''}
+      <p class="settings-hint" style="margin:10px 0 0">All exercises</p>
+      ${others.map(optBtn).join('')}
+    </div>`;
+  const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
+  overlay.querySelector('#dpick-dismiss').addEventListener('click', close);
+  overlay.querySelectorAll('.dpick').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.id;
+    if (id) { set.altExerciseId = id; set.altName = (_exDefById[id] && _exDefById[id].name) || ''; }
+    else { delete set.altExerciseId; delete set.altName; }
+    set.done = false;
+    haptic('tap');
+    close();
+    reRender();
+  }));
+}
+
 // Ad-hoc superset: choose which other exercise to pair this one with. Lists every
 // other exercise in the session (including ones already supersetted — picking one
 // merges into that group).
@@ -713,7 +758,7 @@ function showSupersetPicker(srcIdx, el) {
         <h2 class="modal-title" style="margin-bottom:0;text-transform:capitalize">Superset ${esc(srcName)} with…</h2>
         <button class="modal-dismiss-btn" id="ssp-dismiss" aria-label="Dismiss">✕</button>
       </div>
-      <p class="settings-hint" style="margin-bottom:10px">Pick the exercise to pair it with — it moves next to it and logs in rounds.</p>
+      <p class="settings-hint" style="margin-bottom:10px">Pick the exercise to pair it with — it moves next to it and logs in rounds. Link more in (or pick one that's already a superset) to build a 3+ exercise circuit.</p>
       ${others.map(o => {
         const nm = (o.ex.exerciseName || o.ex.exerciseId).replace(/_/g, ' ');
         const tag = o.ex.supersetId ? ' <span class="uni-tag">superset</span>' : '';
@@ -755,11 +800,16 @@ function buildSupersetBlock(g, meta, el) {
   const block = document.createElement('div');
   block.className = 'superset-block';
   const names = g.exIdxs.map(i => (meta[i].exDef.name || '').replace(/_/g, ' ')).join(' + ');
+  const firstEx = activeSession.exercises[g.exIdxs[0]]; // one note per link, stored here
+  const noteVal = firstEx.supersetNote || '';
   block.innerHTML = `
-    <div class="superset-hd"><span class="superset-tag">⛓ Superset</span><span class="superset-ex-names">${esc(names)}</span><button class="superset-unlink" title="Break this superset apart">unlink</button></div>
+    <div class="superset-hd"><span class="superset-tag">⛓ Superset</span><span class="superset-ex-names">${esc(names)}</span><div style="display:flex;gap:6px;align-items:center"><button class="ss-note-btn" title="Note for this superset">📝</button><button class="superset-unlink" title="Break this superset apart">unlink</button></div></div>
+    <div class="ss-note-row${noteVal ? '' : ' hidden'}"><textarea class="input ss-note-input" rows="2" placeholder="Note for this superset…">${esc(noteVal)}</textarea></div>
     <div class="superset-rounds"></div>
     <button class="btn btn-ghost btn-full superset-add-round" style="margin-top:6px">+ Add round</button>
   `;
+  block.querySelector('.ss-note-btn').addEventListener('click', () => block.querySelector('.ss-note-row').classList.toggle('hidden'));
+  block.querySelector('.ss-note-input').addEventListener('input', e => { firstEx.supersetNote = e.target.value; });
   const roundsEl = block.querySelector('.superset-rounds');
   const reRender = () => renderRounds(roundsEl, g, meta, el);
   reRender();
@@ -804,9 +854,34 @@ function renderRounds(roundsEl, g, meta, el) {
       const exWrap = document.createElement('div');
       exWrap.className = 'ss-ex';
       const uni = exDef.isUnilateral ? ' <span class="uni-tag">per side</span>' : '';
-      exWrap.innerHTML = `<div class="ss-ex-name"><span class="ss-ex-title">${esc((exDef.name || '').replace(/_/g, ' '))}${uni}</span></div><div class="ss-ex-sets"></div>`;
+      const sessEx = activeSession.exercises[exIdx];
+      const variants = meta[exIdx].variants;
+      // Show the variant chips + previous data once per exercise (round 1 only).
+      let head = '';
+      if (r === 0) {
+        if (variants && variants.length > 1) {
+          head += `<div class="ex-variants">${variants.map(v => `<button type="button" class="ex-variant-chip ss-variant-chip${v.id === sessEx.exerciseId ? ' on' : ''}" data-vid="${esc(v.id)}">${esc((v.name || '').replace(/_/g, ' '))}</button>`).join('')}</div>`;
+        }
+        const prevSets = prev ? prev.sets.filter(s => s.seconds != null || s.weight != null || s.reps != null) : [];
+        const prevText = prevSets.length ? prevSets.map(s => s.seconds != null ? `${s.seconds}s` : `${s.weight}×${s.reps}`).join(', ') : 'No previous data';
+        head += `<div class="ss-ex-prev">Previous: ${esc(prevText)}</div>`;
+      }
+      exWrap.innerHTML = `<div class="ss-ex-name"><span class="ss-ex-title">${esc((exDef.name || '').replace(/_/g, ' '))}${uni}</span></div>${head}<div class="ss-ex-sets"></div>`;
       const nameEl = exWrap.querySelector('.ss-ex-name');
       const setsHost = exWrap.querySelector('.ss-ex-sets');
+      // Variant switch inside a superset (either/or slots stay switchable when linked).
+      exWrap.querySelectorAll('.ss-variant-chip').forEach(chip => chip.addEventListener('click', async () => {
+        const vid = chip.dataset.vid;
+        if (!vid || vid === sessEx.exerciseId) return;
+        let newUni = false;
+        try { const nd = await getExercise(vid); newUni = !!(nd && nd.isUnilateral); } catch (e) {}
+        const base = exDef.isUnilateral ? Math.max(1, Math.round(sessEx.sets.length / 2)) : sessEx.sets.length;
+        const rows = Math.max(1, base) * (newUni ? 2 : 1);
+        sessEx.exerciseId = vid; sessEx.exerciseName = ''; sessEx._prefilled = false;
+        sessEx.sets = Array.from({ length: rows }, (_, i) => ({ setNumber: i + 1, weight: null, reps: sessEx.targetReps ?? null, seconds: null, side: null, isDropSet: false, parentSetIndex: null }));
+        haptic('tap');
+        renderActiveSession(el);
+      }));
 
       if (slot && slot.workIdx != null) {
         // "+ drop" rides on the exercise header line (right of the name, directly
@@ -894,7 +969,23 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
 
   const sideSelect = `<select class="set-side"><option value="L"${side === 'L' ? ' selected' : ''}>L</option><option value="R"${side === 'R' ? ' selected' : ''}>R</option></select>`;
 
-  if (exDef.isTimed && exDef.isUnilateral) {
+  const isAltDrop = isDropSet && !!currentSet.altExerciseId;
+  const openDropPicker = () => showDropExercisePicker(exIdx, sIdx, exDef, () => (opts.reRender ? opts.reRender() : refreshSets(setsEl, exIdx, exDef, prev)));
+
+  if (isAltDrop) {
+    // Cross-exercise drop: this drop row is a DIFFERENT movement (e.g. pushdowns as
+    // the drop for overhead extension). Renders weight+reps (or reps only if the
+    // alt is bodyweight); values live on this set with altExerciseId set.
+    const altDef = _exDefById[currentSet.altExerciseId] || {};
+    const altName = (currentSet.altName || altDef.name || 'exercise').replace(/_/g, ' ');
+    const altBw = !!altDef.isBodyweight;
+    const aw = currentSet.weight ?? '';
+    const ar = currentSet.reps ?? '';
+    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="drop-ex-btn" title="Change the drop exercise">${esc(altName)} ⇄</button>${altBw ? '' : `<input type="number" class="set-input w-input" value="${aw}" inputmode="decimal"><span class="set-unit">${esc(altDef.unit || 'lbs')}</span>`}<input type="number" class="set-input r-input" value="${ar}" inputmode="numeric"><span class="set-unit">reps</span><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    if (!altBw) row.querySelector('.w-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].weight = Number(e.target.value) || null; });
+    row.querySelector('.r-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
+    row.querySelector('.drop-ex-btn').addEventListener('click', openDropPicker);
+  } else if (exDef.isTimed && exDef.isUnilateral) {
     // Timed + unilateral (Side Plank, Side Star Plank, Kneeling Hip Flexor Stretch, Modified Pigeon)
     const seconds = currentSet.seconds ?? prevSet?.seconds ?? '';
     row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input r-input" value="${seconds}" inputmode="numeric" data-field="seconds"><span class="set-unit">sec</span>${sideSelect}<button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
@@ -938,21 +1029,36 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
     row.querySelector('.step-up').addEventListener('click', () => { const v = (Number(rInp.value) || 0) + 1; rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
   }
 
+  // Any normal (same-exercise) drop can be converted into a cross-exercise drop.
+  if (isDropSet && !isAltDrop) {
+    const chk = row.querySelector('.set-check');
+    if (chk) {
+      const swap = document.createElement('button');
+      swap.className = 'drop-ex-btn';
+      swap.textContent = '⇄';
+      swap.title = 'Make this drop a different exercise';
+      swap.addEventListener('click', openDropPicker);
+      chk.parentNode.insertBefore(swap, chk);
+    }
+  }
+
   row.querySelector('.set-check').addEventListener('click', function () {
     const nowDone = !this.classList.contains('done');
     this.classList.toggle('done');
     row.classList.toggle('set-done');
     activeSession.exercises[exIdx].sets[sIdx].done = nowDone; // model-backed: survives re-render
-    if (nowDone) { haptic('tap'); pulseRow(row); maybeCelebratePR(exDef, exIdx, sIdx, row); if (opts.onCheck) opts.onCheck(); else startRest(exDef.id); }
+    // Cross-exercise drops celebrate/rest against nothing here — they're a different
+    // movement and are excluded from this exercise's PR math (see getBestE1RM).
+    if (nowDone) { haptic('tap'); pulseRow(row); if (!isAltDrop) maybeCelebratePR(exDef, exIdx, sIdx, row); if (opts.onCheck) opts.onCheck(); else startRest(exDef.id); }
   });
   row.querySelector('.set-remove-btn').addEventListener('click', () => {
     const setsArr = activeSession.exercises[exIdx].sets;
-    if (exDef.isUnilateral) {
+    if (exDef.isUnilateral && !isDropSet) {
       if (setsArr.length <= 2) return;      // keep at least one L/R pair
       const partner = sIdx ^ 1;             // remove the tapped row and its pair partner
       [sIdx, partner].sort((a, b) => b - a).forEach(idx => { if (idx >= 0 && idx < setsArr.length) setsArr.splice(idx, 1); });
     } else {
-      if (setsArr.length <= 1) return;
+      if (setsArr.length <= 1) return;      // drops (incl. cross-exercise) remove as a single row
       setsArr.splice(sIdx, 1);
     }
     setsArr.forEach((s, i) => { s.setNumber = i + 1; });

@@ -1,5 +1,16 @@
 import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries } from '../metrics.js';
 
+// ── getBestE1RM alt-drop exclusion ────────────────────────────────────────────────
+test('getBestE1RM: ignores cross-exercise drop sets (altExerciseId)', () => {
+  // A heavy pushdown drop must not become the overhead-extension best-e1RM.
+  const sets = [
+    { weight: 40, reps: 10 },                              // e1RM ≈ 53
+    { weight: 120, reps: 12, isDropSet: true, altExerciseId: 'ex-pushdowns' }, // must be ignored
+  ];
+  expect(getBestE1RM(sets)).toBe(calcE1RM(40, 10));
+  expect(getBestE1RM([{ weight: 100, reps: 5, altExerciseId: 'x' }])).toBeNull(); // only an alt drop → null
+});
+
 // ── weeklyCardioSeries ───────────────────────────────────────────────────────────
 test('weeklyCardioSeries: one entry per week oldest→newest, grouping sessions + totals', () => {
   const today = new Date('2026-07-22T12:00:00'); // Wed; this week Mon 2026-07-20
