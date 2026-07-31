@@ -1,10 +1,18 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.1';
+export const APP_VERSION = '1.7.2';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.2',
+    date: '2026-07-30',
+    items: [
+      'Legs A: last slot is now a Nordic Hamstring Curl / Single-Leg Hamstring Curl choice (3×12) — tap the chip to switch to single-leg when there\'s no anchor.',
+      'Legs B: added Leg Press (3×10–12) right after Hip Thrusts; everything else stays the same.',
+    ],
+  },
   {
     v: '1.7.1',
     date: '2026-07-30',

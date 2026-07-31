@@ -33,6 +33,9 @@ const ALL_EXERCISES = [
   // RDL now done on the Smith Machine (fixed bar path while relearning the hinge).
   { id: 'ex-rdl', name: 'Romanian Deadlift (Smith Machine)', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Smith Machine for now — transition to free weight once the hinge is automatic and pain-free' },
   { id: 'ex-hamstring-curls', name: 'Hamstring Curls', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
+  // Legs A finisher — Nordic (primary) with a single-leg-curl fallback for no-anchor days (choice slot).
+  { id: 'ex-nordic-hamstring-curl', name: 'Nordic Hamstring Curl', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: 'Needs an anchor for the ankles — lower under control, push back up. If no anchor is available, swap to the Single-Leg Hamstring Curl.' },
+  { id: 'ex-single-leg-hamstring-curl', name: 'Single-Leg Hamstring Curl', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'One leg at a time on the curl machine. Fallback when the Nordic anchor is not available.' },
   { id: 'ex-leg-extensions', name: 'Leg Extensions', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-bulgarian-split-squat', name: 'Bulgarian Split Squat', bodyPartGroup: 'legs', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: '' },
   { id: 'ex-leg-press', name: 'Leg Press', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
@@ -149,7 +152,8 @@ const ALL_TEMPLATES = [
       { exerciseId: 'ex-bulgarian-split-squat', defaultSets: 3, targetReps: 10, defaultWeight: 25, order: 2 }, // 3 per leg
       { exerciseId: 'ex-calf-raises', defaultSets: 3, targetReps: 15, defaultWeight: 50, order: 3 },
       { exerciseId: 'ex-leg-extensions', defaultSets: 3, targetReps: 12, defaultWeight: 70, order: 4 },
-      { exerciseId: 'ex-sumo-goblet-squat', defaultSets: 3, targetReps: 12, defaultWeight: 25, order: 5 }, // replaced leg press (too much quad volume)
+      // Choice slot: Nordic Hamstring Curl (primary) ⇄ Single-Leg Hamstring Curl for no-anchor days.
+      { exerciseId: 'ex-nordic-hamstring-curl', variantIds: ['ex-nordic-hamstring-curl', 'ex-single-leg-hamstring-curl'], variantMode: 'choice', defaultSets: 3, targetReps: 12, defaultWeight: 30, order: 5 },
     ]
   },
 
@@ -163,11 +167,12 @@ const ALL_TEMPLATES = [
       { exerciseId: 'ex-butterfly-bridge', defaultSets: 3, targetReps: 8, order: 0 },
       { exerciseId: 'ex-rdl', defaultSets: 3, targetReps: 8, defaultWeight: 95, order: 1 }, // Smith Machine — hardest lift, done fresh
       { exerciseId: 'ex-hip-thrusts', defaultSets: 3, targetReps: 10, defaultWeight: 135, order: 2 },
-      { exerciseId: 'ex-side-lying-hip-abduction', defaultSets: 3, targetReps: 15, order: 3 }, // 3 per side, 3 lb ankle weight
-      { exerciseId: 'ex-hamstring-curls', defaultSets: 3, targetReps: 12, defaultWeight: 60, order: 4 },
-      { exerciseId: 'ex-straight-leg-raise-vmo', defaultSets: 3, targetReps: 10, order: 5 }, // PT version: 3 per side, 3s hold
-      { exerciseId: 'ex-pallof-press', defaultSets: 2, targetReps: 10, defaultWeight: 15, order: 6 }, // 2 per side
-      { exerciseId: 'ex-back-extensions', defaultSets: 2, targetReps: 12, order: 7 }, // ALWAYS last — non-negotiable
+      { exerciseId: 'ex-leg-press', defaultSets: 3, targetReps: 12, defaultWeight: 180, order: 3 }, // inserted after hip thrusts (3×10–12); prefills from prior leg-press history
+      { exerciseId: 'ex-side-lying-hip-abduction', defaultSets: 3, targetReps: 15, order: 4 }, // 3 per side, 3 lb ankle weight
+      { exerciseId: 'ex-hamstring-curls', defaultSets: 3, targetReps: 12, defaultWeight: 60, order: 5 },
+      { exerciseId: 'ex-straight-leg-raise-vmo', defaultSets: 3, targetReps: 10, order: 6 }, // PT version: 3 per side, 3s hold
+      { exerciseId: 'ex-pallof-press', defaultSets: 2, targetReps: 10, defaultWeight: 15, order: 7 }, // 2 per side
+      { exerciseId: 'ex-back-extensions', defaultSets: 2, targetReps: 12, order: 8 }, // ALWAYS last — non-negotiable
     ]
   },
 
@@ -253,6 +258,8 @@ export async function migrateNewTemplates() {
   await ensureRowRotation();
   await ensureTricepChoice();
   await ensureLegsAGoblet();
+  await ensureLegsANordicCurl();
+  await ensureLegsBLegPress();
 }
 
 // One-time, targeted, non-destructive patch: turn Arm A's single machine-neutral
@@ -327,4 +334,47 @@ async function ensureLegsAGoblet() {
     }
   }
   await setSetting(LEGSA_GOBLET_KEY, true);
+}
+
+// One-time targeted patch: turn Legs A's final slot (Sumo Goblet Squat — or Leg
+// Press on any device that never received the goblet swap) into a CHOICE slot:
+// Nordic Hamstring Curl (primary) ⇄ Single-Leg Hamstring Curl for no-anchor days.
+// Both 3×12. Keeps the slot's position; other slots untouched.
+const LEGSA_NORDIC_KEY = 'tplSync_legsANordic_2026_07';
+async function ensureLegsANordicCurl() {
+  if (await getSetting(LEGSA_NORDIC_KEY)) return;
+  const legsA = await getTemplate('tpl-legs-a');
+  if (legsA && Array.isArray(legsA.exercises)) {
+    const slot = legsA.exercises.find(e => e.exerciseId === 'ex-sumo-goblet-squat' || e.exerciseId === 'ex-leg-press');
+    if (slot) {
+      slot.exerciseId = 'ex-nordic-hamstring-curl';
+      slot.variantIds = ['ex-nordic-hamstring-curl', 'ex-single-leg-hamstring-curl'];
+      slot.variantMode = 'choice';
+      slot.defaultSets = 3;
+      slot.targetReps = 12;
+      slot.defaultWeight = 30;
+      await addTemplate(legsA);
+    }
+  }
+  await setSetting(LEGSA_NORDIC_KEY, true);
+}
+
+// One-time targeted patch: insert Leg Press (3×10–12) into Legs B, right after
+// Hip Thrusts. Every other slot keeps its exercise and just slides down one
+// position (orders reindexed to array order). Idempotent — skips if a leg-press
+// slot is already present.
+const LEGSB_LEGPRESS_KEY = 'tplSync_legsBLegPress_2026_07';
+async function ensureLegsBLegPress() {
+  if (await getSetting(LEGSB_LEGPRESS_KEY)) return;
+  const legsB = await getTemplate('tpl-legs-b');
+  if (legsB && Array.isArray(legsB.exercises)) {
+    const already = legsB.exercises.some(e => e.exerciseId === 'ex-leg-press');
+    const idx = legsB.exercises.findIndex(e => e.exerciseId === 'ex-hip-thrusts');
+    if (!already && idx !== -1) {
+      legsB.exercises.splice(idx + 1, 0, { exerciseId: 'ex-leg-press', defaultSets: 3, targetReps: 12, defaultWeight: 180 });
+      legsB.exercises.forEach((e, i) => { e.order = i; });
+      await addTemplate(legsB);
+    }
+  }
+  await setSetting(LEGSB_LEGPRESS_KEY, true);
 }

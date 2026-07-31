@@ -1,6 +1,12 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
-import { initDB, addTemplate, getTemplate, getSetting, _resetForTest } from '../db.js';
+import { initDB, addTemplate, getTemplate, getSetting, setSetting, _resetForTest } from '../db.js';
+
+// Marco's real device already ran the Jul-2026 legs rework (v3), so the one-time
+// force-sync of the canonical leg templates is skipped there — only the targeted
+// ensureX patches mutate his existing templates. Set this to reproduce that path;
+// without it, a fresh DB force-syncs the canonical templates over any seed.
+const REWORK_DONE = () => setSetting('tplSync_legsRework_2026_07_v3', true);
 import { migrateNewTemplates } from '../migrate-data.js';
 
 beforeEach(async () => {
@@ -34,16 +40,63 @@ test('row rotation: patches Arm A seated-row slot into a close → wide auto rot
   expect(await getSetting('tplSync_rowRotation_2026_07')).toBe(true);
 });
 
-test('legs A goblet: swaps the leg-press slot for sumo goblet squat, keeps position', async () => {
+test('legs A Nordic: patches Marco\'s goblet slot into the Nordic-curl choice slot, keeps position', async () => {
+  await REWORK_DONE();
   await addTemplate({ id: 'tpl-legs-a', name: 'Legs A', bodyPartGroup: 'legs', exercises: [
     { exerciseId: 'ex-bulgarian-split-squat', defaultSets: 3, targetReps: 10, order: 0 },
-    { exerciseId: 'ex-leg-press', defaultSets: 3, targetReps: 10, defaultWeight: 180, order: 5 },
+    { exerciseId: 'ex-sumo-goblet-squat', defaultSets: 3, targetReps: 12, defaultWeight: 25, order: 5 },
   ] });
   await migrateNewTemplates();
   const slot = (await getTemplate('tpl-legs-a')).exercises.find(e => e.order === 5);
-  expect(slot.exerciseId).toBe('ex-sumo-goblet-squat');
-  expect(slot).toMatchObject({ defaultSets: 3, targetReps: 12, defaultWeight: 25 });
-  expect(await getSetting('tplSync_legsAGoblet_2026_07')).toBe(true);
+  expect(slot.exerciseId).toBe('ex-nordic-hamstring-curl'); // primary
+  expect(slot.variantIds).toEqual(['ex-nordic-hamstring-curl', 'ex-single-leg-hamstring-curl']);
+  expect(slot.variantMode).toBe('choice');
+  expect(slot).toMatchObject({ defaultSets: 3, targetReps: 12, defaultWeight: 30 });
+  expect((await getTemplate('tpl-legs-a')).exercises.find(e => e.order === 0).exerciseId).toBe('ex-bulgarian-split-squat'); // preserved
+  expect(await getSetting('tplSync_legsANordic_2026_07')).toBe(true);
+});
+
+test('legs A Nordic: also patches a leg-press slot (device that never got the goblet swap)', async () => {
+  await REWORK_DONE();
+  await addTemplate({ id: 'tpl-legs-a', name: 'Legs A', bodyPartGroup: 'legs', exercises: [
+    { exerciseId: 'ex-leg-press', defaultSets: 3, targetReps: 12, defaultWeight: 180, order: 5 },
+  ] });
+  await migrateNewTemplates();
+  const slot = (await getTemplate('tpl-legs-a')).exercises.find(e => e.order === 5);
+  expect(slot.exerciseId).toBe('ex-nordic-hamstring-curl');
+  expect(slot.variantMode).toBe('choice');
+});
+
+test('legs B: inserts Leg Press right after Hip Thrusts, everything else slides down', async () => {
+  await REWORK_DONE();
+  await addTemplate({ id: 'tpl-legs-b', name: 'Legs B', bodyPartGroup: 'legs', exercises: [
+    { exerciseId: 'ex-butterfly-bridge', defaultSets: 3, targetReps: 8, order: 0 },
+    { exerciseId: 'ex-rdl', defaultSets: 3, targetReps: 8, order: 1 },
+    { exerciseId: 'ex-hip-thrusts', defaultSets: 3, targetReps: 10, order: 2 },
+    { exerciseId: 'ex-side-lying-hip-abduction', defaultSets: 3, targetReps: 15, order: 3 },
+    { exerciseId: 'ex-back-extensions', defaultSets: 2, targetReps: 12, order: 4 },
+  ] });
+  await migrateNewTemplates();
+  const ids = (await getTemplate('tpl-legs-b')).exercises
+    .slice().sort((a, b) => a.order - b.order).map(e => e.exerciseId);
+  expect(ids).toEqual([
+    'ex-butterfly-bridge', 'ex-rdl', 'ex-hip-thrusts', 'ex-leg-press',
+    'ex-side-lying-hip-abduction', 'ex-back-extensions',
+  ]);
+  const lp = (await getTemplate('tpl-legs-b')).exercises.find(e => e.exerciseId === 'ex-leg-press');
+  expect(lp).toMatchObject({ defaultSets: 3, targetReps: 12, defaultWeight: 180, order: 3 });
+  expect(await getSetting('tplSync_legsBLegPress_2026_07')).toBe(true);
+});
+
+test('legs B leg-press: idempotent — does not double-insert if leg press already present', async () => {
+  await REWORK_DONE();
+  await addTemplate({ id: 'tpl-legs-b', name: 'Legs B', bodyPartGroup: 'legs', exercises: [
+    { exerciseId: 'ex-hip-thrusts', defaultSets: 3, targetReps: 10, order: 0 },
+    { exerciseId: 'ex-leg-press', defaultSets: 3, targetReps: 12, order: 1 },
+  ] });
+  await migrateNewTemplates();
+  const count = (await getTemplate('tpl-legs-b')).exercises.filter(e => e.exerciseId === 'ex-leg-press').length;
+  expect(count).toBe(1);
 });
 
 test('tricep choice: turns Arm B pushdown slot into a choice slot defaulting to overhead', async () => {
