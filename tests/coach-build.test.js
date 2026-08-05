@@ -1,9 +1,51 @@
 import { describe, test, expect } from 'vitest';
-import { parsePrescribedWorkout, buildTemplateFromPrescription } from '../claude-api.js';
+import { parsePrescribedWorkout, buildTemplateFromPrescription, buildPrescribedWorkoutPrompt, formatSavedWorkouts } from '../claude-api.js';
 
 const DEFS = [
   { id: 'ex-bench', name: 'Dumbbell Bench', bodyPartGroup: 'arms', isTimed: false, isUnilateral: false, isBodyweight: false },
 ];
+
+describe('formatSavedWorkouts / builder sees templates', () => {
+  const DEFS2 = [
+    { id: 'ex-adduction', name: 'Hip Adduction', bodyPartGroup: 'legs', isUnilateral: false },
+    { id: 'ex-bulg', name: 'Bulgarian Split Squat', bodyPartGroup: 'legs', isUnilateral: true },
+    { id: 'ex-plank', name: 'Plank', bodyPartGroup: 'core', isTimed: true },
+  ];
+  const TEMPLATES = [
+    { name: 'Legs A', bodyPartGroup: 'legs', exercises: [
+      { exerciseId: 'ex-adduction', defaultSets: 2, targetReps: 15, order: 0 },
+      { exerciseId: 'ex-bulg', defaultSets: 3, targetReps: 10, order: 1, supersetId: 'ss1' },
+      { exerciseId: 'ex-plank', defaultSets: 3, defaultSeconds: 40, order: 2, supersetId: 'ss1' },
+    ] },
+  ];
+
+  test('renders each template with names, per-side, timed, and superset markers', () => {
+    const out = formatSavedWorkouts(TEMPLATES, DEFS2);
+    expect(out).toContain('Legs A (legs):');
+    expect(out).toContain('Hip Adduction 2×15');
+    expect(out).toContain('Bulgarian Split Squat 3×10/side'); // unilateral → /side
+    expect(out).toContain('Plank 3×40s');                     // timed → seconds
+    expect(out).toContain('+');                                // supersetted move marked
+  });
+
+  test('empty templates → empty string (no SAVED WORKOUTS block)', () => {
+    expect(formatSavedWorkouts([], DEFS2)).toBe('');
+    expect(formatSavedWorkouts(undefined, DEFS2)).toBe('');
+  });
+
+  test('buildPrescribedWorkoutPrompt embeds the saved workouts in the user message', () => {
+    const { userMessage } = buildPrescribedWorkoutPrompt('combine Legs A and Legs B', DEFS2, '', '', TEMPLATES);
+    expect(userMessage).toContain('SAVED WORKOUTS');
+    expect(userMessage).toContain('Legs A (legs):');
+    expect(userMessage).toContain('combine Legs A and Legs B');
+  });
+
+  test('no templates → prompt has no SAVED WORKOUTS section but still has the request', () => {
+    const { userMessage } = buildPrescribedWorkoutPrompt('arm day', DEFS2, '', '', []);
+    expect(userMessage).not.toContain('SAVED WORKOUTS');
+    expect(userMessage).toContain('arm day');
+  });
+});
 // Deterministic id generator for assertions.
 const counter = () => { let n = 0; return () => `id${++n}`; };
 

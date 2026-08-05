@@ -2,6 +2,7 @@
 import { showHelpCenter, openFeedback } from './ui-help.js';
 import { showPasteTemplateModal } from './template-import.js';
 import { buildVariationExercises, deriveVariationGroup, VARIATION_PRESETS } from './variations.js';
+import { toGroups, fromGroups, moveGroup, unlinkGroup } from './template-reorder.js';
 import { toast, showToast, confirmSheet } from './ui-feedback.js';
 import { APP_VERSION, CHANGELOG } from './version.js';
 
@@ -610,8 +611,9 @@ export async function showTemplateEditor(el, existing, onSave) {
       <select class="input" id="tpl-part">
         ${['arms', 'legs', 'core'].map(p => `<option value="${p}" ${existing?.bodyPartGroup === p ? 'selected' : ''}>${p[0].toUpperCase() + p.slice(1)}</option>`).join('')}
       </select>
-      <label class="form-label" style="margin-top:12px">Exercises <span class="form-hint">— reorder, set sets × reps, and ⛓ to superset with the one above</span></label>
+      <label class="form-label" style="margin-top:12px">Exercises <span class="form-hint">— set sets × reps, ⛓ to superset with the one above, or Reorder to drag</span></label>
       <div id="tpl-ex-list" style="max-height:300px;overflow-y:auto;margin-bottom:8px"></div>
+      <button type="button" class="btn btn-ghost btn-full" id="tpl-reorder-btn" style="margin-bottom:8px">⇅ Reorder exercises</button>
       <select class="input" id="tpl-add-ex"><option value="">+ Add exercise…</option>${exercises.map(ex => `<option value="${esc(ex.id)}">${esc(ex.name)}</option>`).join('')}</select>
       <button class="btn btn-primary btn-full" id="save-tpl-btn" style="margin-top:12px">Save Template</button>
       ${existing ? `<button class="btn btn-ghost btn-full" id="del-tpl-btn" style="margin-top:8px;color:var(--danger)">🗑 Delete Template</button>` : ''}
@@ -669,6 +671,11 @@ export async function showTemplateEditor(el, existing, onSave) {
     chosen.push({ exerciseId: id, defaultSets: 3, targetReps: d?.isTimed ? null : 12, defaultSeconds: d?.isTimed ? 30 : null, linkedAbove: false });
     e.target.value = '';
     renderList();
+  });
+
+  overlay.querySelector('#tpl-reorder-btn').addEventListener('click', () => {
+    if (chosen.length < 2) { toast('Add at least two exercises to reorder.', { type: 'error' }); return; }
+    showReorderEditor(chosen, exById, renderList);
   });
 
   overlay.querySelector('#tpl-dismiss-btn').addEventListener('click', dismiss);
@@ -780,6 +787,87 @@ function showRotationEditor(row, exercises, exById, onDone) {
       onDone();
     });
   }
+  render();
+}
+
+// Reorder mode: a simplified drag view of the template's exercises as name chips.
+// Supersets render as one locked block that moves together (with an Unlink control);
+// dragging the handle reorders. Mutates `chosen` in place on Done, then calls onDone()
+// to re-render the detailed editor. Uses Pointer Events so it works on touch.
+function showReorderEditor(chosen, exById, onDone) {
+  let groups = toGroups(chosen);
+  const host = document.createElement('div');
+  host.className = 'modal-overlay';
+  host.style.zIndex = '60';
+  document.body.appendChild(host);
+  const close = () => host.remove();
+
+  const nameOf = row => {
+    const rotating = Array.isArray(row.variantIds) && row.variantIds.length > 1;
+    const id = rotating ? row.variantIds[0] : row.exerciseId;
+    const base = (exById[id]?.name || id || '').replace(/_/g, ' ');
+    return rotating ? `${base} +${row.variantIds.length - 1}` : base;
+  };
+
+  function render() {
+    const blocks = groups.map((g, gi) => {
+      const linked = g.length > 1;
+      const names = g.map(r => `<span class="reorder-name">${esc(nameOf(r))}</span>`).join('');
+      const unlink = linked ? `<button type="button" class="reorder-unlink" data-gi="${gi}">unlink</button>` : '';
+      const tag = linked ? `<span class="reorder-super">superset · moves together</span>` : '';
+      return `<div class="reorder-group${linked ? ' linked' : ''}" data-gi="${gi}">
+        <button type="button" class="reorder-handle" data-gi="${gi}" aria-label="Drag to reorder">⣿</button>
+        <div class="reorder-body">${tag}${names}</div>
+        ${unlink}
+      </div>`;
+    }).join('');
+    host.innerHTML = `
+      <div class="modal-sheet">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <h2 class="modal-title" style="margin-bottom:0">Reorder</h2>
+          <button class="modal-dismiss-btn" id="reorder-dismiss">&times;</button>
+        </div>
+        <p class="settings-hint" style="margin-bottom:12px">Drag the handle to move an exercise. Supersets move as one block — tap "unlink" to split one.</p>
+        <div class="reorder-list">${blocks}</div>
+        <button class="btn btn-primary btn-full" id="reorder-done" style="margin-top:14px">Done</button>
+      </div>`;
+    host.querySelector('#reorder-dismiss').addEventListener('click', close);
+    host.querySelector('#reorder-done').addEventListener('click', () => {
+      chosen.splice(0, chosen.length, ...fromGroups(groups));
+      close();
+      onDone();
+    });
+    host.querySelectorAll('.reorder-unlink').forEach(b => b.addEventListener('click', () => {
+      groups = unlinkGroup(groups, +b.dataset.gi);
+      render();
+    }));
+    host.querySelectorAll('.reorder-handle').forEach(h => h.addEventListener('pointerdown', e => startDrag(e, +h.dataset.gi)));
+  }
+
+  function startDrag(e, gi) {
+    e.preventDefault();
+    let from = gi;
+    const mark = () => host.querySelectorAll('.reorder-group').forEach(el => el.classList.toggle('dragging', +el.dataset.gi === from));
+    mark();
+    const move = ev => {
+      const y = ev.clientY;
+      const els = [...host.querySelectorAll('.reorder-group')];
+      let target = els.length - 1;
+      for (let k = 0; k < els.length; k++) {
+        const r = els[k].getBoundingClientRect();
+        if (y < r.top + r.height / 2) { target = k; break; }
+      }
+      if (target !== from) { groups = moveGroup(groups, from, target); from = target; render(); mark(); }
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      host.querySelectorAll('.reorder-group').forEach(el => el.classList.remove('dragging'));
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
   render();
 }
 

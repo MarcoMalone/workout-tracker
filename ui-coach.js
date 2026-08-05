@@ -1,4 +1,4 @@
-import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, saveGoals, getGoalLog, getPainLog, setPain, getExercises, addExercise, addTemplate } from './db.js';
+import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, saveGoals, getGoalLog, getPainLog, setPain, getExercises, addExercise, addTemplate, getTemplates } from './db.js';
 import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary, buildSessionSummary, buildGoalSuggestions, buildPrescribedWorkout, buildTemplateFromPrescription } from './claude-api.js';
 import { readinessScore, computeACWR, painSummary } from './metrics.js';
 import { toast, confirmSheet } from './ui-feedback.js';
@@ -67,8 +67,8 @@ export async function renderCoachTab(el) {
       </div>
       <div class="coach-section card" id="build-section">
         <h2 class="coach-section-title">Build Me a Workout</h2>
-        <p class="coach-hint">Describe what you want — the coach designs it from your exercises (adding new ones if needed) and starts it for you.</p>
-        <textarea class="input coach-input" id="build-input" rows="2" placeholder="e.g. 40-min arm day, easy on the right shoulder — superset dumbbell bench with push-ups" ${!apiKey ? 'disabled' : ''}></textarea>
+        <p class="coach-hint">Describe what you want — the coach designs it from your exercises (adding new ones if needed) and starts it for you. It can see your saved workouts, so you can say "combine Legs A and Legs B" or "like Arm A but 30 min."</p>
+        <textarea class="input coach-input" id="build-input" rows="2" placeholder="e.g. combine Legs A and Legs B into one day, drop the duplicate hip work" ${!apiKey ? 'disabled' : ''}></textarea>
         <button class="btn btn-primary btn-full" id="build-btn" ${!apiKey ? 'disabled' : ''}>Build workout</button>
         <div class="coach-response hidden" id="build-preview"></div>
       </div>
@@ -141,8 +141,8 @@ export async function renderCoachTab(el) {
     preview.classList.add('hidden');
     preview.innerHTML = '';
     try {
-      const [exercises, health, painLog] = await Promise.all([getExercises(), getSetting('healthContext'), getPainLog()]);
-      const pres = await buildPrescribedWorkout(request, exercises, health, painSummary(painLog), apiKey);
+      const [exercises, health, painLog, templates] = await Promise.all([getExercises(), getSetting('healthContext'), getPainLog(), getTemplates()]);
+      const pres = await buildPrescribedWorkout(request, exercises, health, painSummary(painLog), apiKey, templates);
       if (!pres) {
         // Reply came back but couldn't be read as a workout — usually a very large
         // request (truncated JSON). Point at the real fix, not a generic retry.

@@ -411,6 +411,17 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .rot-move, .rot-del { width: 30px; height: 30px; display: grid; place-items: center; background: none; border: none; color: var(--text-2); font-size: 15px; cursor: pointer; border-radius: var(--r-sm); }
 .rot-move:disabled { opacity: 0.35; }
 .rot-del { color: var(--danger); }
+/* Reorder mode — draggable exercise chips */
+.reorder-list { display: flex; flex-direction: column; gap: 8px; }
+.reorder-group { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-md); }
+.reorder-group.linked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface-hi)); flex-wrap: wrap; }
+.reorder-group.dragging { opacity: 0.85; border-color: var(--accent); box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
+.reorder-handle { flex: none; width: 34px; height: 34px; display: grid; place-items: center; background: none; border: none; color: var(--text-3); font-size: 18px; cursor: grab; border-radius: var(--r-sm); touch-action: none; }
+.reorder-handle:active { cursor: grabbing; }
+.reorder-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.reorder-name { font-size: 15px; text-transform: capitalize; }
+.reorder-super { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+.reorder-unlink { flex: none; background: none; border: 1px solid var(--border); color: var(--text-2); font-size: 12px; padding: 4px 10px; border-radius: 100px; cursor: pointer; }
 .tpl-ex-row.tpl-linked { margin-left: 22px; padding-left: 10px; border-left: 2px solid var(--accent); border-bottom-color: var(--border); }
 .tpl-linked-tag { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 2px; }
 .uni-tag { display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; vertical-align: middle; }

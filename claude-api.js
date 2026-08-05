@@ -117,20 +117,45 @@ export async function buildGoalSuggestions(healthContext, recentSummaries, painN
 // the athlete's exercise library (and proposing new exercises when needed), and it
 // becomes a real, startable template.
 
-export function buildPrescribedWorkoutPrompt(request, exerciseDefs, healthContext, painNote) {
+// Render the athlete's saved templates so the coach can reference them by name
+// (e.g. "combine Legs A and Legs B"). Compact on purpose — names + sets×reps only
+// (the coach estimates weight itself) — to keep the request within the token cap.
+export function formatSavedWorkouts(templates, exerciseDefs) {
+  if (!templates || !templates.length) return '';
+  const defById = new Map((exerciseDefs || []).map(e => [e.id, e]));
+  const lines = templates.map(t => {
+    const exes = (t.exercises || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(x => {
+      const d = defById.get(x.exerciseId);
+      const nm = (d?.name || x.exerciseId || '').replace(/_/g, ' ');
+      const side = d?.isUnilateral ? '/side' : '';
+      const scheme = d?.isTimed
+        ? `${x.defaultSets}×${x.defaultSeconds ?? '?'}s${side}`
+        : `${x.defaultSets}×${x.targetReps ?? '?'}${side}`;
+      const link = x.supersetId ? '+' : ''; // marks a supersetted move so the coach can preserve pairings
+      return `${link}${nm} ${scheme}`;
+    });
+    return `- ${t.name} (${t.bodyPartGroup}): ${exes.join(', ')}`;
+  });
+  return `SAVED WORKOUTS (the athlete's existing templates — reference these by name if asked to combine, modify, or base the new workout on them; "+" marks a supersetted move):\n${lines.join('\n')}`;
+}
+
+export function buildPrescribedWorkoutPrompt(request, exerciseDefs, healthContext, painNote, templates) {
   const lib = (exerciseDefs || []).map(e => {
     const tags = [e.isTimed && 'timed', e.isUnilateral && 'unilateral', e.isBodyweight && 'bodyweight'].filter(Boolean).join(',');
     return `- ${e.id} — ${e.name} (${e.bodyPartGroup}${tags ? '; ' + tags : ''})`;
   }).join('\n');
+  const saved = formatSavedWorkouts(templates, exerciseDefs);
   const system = `You are a fitness coach building ONE workout for an athlete. Return ONLY valid JSON — no prose, no markdown.
 
 STRONGLY prefer exercises from the athlete's LIBRARY, using the exact id — reuse an existing exercise rather than duplicating it. Only add a NEW exercise when nothing in the library fits: set "exerciseId" to null and provide "name" plus the flags isTimed/isUnilateral/isBodyweight.
+
+The athlete may ask you to combine, modify, or base the workout on their SAVED WORKOUTS (listed in the request). When they do, use those templates as the basis: keep the movements they contain unless asked to change them, drop exact duplicates when merging two days, and still return the JSON shape below using LIBRARY ids for every movement you reuse.
 
 Return exactly this shape:
 {"name": string, "bodyPartGroup": "arms"|"legs"|"core", "exercises": [{"exerciseId": string|null, "name": string, "isTimed": boolean, "isUnilateral": boolean, "isBodyweight": boolean, "sets": number, "reps": number|null, "seconds": number|null, "weight": number|null, "supersetGroup": number|null}]}
 
 Rules: use reps for normal moves and seconds (with reps null) for timed holds. Always give "weight" in lbs — your best starting estimate for THIS athlete based on their logged history — for any loaded (non-bodyweight, non-timed) exercise; use null only for bodyweight or timed moves. For a UNILATERAL exercise, "sets" means sets PER SIDE (e.g. 3 = 3 per arm). To superset two exercises, give them the SAME supersetGroup number AND place them adjacent in the list. You may include lighter warm-up / ramp-up sets by giving an exercise extra sets at a lower weight. If the athlete gives a time limit, keep the total number of exercises and sets realistic for that limit. Keep the workout scoped to the request; prioritize injury prevention above all. Output ONLY the JSON object — no explanation before or after.${healthContext ? '\n\n' + healthContext : ''}`;
-  const userMessage = `LIBRARY:\n${lib || '(empty — you will need to add new exercises)'}\n\n${painNote || 'No active pain flagged.'}\n\n---\nBuild me this workout: ${request}`;
+  const userMessage = `LIBRARY:\n${lib || '(empty — you will need to add new exercises)'}\n\n${saved ? saved + '\n\n' : ''}${painNote || 'No active pain flagged.'}\n\n---\nBuild me this workout: ${request}`;
   return { system, userMessage };
 }
 
@@ -208,8 +233,8 @@ export function buildTemplateFromPrescription(pres, existingDefs, newId = () => 
   return { template, newExercises };
 }
 
-export async function buildPrescribedWorkout(request, exerciseDefs, healthContext, painNote, apiKey) {
-  const { system, userMessage } = buildPrescribedWorkoutPrompt(request, exerciseDefs, healthContext, painNote);
+export async function buildPrescribedWorkout(request, exerciseDefs, healthContext, painNote, apiKey, templates) {
+  const { system, userMessage } = buildPrescribedWorkoutPrompt(request, exerciseDefs, healthContext, painNote, templates);
   // 2500 tokens: a full multi-exercise workout with warm-ups can exceed the old
   // 1200-token cap, which truncated the JSON mid-object and looked like a failure.
   const response = await callClaude(system, userMessage, apiKey, 2500);
