@@ -29,6 +29,32 @@ export function parseDuration(str) {
   return Number.isNaN(min) ? null : min;
 }
 
+// Run pace (min/mile) = duration ÷ distance, rounded to 2 dp. Null if either is
+// missing/zero. Shared by the Log run form and the History run-stats editor.
+export function computeRunPace(distanceMiles, durationMinutes) {
+  if (!distanceMiles || !durationMinutes) return null;
+  return parseFloat((durationMinutes / distanceMiles).toFixed(2));
+}
+
+// Walk distance: an explicit override (treadmill readout) wins; otherwise compute
+// from duration × speed. Blank/whitespace override → auto-calc. Shared by the Log
+// walk form and the History walk-stats editor.
+export function computeWalkDistance(durationMinutes, speedMph, overrideStr) {
+  if (overrideStr != null && String(overrideStr).trim() !== '') {
+    const v = parseFloat(overrideStr);
+    return Number.isFinite(v) ? v : null;
+  }
+  if (!durationMinutes || !speedMph) return null;
+  return parseFloat((durationMinutes / 60 * speedMph).toFixed(2));
+}
+
+// Decimal minutes → "m:ss" (used to prefill/display a run's duration). Rounds to
+// whole seconds and carries 60s over into the minute so we never print ":60".
+export function formatMinSec(durationMinutes) {
+  const totalSec = Math.round((durationMinutes || 0) * 60);
+  return `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, '0')}`;
+}
+
 // Build the Log-home "This Week" bars + activity streak from logged data.
 // Strength days scale by volume; cardio-only days show a short bar. Streak
 // counts consecutive days of any activity ending today (or yesterday if today
@@ -1648,10 +1674,7 @@ function showWalkForm(el) {
     const dur = parseDuration(el.querySelector('#walk-dur').value);
     const speed = parseFloat(el.querySelector('#walk-speed').value);
     if (!dur || dur <= 0 || !speed) { toast('Enter duration and speed.', { type: 'error' }); return; }
-    const overrideVal = el.querySelector('#walk-dist-override').value;
-    const distanceMiles = overrideVal
-      ? parseFloat(overrideVal)
-      : parseFloat((dur / 60 * speed).toFixed(2));
+    const distanceMiles = computeWalkDistance(dur, speed, el.querySelector('#walk-dist-override').value);
     const calsVal = el.querySelector('#walk-cals').value;
     await addWalkLog({
       id: crypto.randomUUID(),
@@ -1705,7 +1728,7 @@ function showRunForm(el) {
       date: el.querySelector('#run-date').value,
       distanceMiles: dist,
       durationMinutes,
-      paceMinPerMile: parseFloat((durationMinutes / dist).toFixed(2)),
+      paceMinPerMile: computeRunPace(dist, durationMinutes),
       perceivedEffort: Number(el.querySelector('#run-effort').value),
       workoutContext: el.querySelector('#run-context').value.trim() || null,
       notes: el.querySelector('#run-notes').value,

@@ -1,6 +1,7 @@
 import { getAllSessions, getRunLogs, getWalkLogs, deleteSession, saveSession, addRunLog, addWalkLog, deleteRunLog, deleteWalkLog } from './db.js';
 import { toast, undoToast } from './ui-feedback.js';
 import { groupExercises, roundSlots } from './supersets.js';
+import { parseDuration, computeRunPace, computeWalkDistance, formatMinSec } from './ui-log.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -253,21 +254,38 @@ function showCardioDetail(el, item, type) {
   const save = isRun ? addRunLog : addWalkLog;
   const del = isRun ? deleteRunLog : deleteWalkLog;
 
-  let statsRows;
+  let statsRows, statsEditForm;
   if (isRun) {
-    const min = Math.floor(item.durationMinutes);
-    const sec = String(Math.round((item.durationMinutes % 1) * 60)).padStart(2, '0');
     statsRows = `
       <div class="detail-set-row"><span>Distance</span><span>${esc(item.distanceMiles)} mi</span></div>
-      <div class="detail-set-row"><span>Duration</span><span>${min}:${sec}</span></div>
+      <div class="detail-set-row"><span>Duration</span><span>${formatMinSec(item.durationMinutes)}</span></div>
       <div class="detail-set-row"><span>Pace</span><span>${esc(item.paceMinPerMile)} min/mi</span></div>
       <div class="detail-set-row"><span>Effort</span><span>${esc(item.perceivedEffort)}/10</span></div>`;
+    statsEditForm = `
+      <label class="form-label">Distance (miles)</label>
+      <input type="number" class="input" id="edit-dist" step="0.01" inputmode="decimal" value="${esc(item.distanceMiles)}">
+      <label class="form-label">Duration (minutes or mm:ss)</label>
+      <input type="text" class="input" id="edit-dur" placeholder="16 or 28:30" pattern="[0-9]+(:[0-5][0-9])?" value="${formatMinSec(item.durationMinutes)}">
+      <p class="walk-dist-preview" id="edit-pace-preview"></p>
+      <label class="form-label">Perceived Effort (1–10)</label>
+      <input type="range" id="edit-effort" min="1" max="10" value="${esc(item.perceivedEffort)}">
+      <div style="text-align:center;color:var(--accent);font-size:20px;font-weight:700" id="edit-effort-display">${esc(item.perceivedEffort)}</div>`;
   } else {
     statsRows = `
       <div class="detail-set-row"><span>Distance</span><span>${esc(item.distanceMiles)} mi</span></div>
       <div class="detail-set-row"><span>Duration</span><span>${Math.round(item.durationMinutes)} min</span></div>
       <div class="detail-set-row"><span>Speed</span><span>${esc(item.speedMph)} mph</span></div>
       ${item.calories != null ? `<div class="detail-set-row"><span>Calories</span><span>${esc(item.calories)} <span style="color:var(--text-3);font-size:12px">(treadmill est.)</span></span></div>` : ''}`;
+    statsEditForm = `
+      <label class="form-label">Duration (minutes or mm:ss)</label>
+      <input type="text" class="input" id="edit-dur" placeholder="90 or 47:23" pattern="[0-9]+(:[0-5][0-9])?" value="${esc(Math.round(item.durationMinutes))}">
+      <label class="form-label">Speed (mph)</label>
+      <input type="number" class="input" id="edit-speed" step="0.1" inputmode="decimal" value="${esc(item.speedMph)}">
+      <p class="walk-dist-preview" id="edit-dist-preview"></p>
+      <label class="form-label">Treadmill Distance (mi) <span class="form-hint">— overrides calc; clear to auto-calculate</span></label>
+      <input type="number" class="input" id="edit-dist" step="0.01" inputmode="decimal" value="${esc(item.distanceMiles)}">
+      <label class="form-label">Calories <span class="form-hint">— treadmill estimate</span></label>
+      <input type="number" class="input" id="edit-cals" step="1" inputmode="numeric" value="${item.calories != null ? esc(item.calories) : ''}" placeholder="optional">`;
   }
 
   el.innerHTML = `
@@ -302,7 +320,18 @@ function showCardioDetail(el, item, type) {
         </div>
       </div>
       <div class="card detail-exercise" style="margin-top:4px">
-        ${statsRows}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <p class="section-title" style="margin:0">Stats</p>
+          <button class="btn btn-ghost" id="edit-stats-btn" style="font-size:12px;min-height:32px;padding:0 10px">Edit</button>
+        </div>
+        <div id="stats-view">${statsRows}</div>
+        <div id="stats-edit-row" style="display:none">
+          ${statsEditForm}
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn btn-primary" id="save-stats-btn" style="flex:1;min-height:40px">Save</button>
+            <button class="btn btn-ghost" id="cancel-stats-btn" style="min-height:40px">Cancel</button>
+          </div>
+        </div>
       </div>
       <div id="notes-section" style="margin-top:12px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -358,6 +387,74 @@ function showCardioDetail(el, item, type) {
     showCardioDetail(el, item, type);
   });
   el.querySelector('#cancel-context-btn').addEventListener('click', () => { ctxInputRow.style.display = 'none'; });
+
+  // ── Stats editing (distance / duration / pace / effort for runs; duration /
+  // speed / distance / calories for walks). Pace and auto-distance are derived, so
+  // they recompute on save from the edited inputs rather than being typed directly.
+  const statsEditRow = el.querySelector('#stats-edit-row');
+  const statsView = el.querySelector('#stats-view');
+  el.querySelector('#edit-stats-btn').addEventListener('click', () => {
+    const editing = statsEditRow.style.display === 'block';
+    statsEditRow.style.display = editing ? 'none' : 'block';
+    statsView.style.display = editing ? 'block' : 'none';
+  });
+  el.querySelector('#cancel-stats-btn').addEventListener('click', () => {
+    statsEditRow.style.display = 'none';
+    statsView.style.display = 'block';
+  });
+  const previewCss = 'text-align:center;color:var(--accent);font-size:16px;font-weight:700;padding:2px 0';
+  if (isRun) {
+    const distEl = el.querySelector('#edit-dist');
+    const durEl = el.querySelector('#edit-dur');
+    const effortEl = el.querySelector('#edit-effort');
+    const pacePreview = el.querySelector('#edit-pace-preview');
+    const updatePace = () => {
+      const pace = computeRunPace(parseFloat(distEl.value), parseDuration(durEl.value));
+      pacePreview.textContent = pace ? `≈ ${pace} min/mi` : '';
+      pacePreview.style.cssText = pace ? previewCss : '';
+    };
+    distEl.addEventListener('input', updatePace);
+    durEl.addEventListener('input', updatePace);
+    effortEl.addEventListener('input', () => { el.querySelector('#edit-effort-display').textContent = effortEl.value; });
+    updatePace();
+    el.querySelector('#save-stats-btn').addEventListener('click', async () => {
+      const dist = parseFloat(distEl.value);
+      const dur = parseDuration(durEl.value);
+      if (!dist || dist <= 0 || !dur || dur <= 0) { toast('Enter a valid distance and duration.', { type: 'error' }); return; }
+      item.distanceMiles = dist;
+      item.durationMinutes = dur;
+      item.paceMinPerMile = computeRunPace(dist, dur);
+      item.perceivedEffort = Number(effortEl.value);
+      await persist();
+      showCardioDetail(el, item, type);
+    });
+  } else {
+    const durEl = el.querySelector('#edit-dur');
+    const speedEl = el.querySelector('#edit-speed');
+    const distEl = el.querySelector('#edit-dist');
+    const calsEl = el.querySelector('#edit-cals');
+    const distPreview = el.querySelector('#edit-dist-preview');
+    const updateDist = () => {
+      const auto = computeWalkDistance(parseDuration(durEl.value), parseFloat(speedEl.value), '');
+      distPreview.textContent = auto ? `auto-calc ≈ ${auto} mi (clear distance below to use)` : '';
+      distPreview.style.cssText = auto ? previewCss : '';
+    };
+    durEl.addEventListener('input', updateDist);
+    speedEl.addEventListener('input', updateDist);
+    updateDist();
+    el.querySelector('#save-stats-btn').addEventListener('click', async () => {
+      const dur = parseDuration(durEl.value);
+      const speed = parseFloat(speedEl.value);
+      if (!dur || dur <= 0 || !speed || speed <= 0) { toast('Enter a valid duration and speed.', { type: 'error' }); return; }
+      item.durationMinutes = dur;
+      item.speedMph = speed;
+      item.distanceMiles = computeWalkDistance(dur, speed, distEl.value);
+      const calsVal = calsEl.value.trim();
+      item.calories = calsVal === '' ? null : Number(calsVal);
+      await persist();
+      showCardioDetail(el, item, type);
+    });
+  }
 
   el.querySelector('#edit-notes-btn').addEventListener('click', () => {
     el.querySelector('#notes-view').style.display = 'none';

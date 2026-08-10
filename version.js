@@ -1,10 +1,18 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.4';
+export const APP_VERSION = '1.7.5';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.5',
+    date: '2026-08-10',
+    items: [
+      'Runs are now editable from History — tap a run, then Edit under Stats to fix distance, duration, or effort (pace recalculates automatically).',
+      'Walks are editable too: duration, speed, distance, and calories.',
+    ],
+  },
   {
     v: '1.7.4',
     date: '2026-08-10',

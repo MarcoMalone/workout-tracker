@@ -9,7 +9,7 @@ vi.mock('../app.js', () => ({ switchTab: () => {} }));
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog, saveGoals } from '../db.js';
-import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises } from '../ui-log.js';
+import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises, computeRunPace, computeWalkDistance, formatMinSec } from '../ui-log.js';
 
 test('parseDuration: whole minutes, mm:ss, and blank/invalid', () => {
   expect(parseDuration('47')).toBe(47);
@@ -19,6 +19,32 @@ test('parseDuration: whole minutes, mm:ss, and blank/invalid', () => {
   expect(parseDuration('')).toBeNull();
   expect(parseDuration(null)).toBeNull();
   expect(parseDuration('abc')).toBeNull();
+});
+
+describe('cardio stat helpers (shared by log forms + history editors)', () => {
+  test('computeRunPace = duration / distance, 2dp; null when either is 0/missing', () => {
+    expect(computeRunPace(2.5, 20)).toBe(8);
+    expect(computeRunPace(3, 25)).toBe(8.33);
+    expect(computeRunPace(0, 20)).toBeNull();
+    expect(computeRunPace(2.5, 0)).toBeNull();
+    expect(computeRunPace(undefined, 20)).toBeNull();
+  });
+  test('computeWalkDistance: override wins, else duration × speed; blank/invalid override falls back', () => {
+    expect(computeWalkDistance(30, 2.2, '1.5')).toBe(1.5);      // explicit override
+    expect(computeWalkDistance(60, 3, '')).toBe(3);             // blank → auto-calc 60/60*3
+    expect(computeWalkDistance(30, 2.2, null)).toBe(1.1);       // null → auto-calc
+    expect(computeWalkDistance(30, 2.2, '   ')).toBe(1.1);      // whitespace → auto-calc
+    expect(computeWalkDistance(0, 3, null)).toBeNull();          // no duration, no override
+    expect(computeWalkDistance(30, 2.2, 'abc')).toBeNull();      // unparseable override
+  });
+  test('formatMinSec renders m:ss and never prints :60 (carries the rounding over)', () => {
+    expect(formatMinSec(8)).toBe('8:00');
+    expect(formatMinSec(8.5)).toBe('8:30');
+    expect(formatMinSec(28.5)).toBe('28:30');
+    expect(formatMinSec(5.999)).toBe('6:00'); // would be "5:60" with naive rounding
+    expect(formatMinSec(0)).toBe('0:00');
+    expect(formatMinSec(null)).toBe('0:00');
+  });
 });
 
 describe('filterExercises (Add Exercise search)', () => {
