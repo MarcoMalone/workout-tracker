@@ -141,7 +141,7 @@ export async function renderHistoryTab(el) {
       ? '<p style="color:var(--text-3);text-align:center;padding:32px">No sessions yet</p>'
       : filtered.map(item => {
           const meta = (item._type === 'run' || item._type === 'walk')
-            ? `${item.distanceMiles} mi · ${Math.round(item.durationMinutes)} min${item._type === 'run' && item.startTime ? ` · ${formatClock(item.startTime)}` : ''}`
+            ? `${item.distanceMiles} mi · ${Math.round(item.durationMinutes)} min${item.startTime ? ` · ${formatClock(item.startTime)}` : ''}`
             : `${totalVolume(item)} lbs total`;
           const name = item._type === 'run' ? '🏃 Run'
             : item._type === 'walk' ? '🚶 Walk'
@@ -358,11 +358,14 @@ function showCardioDetail(el, item, type) {
       <div style="text-align:center;color:var(--accent);font-size:20px;font-weight:700" id="edit-effort-display">${esc(item.perceivedEffort)}</div>`;
   } else {
     statsRows = `
+      ${item.startTime ? `<div class="detail-set-row"><span>Started</span><span>${formatClock(item.startTime)}</span></div>` : ''}
       <div class="detail-set-row"><span>Distance</span><span>${esc(item.distanceMiles)} mi</span></div>
       <div class="detail-set-row"><span>Duration</span><span>${Math.round(item.durationMinutes)} min</span></div>
       <div class="detail-set-row"><span>Speed</span><span>${esc(item.speedMph)} mph</span></div>
       ${item.calories != null ? `<div class="detail-set-row"><span>Calories</span><span>${esc(item.calories)} <span style="color:var(--text-3);font-size:12px">(treadmill est.)</span></span></div>` : ''}`;
     statsEditForm = `
+      <label class="form-label">Start time</label>
+      <input type="time" class="input" id="edit-time" value="${esc(item.startTime || '')}">
       <label class="form-label">Duration (minutes or mm:ss)</label>
       <input type="text" class="input" id="edit-dur" placeholder="90 or 47:23" pattern="[0-9]+(:[0-5][0-9])?" value="${esc(Math.round(item.durationMinutes))}">
       <label class="form-label">Speed (mph)</label>
@@ -533,6 +536,7 @@ function showCardioDetail(el, item, type) {
       const dur = parseDuration(durEl.value);
       const speed = parseFloat(speedEl.value);
       if (!dur || dur <= 0 || !speed || speed <= 0) { toast('Enter a valid duration and speed.', { type: 'error' }); return; }
+      item.startTime = el.querySelector('#edit-time').value || null;
       item.durationMinutes = dur;
       item.speedMph = speed;
       item.distanceMiles = computeWalkDistance(dur, speed, distEl.value);

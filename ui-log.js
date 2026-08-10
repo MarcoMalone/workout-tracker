@@ -1649,6 +1649,8 @@ async function showAddExerciseModal(el, cardsEl) {
 
 function showWalkForm(el) {
   const todayStr = localDateStr();
+  const now = new Date();
+  const nowHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   el.innerHTML = `
     <div class="screen">
       <div class="session-header">
@@ -1658,6 +1660,8 @@ function showWalkForm(el) {
       <div class="run-form">
         <label class="form-label">Date</label>
         <input type="date" class="input" id="walk-date" value="${todayStr}">
+        <label class="form-label">Start time</label>
+        <input type="time" class="input" id="walk-time" value="${nowHHMM}">
         <label class="form-label">Duration (minutes or mm:ss)</label>
         <input type="text" class="input" id="walk-dur" placeholder="90 or 47:23" pattern="[0-9]+(:[0-5][0-9])?">
         <label class="form-label">Speed (mph)</label>
@@ -1700,6 +1704,7 @@ function showWalkForm(el) {
     await addWalkLog({
       id: crypto.randomUUID(),
       date: el.querySelector('#walk-date').value,
+      startTime: el.querySelector('#walk-time').value || null,
       durationMinutes: dur,
       speedMph: speed,
       distanceMiles,
