@@ -1534,43 +1534,70 @@ async function showPostChecklist(el) {
   });
 }
 
+// Filter the exercise library for the in-workout Add Exercise search. Case-
+// insensitive; every whitespace-separated term must appear in the exercise's name
+// or body-part group, so "leg press" and "bulg" both match and typing "legs"
+// narrows to leg exercises. Empty query returns everything.
+export function filterExercises(exercises, query) {
+  const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return (exercises || []).slice();
+  return (exercises || []).filter(ex => {
+    const hay = `${ex.name || ''} ${ex.bodyPartGroup || ''}`.toLowerCase();
+    return terms.every(t => hay.includes(t));
+  });
+}
+
 async function showAddExerciseModal(el, cardsEl) {
-  const exercises = await getExercises();
+  // Sort by group then name so the unfiltered list is easy to scan.
+  const exercises = (await getExercises()).slice().sort((a, b) =>
+    (a.bodyPartGroup || '').localeCompare(b.bodyPartGroup || '') || (a.name || '').localeCompare(b.name || ''));
   const overlay = document.getElementById('modal-overlay');
   overlay.classList.remove('hidden');
   overlay.innerHTML = `
     <div class="modal-sheet">
       <h2 class="modal-title">Add Exercise</h2>
-      <div style="max-height:55vh;overflow-y:auto">
-        ${exercises.map(ex => `<button class="template-card add-ex-pick" data-id="${esc(ex.id)}" style="margin-bottom:8px"><span class="template-name">${esc(ex.name)}</span><span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></button>`).join('')}
-      </div>
+      <input class="input" id="add-ex-search" type="search" placeholder="Search exercises…" autocomplete="off" autocapitalize="off" style="margin-bottom:10px">
+      <div id="add-ex-list" style="max-height:52vh;overflow-y:auto"></div>
       <button class="btn btn-ghost btn-full" id="cancel-add-ex" style="margin-top:12px">Cancel</button>
     </div>
   `;
-  overlay.querySelector('#cancel-add-ex').addEventListener('click', () => {
-    overlay.classList.add('hidden');
-    overlay.innerHTML = '';
-  });
-  overlay.querySelectorAll('.add-ex-pick').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const exId = btn.dataset.id;
-      const exDef = await getExercise(exId);
-      const prev = await getLastSessionForExercise(exId);
-      const newIdx = activeSession.exercises.length;
-      activeSession.exercises.push({
-        exerciseId: exId,
-        exerciseName: exDef.name,
-        notes: '',
-        sets: Array.from({ length: 3 }, (_, i) => ({
-          setNumber: i + 1, weight: null, reps: null, seconds: null,
-          side: null, isDropSet: false, parentSetIndex: null
-        }))
-      });
-      overlay.classList.add('hidden');
-      overlay.innerHTML = '';
-      cardsEl.appendChild(buildExerciseCard(newIdx, exDef, prev, activeSession.exercises[newIdx], el));
+  const listEl = overlay.querySelector('#add-ex-list');
+  const searchEl = overlay.querySelector('#add-ex-search');
+  const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
+
+  function renderList() {
+    const matches = filterExercises(exercises, searchEl.value);
+    listEl.innerHTML = matches.length
+      ? matches.map(ex => `<button class="template-card add-ex-pick" data-id="${esc(ex.id)}" style="margin-bottom:8px"><span class="template-name">${esc(ex.name)}</span><span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></button>`).join('')
+      : '<p class="settings-hint" style="padding:12px 4px">No exercises match — try a different word, or add it in Settings → Exercise Library.</p>';
+  }
+
+  async function pick(exId) {
+    const exDef = await getExercise(exId);
+    const prev = await getLastSessionForExercise(exId);
+    const newIdx = activeSession.exercises.length;
+    activeSession.exercises.push({
+      exerciseId: exId,
+      exerciseName: exDef.name,
+      notes: '',
+      sets: Array.from({ length: 3 }, (_, i) => ({
+        setNumber: i + 1, weight: null, reps: null, seconds: null,
+        side: null, isDropSet: false, parentSetIndex: null
+      }))
     });
+    close();
+    cardsEl.appendChild(buildExerciseCard(newIdx, exDef, prev, activeSession.exercises[newIdx], el));
+  }
+
+  renderList();
+  searchEl.addEventListener('input', renderList);
+  // Delegate clicks so we don't rebind on every keystroke re-render.
+  listEl.addEventListener('click', e => {
+    const btn = e.target.closest('.add-ex-pick');
+    if (btn) pick(btn.dataset.id);
   });
+  overlay.querySelector('#cancel-add-ex').addEventListener('click', close);
+  searchEl.focus();
 }
 
 function showWalkForm(el) {

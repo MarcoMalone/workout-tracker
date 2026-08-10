@@ -9,7 +9,7 @@ vi.mock('../app.js', () => ({ switchTab: () => {} }));
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog, saveGoals } from '../db.js';
-import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration } from '../ui-log.js';
+import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises } from '../ui-log.js';
 
 test('parseDuration: whole minutes, mm:ss, and blank/invalid', () => {
   expect(parseDuration('47')).toBe(47);
@@ -19,6 +19,37 @@ test('parseDuration: whole minutes, mm:ss, and blank/invalid', () => {
   expect(parseDuration('')).toBeNull();
   expect(parseDuration(null)).toBeNull();
   expect(parseDuration('abc')).toBeNull();
+});
+
+describe('filterExercises (Add Exercise search)', () => {
+  const LIB = [
+    { id: 'a', name: 'Leg Press', bodyPartGroup: 'legs' },
+    { id: 'b', name: 'Bulgarian Split Squat', bodyPartGroup: 'legs' },
+    { id: 'c', name: 'Dumbbell Bench', bodyPartGroup: 'arms' },
+    { id: 'd', name: 'Pallof Press', bodyPartGroup: 'core' },
+  ];
+  test('empty / whitespace query returns all (a copy, not the original array)', () => {
+    expect(filterExercises(LIB, '').map(e => e.id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(filterExercises(LIB, '   ')).toHaveLength(4);
+    expect(filterExercises(LIB, '')).not.toBe(LIB);
+  });
+  test('case-insensitive partial name match', () => {
+    expect(filterExercises(LIB, 'bulg').map(e => e.id)).toEqual(['b']);
+    expect(filterExercises(LIB, 'PRESS').map(e => e.id)).toEqual(['a', 'd']);
+  });
+  test('matches on body-part group', () => {
+    expect(filterExercises(LIB, 'legs').map(e => e.id)).toEqual(['a', 'b']);
+  });
+  test('multi-term: every term must match name or group (any order)', () => {
+    expect(filterExercises(LIB, 'press legs').map(e => e.id)).toEqual(['a']);
+    expect(filterExercises(LIB, 'legs press').map(e => e.id)).toEqual(['a']);
+    expect(filterExercises(LIB, 'press arms').map(e => e.id)).toEqual([]); // no arm "press" in lib
+  });
+  test('no matches returns empty; tolerates missing/empty input', () => {
+    expect(filterExercises(LIB, 'zzz')).toEqual([]);
+    expect(filterExercises([], 'press')).toEqual([]);
+    expect(filterExercises(undefined, 'press')).toEqual([]);
+  });
 });
 
 // The base test env's localStorage is a non-functional stub; ui-log now
