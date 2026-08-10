@@ -1,7 +1,7 @@
 import { getAllSessions, getRunLogs, getWalkLogs, deleteSession, saveSession, addRunLog, addWalkLog, deleteRunLog, deleteWalkLog } from './db.js';
 import { toast, undoToast } from './ui-feedback.js';
 import { groupExercises, roundSlots } from './supersets.js';
-import { parseDuration, computeRunPace, computeWalkDistance, formatMinSec } from './ui-log.js';
+import { parseDuration, computeRunPace, computeWalkDistance, formatMinSec, formatClock, blankSetsFor } from './ui-log.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -62,6 +62,36 @@ function detailExercisesHTML(item, displayName) {
   }).join('');
 }
 
+// Editable ("Edit sets" mode) rendering of a session's exercises. Unlike the view,
+// supersets are NOT interleaved — each exercise is its own card with editable set
+// rows, which keeps editing unambiguous; the superset linkage (supersetId) is
+// untouched, so the read-only view re-interleaves correctly on save. Each set is
+// weight×reps, or seconds if the exercise is timed (any set carries seconds).
+function detailExercisesEditHTML(item, displayName) {
+  const cards = item.exercises.map((ex, i) => {
+    const timed = (ex.sets || []).some(s => s.seconds != null);
+    const superTag = ex.supersetId ? '<span class="uni-tag">⛓ superset</span> ' : '';
+    const rows = (ex.sets || []).map((s, si) => {
+      const drop = s.isDropSet ? '<span class="uni-tag">drop</span>' : '';
+      const side = s.side ? `<span class="uni-tag">${esc(s.side)}</span>` : '';
+      const fields = timed
+        ? `<input type="number" class="set-input hist-set-input" inputmode="numeric" data-ex="${i}" data-s="${si}" data-f="seconds" value="${s.seconds ?? ''}" aria-label="Seconds"><span class="set-unit">sec</span>`
+        : `<input type="number" class="set-input hist-set-input" inputmode="decimal" data-ex="${i}" data-s="${si}" data-f="weight" value="${s.weight ?? ''}" aria-label="Weight"><span class="set-unit">lbs</span><span class="tpl-x">×</span><input type="number" class="set-input hist-set-input" inputmode="numeric" data-ex="${i}" data-s="${si}" data-f="reps" value="${s.reps ?? ''}" aria-label="Reps"><span class="set-unit">reps</span>`;
+      return `<div class="hist-set-row"><span class="set-num">${si + 1}</span>${fields}${side}${drop}<button class="hist-set-remove" data-ex="${i}" data-s="${si}" aria-label="Remove set">×</button></div>`;
+    }).join('');
+    return `<div class="card detail-exercise">
+      <p class="ex-name">${superTag}${esc(displayName(ex.exerciseName))}</p>
+      ${rows || '<p class="settings-hint" style="margin:4px 0">No sets — add one below.</p>'}
+      <button class="btn btn-ghost hist-add-set" data-ex="${i}" style="font-size:12px;min-height:32px;margin-top:6px">+ Add set</button>
+    </div>`;
+  }).join('');
+  return `${cards}
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-primary" id="save-sets-btn" style="flex:1;min-height:44px">Save changes</button>
+      <button class="btn btn-ghost" id="cancel-sets-btn" style="min-height:44px">Cancel</button>
+    </div>`;
+}
+
 function detailToast(msg) {
   toast(msg, { duration: 1500 });
 }
@@ -111,7 +141,7 @@ export async function renderHistoryTab(el) {
       ? '<p style="color:var(--text-3);text-align:center;padding:32px">No sessions yet</p>'
       : filtered.map(item => {
           const meta = (item._type === 'run' || item._type === 'walk')
-            ? `${item.distanceMiles} mi · ${Math.round(item.durationMinutes)} min`
+            ? `${item.distanceMiles} mi · ${Math.round(item.durationMinutes)} min${item._type === 'run' && item.startTime ? ` · ${formatClock(item.startTime)}` : ''}`
             : `${totalVolume(item)} lbs total`;
           const name = item._type === 'run' ? '🏃 Run'
             : item._type === 'walk' ? '🚶 Walk'
@@ -179,7 +209,11 @@ function showDetail(el, item, type) {
       </div>
       <label class="form-label" style="margin:4px 0 4px">Session notes</label>
       <textarea class="input" id="detail-session-notes" rows="3" placeholder="Add a note about this session…" style="width:100%;box-sizing:border-box;margin-bottom:12px">${esc(item.sessionNotes || '')}</textarea>
-      ${detailExercisesHTML(item, displayName)}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 4px">
+        <p class="section-title" style="margin:0">Exercises</p>
+        <button class="btn btn-ghost" id="edit-sets-btn" style="font-size:12px;min-height:32px;padding:0 10px">Edit sets</button>
+      </div>
+      <div id="detail-ex-wrap"></div>
     </div>
   `;
   const sessionNotesEl = el.querySelector('#detail-session-notes');
@@ -188,13 +222,62 @@ function showDetail(el, item, type) {
     await saveSession(item);
     detailToast('Saved');
   });
-  el.querySelectorAll('.detail-ex-note-input').forEach(t => {
-    t.addEventListener('change', async () => {
-      item.exercises[Number(t.dataset.exIdx)].notes = t.value;
+
+  // Exercises area: view (read-only, superset-interleaved) ↔ edit (flat, editable
+  // sets). A JSON snapshot of exercises is taken on entering edit so Cancel reverts.
+  const exWrap = el.querySelector('#detail-ex-wrap');
+  const editBtn = el.querySelector('#edit-sets-btn');
+  let setsSnapshot = null;
+
+  function renderView() {
+    exWrap.innerHTML = detailExercisesHTML(item, displayName);
+    exWrap.querySelectorAll('.detail-ex-note-input').forEach(t => {
+      t.addEventListener('change', async () => {
+        item.exercises[Number(t.dataset.exIdx)].notes = t.value;
+        await saveSession(item);
+        detailToast('Saved');
+      });
+    });
+    editBtn.style.display = '';
+  }
+
+  function renderEdit() {
+    exWrap.innerHTML = detailExercisesEditHTML(item, displayName);
+    exWrap.querySelectorAll('.hist-set-input').forEach(inp => inp.addEventListener('input', () => {
+      const s = item.exercises[+inp.dataset.ex].sets[+inp.dataset.s];
+      const v = inp.value.trim();
+      s[inp.dataset.f] = v === '' ? null : Number(v);
+    }));
+    exWrap.querySelectorAll('.hist-set-remove').forEach(b => b.addEventListener('click', () => {
+      item.exercises[+b.dataset.ex].sets.splice(+b.dataset.s, 1);
+      renderEdit();
+    }));
+    exWrap.querySelectorAll('.hist-add-set').forEach(b => b.addEventListener('click', () => {
+      const ex = item.exercises[+b.dataset.ex];
+      ex.sets.push(...blankSetsFor(ex.sets));
+      renderEdit();
+    }));
+    exWrap.querySelector('#save-sets-btn').addEventListener('click', async () => {
+      item.exercises.forEach(ex => (ex.sets || []).forEach((s, k) => { s.setNumber = k + 1; }));
       await saveSession(item);
+      setsSnapshot = null;
+      renderView();
       detailToast('Saved');
     });
+    exWrap.querySelector('#cancel-sets-btn').addEventListener('click', () => {
+      item.exercises = setsSnapshot;
+      setsSnapshot = null;
+      renderView();
+    });
+  }
+
+  editBtn.addEventListener('click', () => {
+    setsSnapshot = JSON.parse(JSON.stringify(item.exercises));
+    editBtn.style.display = 'none';
+    renderEdit();
   });
+
+  renderView();
   el.querySelector('#back-btn').addEventListener('click', () => renderHistoryTab(el));
   el.querySelector('#copy-notes-btn').addEventListener('click', () => {
     const titleStr = displayName(item.workoutLabel ? `${item.templateName} — ${item.workoutLabel}` : item.templateName);
@@ -257,11 +340,14 @@ function showCardioDetail(el, item, type) {
   let statsRows, statsEditForm;
   if (isRun) {
     statsRows = `
+      ${item.startTime ? `<div class="detail-set-row"><span>Started</span><span>${formatClock(item.startTime)}</span></div>` : ''}
       <div class="detail-set-row"><span>Distance</span><span>${esc(item.distanceMiles)} mi</span></div>
       <div class="detail-set-row"><span>Duration</span><span>${formatMinSec(item.durationMinutes)}</span></div>
       <div class="detail-set-row"><span>Pace</span><span>${esc(item.paceMinPerMile)} min/mi</span></div>
       <div class="detail-set-row"><span>Effort</span><span>${esc(item.perceivedEffort)}/10</span></div>`;
     statsEditForm = `
+      <label class="form-label">Start time</label>
+      <input type="time" class="input" id="edit-time" value="${esc(item.startTime || '')}">
       <label class="form-label">Distance (miles)</label>
       <input type="number" class="input" id="edit-dist" step="0.01" inputmode="decimal" value="${esc(item.distanceMiles)}">
       <label class="form-label">Duration (minutes or mm:ss)</label>
@@ -421,6 +507,7 @@ function showCardioDetail(el, item, type) {
       const dist = parseFloat(distEl.value);
       const dur = parseDuration(durEl.value);
       if (!dist || dist <= 0 || !dur || dur <= 0) { toast('Enter a valid distance and duration.', { type: 'error' }); return; }
+      item.startTime = el.querySelector('#edit-time').value || null;
       item.distanceMiles = dist;
       item.durationMinutes = dur;
       item.paceMinPerMile = computeRunPace(dist, dur);

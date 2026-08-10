@@ -9,7 +9,7 @@ vi.mock('../app.js', () => ({ switchTab: () => {} }));
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog, saveGoals } from '../db.js';
-import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises, computeRunPace, computeWalkDistance, formatMinSec } from '../ui-log.js';
+import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises, computeRunPace, computeWalkDistance, formatMinSec, formatClock, blankSetsFor } from '../ui-log.js';
 
 test('parseDuration: whole minutes, mm:ss, and blank/invalid', () => {
   expect(parseDuration('47')).toBe(47);
@@ -44,6 +44,33 @@ describe('cardio stat helpers (shared by log forms + history editors)', () => {
     expect(formatMinSec(5.999)).toBe('6:00'); // would be "5:60" with naive rounding
     expect(formatMinSec(0)).toBe('0:00');
     expect(formatMinSec(null)).toBe('0:00');
+  });
+  test('formatClock: 24h HH:MM → 12h am/pm; empty for missing/invalid', () => {
+    expect(formatClock('06:45')).toBe('6:45 AM');
+    expect(formatClock('13:05')).toBe('1:05 PM');
+    expect(formatClock('00:00')).toBe('12:00 AM');
+    expect(formatClock('12:00')).toBe('12:00 PM');
+    expect(formatClock('')).toBe('');
+    expect(formatClock(null)).toBe('');
+    expect(formatClock('25:00')).toBe('');   // hour out of range
+    expect(formatClock('9:99')).toBe('');     // minute out of range
+  });
+});
+
+describe('blankSetsFor (Add set in History editor)', () => {
+  test('non-unilateral exercise → one blank set, no side', () => {
+    const out = blankSetsFor([{ weight: 50, reps: 10, side: null }]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ weight: null, reps: null, seconds: null, side: null, isDropSet: false });
+  });
+  test('unilateral exercise (any set has a side) → an L/R pair', () => {
+    const out = blankSetsFor([{ reps: 12, side: 'L' }, { reps: 12, side: 'R' }]);
+    expect(out.map(s => s.side)).toEqual(['L', 'R']);
+    expect(out.every(s => s.weight === null && s.reps === null && !s.isDropSet)).toBe(true);
+  });
+  test('empty / missing input → one blank set', () => {
+    expect(blankSetsFor([])).toHaveLength(1);
+    expect(blankSetsFor(undefined)).toHaveLength(1);
   });
 });
 

@@ -411,6 +411,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .rot-move, .rot-del { width: 30px; height: 30px; display: grid; place-items: center; background: none; border: none; color: var(--text-2); font-size: 15px; cursor: pointer; border-radius: var(--r-sm); }
 .rot-move:disabled { opacity: 0.35; }
 .rot-del { color: var(--danger); }
+/* Inline set editing in History detail */
+.hist-set-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.hist-set-row:last-of-type { border-bottom: none; }
+.hist-set-row .set-num { min-width: 20px; color: var(--text-3); font-size: 13px; font-weight: 700; }
+.hist-set-input { width: 64px; }
+.hist-set-remove { margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; background: none; border: none; color: var(--danger); font-size: 18px; cursor: pointer; border-radius: var(--r-sm); }
+
 /* Reorder mode — draggable exercise chips */
 .reorder-list { display: flex; flex-direction: column; gap: 8px; }
 .reorder-group { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-md); }

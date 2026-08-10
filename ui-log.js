@@ -55,6 +55,27 @@ export function formatMinSec(durationMinutes) {
   return `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, '0')}`;
 }
 
+// "HH:MM" (24h, from an <input type="time">) → "h:mm AM/PM" for display. Returns
+// '' for missing or malformed input. Used to show a run's start time.
+export function formatClock(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm ?? '').trim());
+  if (!m) return '';
+  const h = Number(m[1]);
+  if (h > 23 || Number(m[2]) > 59) return '';
+  const ampm = h < 12 ? 'AM' : 'PM';
+  return `${h % 12 === 0 ? 12 : h % 12}:${m[2]} ${ampm}`;
+}
+
+// Blank set(s) to append when adding a set to a logged exercise. If the exercise
+// is unilateral (any existing set carries a side) we add an L/R pair, mirroring
+// how the Log tab expands per-side work; otherwise a single set. Values start
+// empty; the edit row picks weight×reps vs seconds from the exercise's own sets.
+export function blankSetsFor(existingSets) {
+  const uni = (existingSets || []).some(s => s.side);
+  const mk = side => ({ setNumber: 0, weight: null, reps: null, seconds: null, side, isDropSet: false, parentSetIndex: null });
+  return uni ? [mk('L'), mk('R')] : [mk(null)];
+}
+
 // Build the Log-home "This Week" bars + activity streak from logged data.
 // Strength days scale by volume; cardio-only days show a short bar. Streak
 // counts consecutive days of any activity ending today (or yesterday if today
@@ -1691,6 +1712,8 @@ function showWalkForm(el) {
 }
 
 function showRunForm(el) {
+  const now = new Date();
+  const nowHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   el.innerHTML = `
     <div class="screen">
       <div class="session-header">
@@ -1700,6 +1723,8 @@ function showRunForm(el) {
       <div class="run-form">
         <label class="form-label">Date</label>
         <input type="date" class="input" id="run-date" value="${localDateStr()}">
+        <label class="form-label">Start time</label>
+        <input type="time" class="input" id="run-time" value="${nowHHMM}">
         <label class="form-label">Distance (miles)</label>
         <input type="number" class="input" id="run-dist" step="0.01" inputmode="decimal" placeholder="2.5">
         <label class="form-label">Duration (minutes or mm:ss)</label>
@@ -1726,6 +1751,7 @@ function showRunForm(el) {
     await addRunLog({
       id: crypto.randomUUID(),
       date: el.querySelector('#run-date').value,
+      startTime: el.querySelector('#run-time').value || null,
       distanceMiles: dist,
       durationMinutes,
       paceMinPerMile: computeRunPace(dist, durationMinutes),
