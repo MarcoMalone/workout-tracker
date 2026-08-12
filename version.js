@@ -1,10 +1,19 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.7';
+export const APP_VERSION = '1.7.8';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.8',
+    date: '2026-08-12',
+    items: [
+      'Rest timer now runs off your phone\'s clock — it keeps counting while you\'re out of the app and shows the right time (or "Rest done") the moment you come back.',
+      'New ⚙ Setup note per exercise: record seat height, pad/pin positions, etc. once and see them every time you log that exercise (separate from the per-workout 📝 note).',
+      '"Drop into…" exercise picker now has a search box.',
+    ],
+  },
   {
     v: '1.7.7',
     date: '2026-08-10',

@@ -1,4 +1,4 @@
-import { getTemplates, getTemplate, getExercise, getExercises, getLastSessionForExercise, getSessionsForExercise, saveSession, getSetting, setSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress, getPainLog } from './db.js';
+import { getTemplates, getTemplate, getExercise, getExercises, addExercise, getLastSessionForExercise, getSessionsForExercise, saveSession, getSetting, setSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress, getPainLog } from './db.js';
 import { readinessScore, goalStreak, painSummary, calcE1RM, getBestE1RM, suggestProgression } from './metrics.js';
 import { showHelpCenter } from './ui-help.js';
 import { switchTab } from './app.js';
@@ -623,15 +623,21 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
       <span class="ex-name">${esc(displayName)}${machineLabel}</span>
       <div style="display:flex;gap:4px;align-items:center">
         ${activeSession.exercises.length > 1 ? '<button class="ex-link-btn" title="Superset with another exercise">⛓</button>' : ''}
+        <button class="ex-setup-btn" title="Machine setup / settings">⚙</button>
         <button class="ex-note-btn" title="Add note">📝</button>
         <button class="ex-remove-btn" title="Remove exercise">✕</button>
       </div>
     </div>
     ${variantSwitcher}
+    <div class="ex-setup" id="setup-${exIdx}"></div>
     <div class="ex-prev">Previous: ${esc(prevText)}</div>
     ${progHint}
     <div class="ex-sets" id="sets-${exIdx}"></div>
     ${exDef.isUnilateral ? `<div class="asym-chip hidden" id="asym-${exIdx}"></div>` : ''}
+    <div class="ex-setup-row hidden" id="setup-edit-${exIdx}">
+      <textarea class="input ex-setup-input" placeholder="Machine setup — seat height, pad positions, pin, angle…" rows="2">${esc(exDef.setupNotes || '')}</textarea>
+      <button class="btn btn-primary ex-setup-save" style="margin-top:6px;min-height:36px">Save setup</button>
+    </div>
     <div class="ex-note-row hidden" id="note-${exIdx}">
       <textarea class="input ex-note-input" placeholder="Note for this exercise..." rows="2"></textarea>
     </div>
@@ -666,6 +672,33 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
 
   card.querySelector('.ex-note-btn').addEventListener('click', () => {
     card.querySelector(`#note-${exIdx}`).classList.toggle('hidden');
+  });
+
+  // Persistent per-exercise setup notes (seat/pad/pin settings). Stored on the
+  // exercise definition, so they show every time you log this exercise — unlike the
+  // 📝 note, which is per-session. Editable right at the machine.
+  const setupLine = card.querySelector(`#setup-${exIdx}`);
+  const setupRow = card.querySelector(`#setup-edit-${exIdx}`);
+  const renderSetupLine = () => {
+    const txt = exDef.setupNotes || '';
+    setupLine.innerHTML = txt
+      ? `<button type="button" class="ex-setup-chip" title="Edit setup">⚙ ${esc(txt)}</button>`
+      : '';
+    setupLine.querySelector('.ex-setup-chip')?.addEventListener('click', () => setupRow.classList.toggle('hidden'));
+  };
+  renderSetupLine();
+  card.querySelector('.ex-setup-btn').addEventListener('click', () => {
+    setupRow.classList.toggle('hidden');
+    if (!setupRow.classList.contains('hidden')) setupRow.querySelector('.ex-setup-input').focus();
+  });
+  card.querySelector('.ex-setup-save').addEventListener('click', async () => {
+    const val = card.querySelector('.ex-setup-input').value.trim();
+    exDef.setupNotes = val || '';
+    if (_exDefById[exDef.id]) _exDefById[exDef.id].setupNotes = exDef.setupNotes;
+    try { await addExercise(exDef); } catch (e) {}
+    setupRow.classList.add('hidden');
+    renderSetupLine();
+    toast('Setup saved', { duration: 1400 });
   });
   // Ad-hoc superset: pick which exercise to pair with (any other in the workout,
   // including one already in a superset). Re-render merges them into a
@@ -775,19 +808,32 @@ function showDropExercisePicker(exIdx, sIdx, parentDef, reRender) {
       <button class="btn btn-ghost btn-full dpick" data-id="" style="text-align:left;margin-top:2px">↩ Same exercise (normal drop)</button>
       ${siblings.length ? `<p class="settings-hint" style="margin:10px 0 0">Variations</p>${siblings.map(optBtn).join('')}` : ''}
       <p class="settings-hint" style="margin:10px 0 0">All exercises</p>
-      ${others.map(optBtn).join('')}
+      <input class="input" id="dpick-search" type="search" placeholder="Search exercises…" autocomplete="off" autocapitalize="off" style="margin:6px 0 4px">
+      <div id="dpick-list" style="max-height:44vh;overflow-y:auto"></div>
     </div>`;
   const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
-  overlay.querySelector('#dpick-dismiss').addEventListener('click', close);
-  overlay.querySelectorAll('.dpick').forEach(b => b.addEventListener('click', () => {
-    const id = b.dataset.id;
+  const listEl = overlay.querySelector('#dpick-list');
+  const searchEl = overlay.querySelector('#dpick-search');
+  const renderList = () => {
+    const matches = filterExercises(others, searchEl.value);
+    listEl.innerHTML = matches.length ? matches.map(optBtn).join('')
+      : '<p class="settings-hint" style="padding:10px 4px">No exercises match.</p>';
+  };
+  const pick = id => {
     if (id) { set.altExerciseId = id; set.altName = (_exDefById[id] && _exDefById[id].name) || ''; }
     else { delete set.altExerciseId; delete set.altName; }
     set.done = false;
     haptic('tap');
     close();
     reRender();
-  }));
+  };
+  renderList();
+  searchEl.addEventListener('input', renderList);
+  overlay.querySelector('#dpick-dismiss').addEventListener('click', close);
+  // Static buttons (Same exercise + variation siblings) bind directly; the filtered
+  // list is delegated so re-rendering on each keystroke keeps working.
+  overlay.querySelectorAll('.dpick').forEach(b => { if (!listEl.contains(b)) b.addEventListener('click', () => pick(b.dataset.id)); });
+  listEl.addEventListener('click', e => { const b = e.target.closest('.dpick'); if (b) pick(b.dataset.id); });
 }
 
 // Ad-hoc superset: choose which other exercise to pair this one with. Lists every
@@ -1120,14 +1166,22 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
 }
 
 // ── Rest timer ────────────────────────────────────────────────────────────────
-// Foreground countdown that auto-starts when a set is checked off. Docked above
-// the finish bar; +15s extends, Skip cancels. (iOS PWAs can't fire reliable
-// background notifications, so this is a visible-while-open cue by design.)
+// Rest countdown that auto-starts when a set is checked off. Docked above the
+// finish bar; +15s extends, Skip cancels. Anchored to a wall-clock END time rather
+// than a decrementing counter, so it stays accurate across app backgrounding: iOS
+// throttles/pauses setInterval when the PWA isn't in the foreground, so we recompute
+// remaining = (endAt − now) every tick AND the instant the app becomes visible
+// again. (iOS PWAs still can't fire reliable background notifications, so the cue is
+// visible-while-open — but now the number is correct the moment you look at it.)
 const REST_DEFAULT = 90;
 let restInterval = null;
-let restRemaining = 0;
+let restEndAt = 0; // wall-clock ms when the current rest ends (0 = no rest running)
 let restTarget = REST_DEFAULT;
 let restExId = null;
+
+function restRemainingSec() {
+  return restEndAt ? Math.round((restEndAt - Date.now()) / 1000) : 0;
+}
 
 async function startRest(exId) {
   try { if (localStorage.getItem('restTimer') === 'off') return; } catch (e) {}
@@ -1136,11 +1190,11 @@ async function startRest(exId) {
   restExId = exId || null;
   const map = (await getSetting('restByExercise')) || {};
   restTarget = (restExId && map[restExId]) || REST_DEFAULT;
-  restRemaining = restTarget;
+  restEndAt = Date.now() + restTarget * 1000;
   clearInterval(restInterval);
   bar.classList.remove('hidden', 'rest-done');
   renderRest(bar);
-  restInterval = setInterval(tickRest, 1000);
+  restInterval = setInterval(updateRest, 1000);
 }
 
 // Remember the chosen rest for this exercise so it auto-starts there next time.
@@ -1151,13 +1205,18 @@ async function persistRest() {
   await setSetting('restByExercise', map);
 }
 
-function tickRest() {
+// Single source of truth for advancing the rest timer — called every second AND on
+// visibilitychange (see below). Reads the wall clock, so a throttled/paused interval
+// while backgrounded can't drift: on return it either shows the true remaining time
+// or fires the "done" cue if rest already elapsed.
+function updateRest() {
   const bar = document.getElementById('rest-timer');
-  if (!bar) { clearInterval(restInterval); restInterval = null; return; } // session left the DOM
-  restRemaining -= 1;
-  if (restRemaining <= 0) {
+  if (!bar || bar.classList.contains('hidden')) { clearInterval(restInterval); restInterval = null; return; }
+  if (!restEndAt) return;
+  if (restRemainingSec() <= 0) {
     clearInterval(restInterval);
     restInterval = null;
+    restEndAt = 0;
     bar.classList.add('rest-done');
     renderRest(bar, true);
     haptic('rest');
@@ -1172,13 +1231,13 @@ function tickRest() {
 }
 
 function renderRest(bar, done = false) {
-  const secs = Math.max(restRemaining, 0);
+  const secs = Math.max(restRemainingSec(), 0);
   const label = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
   bar.innerHTML = done
     ? `<span class="rest-label">Rest done — go</span><button class="rest-btn" id="rest-dismiss">Got it</button>`
     : `<span class="rest-big">${label}</span><div class="rest-actions"><button class="rest-btn" id="rest-sub">−15</button><button class="rest-btn" id="rest-add">+15</button><button class="rest-btn rest-skip" id="rest-skip">Skip</button></div>`;
-  bar.querySelector('#rest-add')?.addEventListener('click', () => { restTarget += 15; restRemaining += 15; persistRest(); renderRest(bar); });
-  bar.querySelector('#rest-sub')?.addEventListener('click', () => { restTarget = Math.max(15, restTarget - 15); restRemaining = Math.max(1, restRemaining - 15); persistRest(); renderRest(bar); });
+  bar.querySelector('#rest-add')?.addEventListener('click', () => { restTarget += 15; restEndAt += 15000; persistRest(); renderRest(bar); });
+  bar.querySelector('#rest-sub')?.addEventListener('click', () => { restTarget = Math.max(15, restTarget - 15); restEndAt = Math.max(Date.now() + 1000, restEndAt - 15000); persistRest(); renderRest(bar); });
   bar.querySelector('#rest-skip')?.addEventListener('click', clearRest);
   bar.querySelector('#rest-dismiss')?.addEventListener('click', clearRest);
 }
@@ -1186,10 +1245,18 @@ function renderRest(bar, done = false) {
 function clearRest() {
   clearInterval(restInterval);
   restInterval = null;
-  restRemaining = 0;
+  restEndAt = 0;
   restExId = null;
   const bar = document.getElementById('rest-timer');
   if (bar) { bar.classList.add('hidden'); bar.classList.remove('rest-done'); bar.innerHTML = ''; }
+}
+
+// Recompute the moment the app returns to the foreground — iOS freezes the interval
+// while backgrounded, so this is what makes the timer "catch up" to the wall clock.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && restEndAt) updateRest();
+  });
 }
 
 // When a just-checked weighted set beats the exercise's best estimated 1RM (from
