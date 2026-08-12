@@ -1,10 +1,20 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.8';
+export const APP_VERSION = '1.7.9';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.9',
+    date: '2026-08-12',
+    items: [
+      'Fixed cross-exercise drop sets getting cut off — the drop\'s name now sits on its own line so weight/reps/✓ are always visible.',
+      'The ⚙ gear on each exercise is now a full settings panel: start side (left- or right-first for per-side exercises), machine setup, this-workout note, and the superset link — all in one place, off the main card.',
+      'Reorder exercises mid-workout — new ⇅ Reorder button next to Add Exercise (drag, supersets move together).',
+      'Added "Cambered Bar Tricep Pushdowns" as its own exercise (separate from the rope version).',
+    ],
+  },
   {
     v: '1.7.8',
     date: '2026-08-12',

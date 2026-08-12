@@ -475,7 +475,10 @@ async function renderActiveSession(el) {
       </div>
       ${activeSession.sorenessNote ? `<div class="soreness-banner">⚠ ${esc(activeSession.sorenessNote)}</div>` : ''}
       <div id="exercise-cards"></div>
-      <button class="btn btn-ghost btn-full" id="add-exercise-btn" style="margin-top:8px">+ Add Exercise</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost" id="add-exercise-btn" style="flex:1">+ Add Exercise</button>
+        ${activeSession.exercises.length > 1 ? '<button class="btn btn-ghost" id="reorder-session-btn" style="flex:1">⇅ Reorder</button>' : ''}
+      </div>
       <div style="margin-top:16px">
         <p class="section-title" style="margin-bottom:6px">Session Notes</p>
         <textarea class="input" id="session-notes-during" rows="3" placeholder="Jot notes, observations, or anything to remember…" style="width:100%;box-sizing:border-box">${esc(activeSession.sessionNotes || '')}</textarea>
@@ -546,6 +549,7 @@ async function renderActiveSession(el) {
     }
   });
   el.querySelector('#add-exercise-btn').addEventListener('click', () => showAddExerciseModal(el, cardsEl));
+  el.querySelector('#reorder-session-btn')?.addEventListener('click', () => showSessionReorder(el));
   el.querySelector('#session-notes-during').addEventListener('input', e => {
     activeSession.sessionNotes = e.target.value;
   });
@@ -622,9 +626,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
     <div class="ex-header">
       <span class="ex-name">${esc(displayName)}${machineLabel}</span>
       <div style="display:flex;gap:4px;align-items:center">
-        ${activeSession.exercises.length > 1 ? '<button class="ex-link-btn" title="Superset with another exercise">⛓</button>' : ''}
-        <button class="ex-setup-btn" title="Machine setup / settings">⚙</button>
-        <button class="ex-note-btn" title="Add note">📝</button>
+        <button class="ex-settings-btn" title="Exercise settings">⚙</button>
         <button class="ex-remove-btn" title="Remove exercise">✕</button>
       </div>
     </div>
@@ -634,12 +636,19 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
     ${progHint}
     <div class="ex-sets" id="sets-${exIdx}"></div>
     ${exDef.isUnilateral ? `<div class="asym-chip hidden" id="asym-${exIdx}"></div>` : ''}
-    <div class="ex-setup-row hidden" id="setup-edit-${exIdx}">
-      <textarea class="input ex-setup-input" placeholder="Machine setup — seat height, pad positions, pin, angle…" rows="2">${esc(exDef.setupNotes || '')}</textarea>
+    <div class="ex-settings-panel hidden" id="settings-${exIdx}">
+      ${exDef.isUnilateral ? `
+      <label class="form-label" style="margin-top:2px">Start side</label>
+      <div class="side-toggle">
+        <button type="button" class="side-opt${exDef.startSide === 'R' ? '' : ' on'}" data-side="L">Left first</button>
+        <button type="button" class="side-opt${exDef.startSide === 'R' ? ' on' : ''}" data-side="R">Right first</button>
+      </div>` : ''}
+      <label class="form-label" style="margin-top:10px">Machine setup <span class="form-hint">— shows every time you log this</span></label>
+      <textarea class="input ex-setup-input" placeholder="Seat height, pad positions, pin, angle…" rows="2">${esc(exDef.setupNotes || '')}</textarea>
       <button class="btn btn-primary ex-setup-save" style="margin-top:6px;min-height:36px">Save setup</button>
-    </div>
-    <div class="ex-note-row hidden" id="note-${exIdx}">
-      <textarea class="input ex-note-input" placeholder="Note for this exercise..." rows="2"></textarea>
+      <label class="form-label" style="margin-top:12px">Note <span class="form-hint">— just this workout</span></label>
+      <textarea class="input ex-note-input" placeholder="e.g. felt tweaky, dropped the weight…" rows="2">${esc(sessionEx.notes || '')}</textarea>
+      ${activeSession.exercises.length > 1 ? '<button class="btn btn-ghost ex-link-btn" style="margin-top:8px">⛓ Superset with another exercise</button>' : ''}
     </div>
     <div class="ex-actions">
       <button class="btn btn-ghost ex-add-set">+ Add Set</button>
@@ -670,39 +679,47 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
     renderActiveSession(el);
   }));
 
-  card.querySelector('.ex-note-btn').addEventListener('click', () => {
-    card.querySelector(`#note-${exIdx}`).classList.toggle('hidden');
-  });
-
-  // Persistent per-exercise setup notes (seat/pad/pin settings). Stored on the
-  // exercise definition, so they show every time you log this exercise — unlike the
-  // 📝 note, which is per-session. Editable right at the machine.
+  // Consolidated ⚙ settings panel: start-side, persistent machine setup, this-workout
+  // note, and superset link — all behind the gear so the card stays focused on reps.
   const setupLine = card.querySelector(`#setup-${exIdx}`);
-  const setupRow = card.querySelector(`#setup-edit-${exIdx}`);
+  const panel = card.querySelector(`#settings-${exIdx}`);
   const renderSetupLine = () => {
     const txt = exDef.setupNotes || '';
     setupLine.innerHTML = txt
-      ? `<button type="button" class="ex-setup-chip" title="Edit setup">⚙ ${esc(txt)}</button>`
+      ? `<button type="button" class="ex-setup-chip" title="Edit in settings">⚙ ${esc(txt)}</button>`
       : '';
-    setupLine.querySelector('.ex-setup-chip')?.addEventListener('click', () => setupRow.classList.toggle('hidden'));
+    setupLine.querySelector('.ex-setup-chip')?.addEventListener('click', () => panel.classList.remove('hidden'));
   };
   renderSetupLine();
-  card.querySelector('.ex-setup-btn').addEventListener('click', () => {
-    setupRow.classList.toggle('hidden');
-    if (!setupRow.classList.contains('hidden')) setupRow.querySelector('.ex-setup-input').focus();
-  });
+  card.querySelector('.ex-settings-btn').addEventListener('click', () => panel.classList.toggle('hidden'));
+
+  // Start side (unilateral): flip which side leads. Persist on the def and reassign
+  // the current sets' L/R by index parity, then re-render the rows.
+  card.querySelectorAll('.side-opt').forEach(b => b.addEventListener('click', async () => {
+    const side = b.dataset.side === 'R' ? 'R' : 'L';
+    exDef.startSide = side;
+    if (_exDefById[exDef.id]) _exDefById[exDef.id].startSide = side;
+    card.querySelectorAll('.side-opt').forEach(o => o.classList.toggle('on', o.dataset.side === side));
+    const first = side, second = side === 'L' ? 'R' : 'L';
+    activeSession.exercises[exIdx].sets.forEach((s, i) => { s.side = i % 2 === 0 ? first : second; });
+    refreshSets(setsEl, exIdx, exDef, prev);
+    try { await addExercise(exDef); } catch (e) {}
+  }));
+
+  // Persistent machine-setup note — stored on the exercise def, shown every session.
   card.querySelector('.ex-setup-save').addEventListener('click', async () => {
     const val = card.querySelector('.ex-setup-input').value.trim();
     exDef.setupNotes = val || '';
     if (_exDefById[exDef.id]) _exDefById[exDef.id].setupNotes = exDef.setupNotes;
     try { await addExercise(exDef); } catch (e) {}
-    setupRow.classList.add('hidden');
     renderSetupLine();
     toast('Setup saved', { duration: 1400 });
   });
-  // Ad-hoc superset: pick which exercise to pair with (any other in the workout,
-  // including one already in a superset). Re-render merges them into a
-  // round-interleaved block; supersetId autosaves with the session.
+  // This-workout note (per-session).
+  card.querySelector('.ex-note-input').addEventListener('input', e => {
+    activeSession.exercises[exIdx].notes = e.target.value;
+  });
+  // Ad-hoc superset: pick which exercise to pair with (any other in the workout).
   card.querySelector('.ex-link-btn')?.addEventListener('click', () => showSupersetPicker(exIdx, el));
   card.querySelector('.ex-remove-btn').addEventListener('click', async () => {
     const removed = activeSession.exercises[exIdx];
@@ -712,9 +729,6 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
       activeSession.exercises.splice(exIdx, 0, removed);
       await renderActiveSession(el);
     });
-  });
-  card.querySelector(`#note-${exIdx} textarea`).addEventListener('input', e => {
-    activeSession.exercises[exIdx].notes = e.target.value;
   });
   card.querySelector('.ex-add-set').addEventListener('click', () => {
     const sets = activeSession.exercises[exIdx].sets;
@@ -834,6 +848,97 @@ function showDropExercisePicker(exIdx, sIdx, parentDef, reRender) {
   // list is delegated so re-rendering on each keystroke keeps working.
   overlay.querySelectorAll('.dpick').forEach(b => { if (!listEl.contains(b)) b.addEventListener('click', () => pick(b.dataset.id)); });
   listEl.addEventListener('click', e => { const b = e.target.closest('.dpick'); if (b) pick(b.dataset.id); });
+}
+
+// Reorder the exercises in the LIVE workout — same chip-drag UI as the template
+// editor, but operating on activeSession.exercises. Consecutive exercises sharing a
+// supersetId form a locked block that moves together; "unlink" splits one (clearing
+// its supersetId). On Done the session's exercise order is rewritten and re-rendered.
+function showSessionReorder(el) {
+  const exs = activeSession.exercises;
+  if (!exs || exs.length < 2) return;
+  let groups = [];
+  exs.forEach((ex, i) => {
+    const prev = exs[i - 1];
+    if (i > 0 && ex.supersetId && prev && ex.supersetId === prev.supersetId) groups[groups.length - 1].push(ex);
+    else groups.push([ex]);
+  });
+  const host = document.createElement('div');
+  host.className = 'modal-overlay';
+  host.style.zIndex = '60';
+  document.body.appendChild(host);
+  const close = () => host.remove();
+  const nameOf = ex => (ex.exerciseName || _exDefById[ex.exerciseId]?.name || ex.exerciseId || '').replace(/_/g, ' ');
+
+  function render() {
+    const blocks = groups.map((g, gi) => {
+      const linked = g.length > 1;
+      const names = g.map(ex => `<span class="reorder-name">${esc(nameOf(ex))}</span>`).join('');
+      const unlink = linked ? `<button type="button" class="reorder-unlink" data-gi="${gi}">unlink</button>` : '';
+      const tag = linked ? `<span class="reorder-super">superset · moves together</span>` : '';
+      return `<div class="reorder-group${linked ? ' linked' : ''}" data-gi="${gi}">
+        <button type="button" class="reorder-handle" data-gi="${gi}" aria-label="Drag to reorder">⣿</button>
+        <div class="reorder-body">${tag}${names}</div>
+        ${unlink}
+      </div>`;
+    }).join('');
+    host.innerHTML = `
+      <div class="modal-sheet">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <h2 class="modal-title" style="margin-bottom:0">Reorder exercises</h2>
+          <button class="modal-dismiss-btn" id="sreorder-dismiss">&times;</button>
+        </div>
+        <p class="settings-hint" style="margin-bottom:12px">Drag the handle to move an exercise. Supersets move as one block — tap "unlink" to split one.</p>
+        <div class="reorder-list">${blocks}</div>
+        <button class="btn btn-primary btn-full" id="sreorder-done" style="margin-top:14px">Done</button>
+      </div>`;
+    host.querySelector('#sreorder-dismiss').addEventListener('click', close);
+    host.querySelector('#sreorder-done').addEventListener('click', () => {
+      activeSession.exercises.splice(0, activeSession.exercises.length, ...groups.flat());
+      close();
+      renderActiveSession(el);
+    });
+    host.querySelectorAll('.reorder-unlink').forEach(b => b.addEventListener('click', () => {
+      const gi = +b.dataset.gi;
+      const freed = groups[gi];
+      freed.forEach(ex => { ex.supersetId = null; });
+      groups.splice(gi, 1, ...freed.map(ex => [ex]));
+      render();
+    }));
+    host.querySelectorAll('.reorder-handle').forEach(h => h.addEventListener('pointerdown', e => startDrag(e, +h.dataset.gi)));
+  }
+
+  function startDrag(e, gi) {
+    e.preventDefault();
+    let from = gi;
+    const mark = () => host.querySelectorAll('.reorder-group').forEach(g => g.classList.toggle('dragging', +g.dataset.gi === from));
+    mark();
+    const move = ev => {
+      const y = ev.clientY;
+      const els = [...host.querySelectorAll('.reorder-group')];
+      let target = els.length - 1;
+      for (let k = 0; k < els.length; k++) {
+        const r = els[k].getBoundingClientRect();
+        if (y < r.top + r.height / 2) { target = k; break; }
+      }
+      if (target !== from) {
+        const [moved] = groups.splice(from, 1);
+        groups.splice(target, 0, moved);
+        from = target;
+        render();
+        mark();
+      }
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      host.querySelectorAll('.reorder-group').forEach(g => g.classList.remove('dragging'));
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  render();
 }
 
 // Ad-hoc superset: choose which other exercise to pair this one with. Lists every
@@ -1055,8 +1160,10 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
   const row = document.createElement('div');
   row.className = `set-row${isDropSet ? ' drop-set' : ''}`;
 
-  // Pre-select side based on set index: even sets → L, odd → R (for unilateral)
-  const autoSide = sIdx % 2 === 0 ? 'L' : 'R';
+  // Pre-select side by set index, honoring the exercise's start-side preference:
+  // even sets → start side, odd → the other (for unilateral).
+  const firstSide = exDef.startSide === 'R' ? 'R' : 'L';
+  const autoSide = sIdx % 2 === 0 ? firstSide : (firstSide === 'L' ? 'R' : 'L');
   const side = currentSet.side ?? autoSide;
   if (exDef.isUnilateral && !currentSet.side) activeSession.exercises[exIdx].sets[sIdx].side = side;
 
@@ -1074,7 +1181,11 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
     const altBw = !!altDef.isBodyweight;
     const aw = currentSet.weight ?? '';
     const ar = currentSet.reps ?? '';
-    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="drop-ex-btn" title="Change the drop exercise">${esc(altName)} ⇄</button>${altBw ? '' : `<input type="number" class="set-input w-input" value="${aw}" inputmode="decimal"><span class="set-unit">${esc(altDef.unit || 'lbs')}</span>`}<input type="number" class="set-input r-input" value="${ar}" inputmode="numeric"><span class="set-unit">reps</span><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    // Cross-exercise drop rows carry an extra element (the exercise-name button), so
+    // the alt name gets its own full-width line and the weight/reps/✓/× wrap below it
+    // — otherwise the long name pushes the right side of the row off-screen.
+    row.className = 'set-row drop-set alt-drop';
+    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="drop-ex-btn" title="Change the drop exercise">${esc(altName)} ⇄</button><div class="set-fields">${altBw ? '' : `<input type="number" class="set-input w-input" value="${aw}" inputmode="decimal"><span class="set-unit">${esc(altDef.unit || 'lbs')}</span>`}<input type="number" class="set-input r-input" value="${ar}" inputmode="numeric"><span class="set-unit">reps</span><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button></div>`;
     if (!altBw) row.querySelector('.w-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].weight = Number(e.target.value) || null; });
     row.querySelector('.r-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
     row.querySelector('.drop-ex-btn').addEventListener('click', openDropPicker);
