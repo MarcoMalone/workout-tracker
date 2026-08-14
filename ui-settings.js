@@ -3,6 +3,7 @@ import { showHelpCenter, openFeedback } from './ui-help.js';
 import { showPasteTemplateModal } from './template-import.js';
 import { buildVariationExercises, deriveVariationGroup, VARIATION_PRESETS } from './variations.js';
 import { toGroups, fromGroups, moveGroup, unlinkGroup } from './template-reorder.js';
+import { icon } from './icons.js';
 import { toast, showToast, confirmSheet } from './ui-feedback.js';
 import { APP_VERSION, CHANGELOG } from './version.js';
 
@@ -11,14 +12,14 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 function lastBackupLabel() {
   let ts = 0;
   try { ts = Number(localStorage.getItem('lastBackup')) || 0; } catch (e) { ts = 0; }
-  if (!ts) return '⚠ No backup yet — export one to keep your data safe.';
+  if (!ts) return `${icon('warning', 13)} No backup yet — export one to keep your data safe.`;
   const days = Math.floor((Date.now() - ts) / 86400000);
   const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
   return `Last backup: ${when}.`;
 }
 function refreshLastBackup(el) {
   const n = el.querySelector('#last-backup');
-  if (n) n.textContent = lastBackupLabel();
+  if (n) n.innerHTML = lastBackupLabel();
 }
 
 const COLLAPSE_LIMIT = 3;
@@ -35,7 +36,7 @@ function collapseRows(container, rowSelector, limit = COLLAPSE_LIMIT) {
   btn.type = 'button';
   btn.className = 'collapse-toggle';
   let expanded = false;
-  const label = () => { btn.textContent = expanded ? 'Show fewer ▴' : `Show all ${rows.length} ▾`; };
+  const label = () => { btn.innerHTML = expanded ? `Show fewer ${icon('chevronUp', 13)}` : `Show all ${rows.length} ${icon('chevronDown', 13)}`; };
   btn.addEventListener('click', () => {
     expanded = !expanded;
     rows.forEach((r, i) => { if (i >= limit) r.style.display = expanded ? '' : 'none'; });
@@ -68,8 +69,8 @@ export async function renderSettingsTab(el) {
     <div class="screen">
       <h1 class="tab-title">Settings</h1>
 
-      <button class="btn btn-ghost btn-full" id="open-help-center" style="margin-bottom:8px">❓ Help Center &amp; FAQ</button>
-      <button class="btn btn-ghost btn-full" id="send-feedback" style="margin-bottom:18px">✉ Send feedback</button>
+      <button class="btn btn-ghost btn-full" id="open-help-center" style="margin-bottom:8px">${icon('helpQuestion', 16)} Help Center &amp; FAQ</button>
+      <button class="btn btn-ghost btn-full" id="send-feedback" style="margin-bottom:18px">${icon('mail', 16)} Send feedback</button>
 
       <p class="section-title">Coach</p>
       <div class="settings-group card">
@@ -83,7 +84,7 @@ export async function renderSettingsTab(el) {
       </div>
 
       <details class="settings-collapsible">
-        <summary class="section-title" style="margin-top:20px">Coach Profile <span class="collapse-caret">▾</span></summary>
+        <summary class="section-title" style="margin-top:20px">Coach Profile <span class="collapse-caret">${icon('chevronDown', 14)}</span></summary>
         <div class="settings-group card">
           <label class="settings-label">Your system prompt — shapes every coaching response</label>
           <p class="settings-hint">Include your sport, injury history, current PT stage, and goals. This is injected into every Coach request so the AI knows who it's talking to.</p>
@@ -93,13 +94,13 @@ export async function renderSettingsTab(el) {
       </details>
 
       <details class="settings-collapsible">
-        <summary class="section-title" style="margin-top:20px">Checklists <span class="collapse-caret">▾</span></summary>
+        <summary class="section-title" style="margin-top:20px">Checklists <span class="collapse-caret">${icon('chevronDown', 14)}</span></summary>
         <div class="settings-group card">
           <label class="settings-label">Pre-Workout Items</label>
           <div id="pre-cl-list"></div>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="btn btn-ghost" id="add-pre-item" style="flex:1;min-width:100px">+ Add item</button>
-            <button class="btn btn-ghost" id="reset-pre-cl" style="flex:1;min-width:100px;color:var(--text-3)">↺ Reset defaults</button>
+            <button class="btn btn-ghost" id="reset-pre-cl" style="flex:1;min-width:100px;color:var(--text-3)">${icon('reset', 14)} Reset defaults</button>
           </div>
           <button class="btn btn-secondary settings-save-btn" id="save-pre-cl" style="margin-top:8px">Save</button>
         </div>
@@ -112,17 +113,17 @@ export async function renderSettingsTab(el) {
       </details>
 
       <details class="settings-collapsible">
-        <summary class="section-title" style="margin-top:20px">Exercise Library <span class="collapse-caret">▾</span></summary>
+        <summary class="section-title" style="margin-top:20px">Exercise Library <span class="collapse-caret">${icon('chevronDown', 14)}</span></summary>
         <div class="settings-group card" id="exercise-library"></div>
         <button class="btn btn-ghost btn-full" id="add-exercise-btn" style="margin-top:8px">+ Add Exercise</button>
-        <button class="btn btn-ghost btn-full" id="merge-exercises-btn" style="margin-top:8px">⇄ Merge duplicate exercises</button>
+        <button class="btn btn-ghost btn-full" id="merge-exercises-btn" style="margin-top:8px">${icon('swap', 15)} Merge duplicate exercises</button>
         <p class="settings-hint" style="margin-top:6px">Combine two exercises that are really the same (e.g. a coach-built "Cable Row" and your "Seated Cable Rows") so their history and charts merge.</p>
-        <button class="btn btn-ghost btn-full" id="group-var-btn" style="margin-top:8px">⟳ Group exercise variations</button>
+        <button class="btn btn-ghost btn-full" id="group-var-btn" style="margin-top:8px">${icon('rotate', 15)} Group exercise variations</button>
         <p class="settings-hint" style="margin-top:6px">Link existing exercises that are variations of one movement (e.g. close / neutral / wide grip) so you can drop them into a workout as a rotation.</p>
       </details>
 
       <details class="settings-collapsible">
-        <summary class="section-title" style="margin-top:20px">Workout Templates <span class="collapse-caret">▾</span></summary>
+        <summary class="section-title" style="margin-top:20px">Workout Templates <span class="collapse-caret">${icon('chevronDown', 14)}</span></summary>
         <div class="settings-group card" id="template-library"></div>
         <button class="btn btn-ghost btn-full" id="add-template-btn" style="margin-top:8px">+ New Template</button>
         <button class="btn btn-ghost btn-full" id="paste-template-btn" style="margin-top:8px">Paste a template (AI-assisted)</button>
@@ -161,8 +162,8 @@ export async function renderSettingsTab(el) {
       <div class="settings-group card">
         <p class="settings-hint"><b style="color:var(--text)">Your data stays on this phone.</b> No account, no server — nothing is uploaded. (The one exception: the optional AI coach sends what you ask to Anthropic, using your own key.) If you clear your browser or lose the phone, your data is gone unless you've exported a backup.</p>
         <p class="settings-hint" id="last-backup" style="margin-top:6px"></p>
-        <button class="btn btn-secondary btn-full" id="export-json-btn">⬇ Export Backup (JSON)</button>
-        <button class="btn btn-ghost btn-full" id="restore-json-btn" style="margin-top:8px">⬆ Restore from Backup</button>
+        <button class="btn btn-secondary btn-full" id="export-json-btn">${icon('download', 16)} Export Backup (JSON)</button>
+        <button class="btn btn-ghost btn-full" id="restore-json-btn" style="margin-top:8px">${icon('upload', 16)} Restore from Backup</button>
         <input type="file" id="json-file-input" accept="application/json,.json" class="hidden">
         <div style="height:1px;background:var(--border);margin:12px 0"></div>
         <button class="btn btn-ghost btn-full" id="import-csv-btn">Import from Google Sheets (CSV or Excel)</button>
@@ -170,7 +171,7 @@ export async function renderSettingsTab(el) {
       </div>
 
       <details class="settings-collapsible" open>
-        <summary class="section-title" style="margin-top:20px">About <span class="collapse-caret">▾</span></summary>
+        <summary class="section-title" style="margin-top:20px">About <span class="collapse-caret">${icon('chevronDown', 14)}</span></summary>
         <div class="settings-group card">
           <p class="settings-label" style="margin:0">Workout Tracker <span style="color:var(--text-3);font-weight:700">v${esc(APP_VERSION)}</span></p>
           <p class="settings-hint" style="margin:4px 0 12px">A private, on-device training log — no accounts, no servers.</p>
@@ -327,7 +328,7 @@ async function renderExerciseLibrary(container, el) {
   const shown = exLibExpanded ? exercises : exercises.slice(0, COLLAPSE_LIMIT);
   const rowHtml = ex => `<div class="lib-row"><span>${esc(ex.name)}${ex.isUnilateral ? ' <span class="uni-tag">per side</span>' : ''}${ex.variationGroupId ? ` <span class="var-tag">variation${ex.variationBase ? ' · ' + esc(ex.variationBase) : ''}</span>` : ''} <span class="template-tag tag-${esc(ex.bodyPartGroup)}">${esc(ex.bodyPartGroup)}</span></span><div style="display:flex;gap:4px"><button class="btn btn-ghost lib-edit-btn" style="min-height:36px;font-size:13px" data-id="${esc(ex.id)}">Edit</button><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px;color:var(--danger)" data-id="${esc(ex.id)}">Del</button></div></div>`;
   container.innerHTML = shown.map(rowHtml).join('')
-    + (exercises.length > COLLAPSE_LIMIT ? `<button type="button" class="collapse-toggle" id="ex-lib-toggle">${exLibExpanded ? 'Show fewer ▴' : `Show all ${exercises.length} ▾`}</button>` : '');
+    + (exercises.length > COLLAPSE_LIMIT ? `<button type="button" class="collapse-toggle" id="ex-lib-toggle">${exLibExpanded ? `Show fewer ${icon('chevronUp', 13)}` : `Show all ${exercises.length} ${icon('chevronDown', 13)}`}</button>` : '');
   container.querySelectorAll('.lib-edit-btn').forEach(btn => {
     btn.addEventListener('click', () => { const ex = exercises.find(e => e.id === btn.dataset.id); if (ex) showExerciseForm(el, ex); });
   });
@@ -343,7 +344,7 @@ async function renderTemplateLibrary(container, el) {
   const shown = tplLibExpanded ? templates : templates.slice(0, COLLAPSE_LIMIT);
   const rowHtml = t => `<div class="lib-row"><span>${esc(t.name)} <span class="template-tag tag-${esc(t.bodyPartGroup)}">${esc(t.bodyPartGroup)}</span></span><div style="display:flex;gap:4px"><button class="btn btn-ghost lib-edit-btn" style="min-height:36px;font-size:13px" data-id="${esc(t.id)}">Edit</button><button class="btn btn-ghost lib-del-btn" style="min-height:36px;font-size:13px;color:var(--danger)" data-id="${esc(t.id)}">Del</button></div></div>`;
   container.innerHTML = shown.map(rowHtml).join('')
-    + (templates.length > COLLAPSE_LIMIT ? `<button type="button" class="collapse-toggle" id="tpl-lib-toggle">${tplLibExpanded ? 'Show fewer ▴' : `Show all ${templates.length} ▾`}</button>` : '');
+    + (templates.length > COLLAPSE_LIMIT ? `<button type="button" class="collapse-toggle" id="tpl-lib-toggle">${tplLibExpanded ? `Show fewer ${icon('chevronUp', 13)}` : `Show all ${templates.length} ${icon('chevronDown', 13)}`}</button>` : '');
   container.querySelectorAll('.lib-del-btn').forEach(btn => {
     btn.addEventListener('click', async () => { if (await confirmSheet({ title: 'Delete template?', confirmLabel: 'Delete', danger: true })) { await deleteTemplate(btn.dataset.id); await renderTemplateLibrary(container, el); } });
   });
@@ -524,7 +525,7 @@ function showExerciseForm(el, existing) {
   const renderVarList = () => {
     if (!varListEl) return;
     varListEl.innerHTML = varLabels.length
-      ? varLabels.map((l, i) => `<span class="var-chip">${esc(l)}<button type="button" class="var-chip-x" data-i="${i}" aria-label="Remove">×</button></span>`).join('')
+      ? varLabels.map((l, i) => `<span class="var-chip">${esc(l)}<button type="button" class="var-chip-x" data-i="${i}" aria-label="Remove">${icon('removeX', 12)}</button></span>`).join('')
       : '<span class="settings-hint">No variations added yet.</span>';
     varListEl.querySelectorAll('.var-chip-x').forEach(b => b.addEventListener('click', () => { varLabels.splice(+b.dataset.i, 1); renderVarList(); }));
   };
@@ -611,12 +612,12 @@ export async function showTemplateEditor(el, existing, onSave) {
       <select class="input" id="tpl-part">
         ${['arms', 'legs', 'core'].map(p => `<option value="${p}" ${existing?.bodyPartGroup === p ? 'selected' : ''}>${p[0].toUpperCase() + p.slice(1)}</option>`).join('')}
       </select>
-      <label class="form-label" style="margin-top:12px">Exercises <span class="form-hint">— set sets × reps, ⛓ to superset with the one above, or Reorder to drag</span></label>
+      <label class="form-label" style="margin-top:12px">Exercises <span class="form-hint">— set sets × reps, ${icon('chainLink', 12)} to superset with the one above, or Reorder to drag</span></label>
       <div id="tpl-ex-list" style="max-height:300px;overflow-y:auto;margin-bottom:8px"></div>
-      <button type="button" class="btn btn-ghost btn-full" id="tpl-reorder-btn" style="margin-bottom:8px">⇅ Reorder exercises</button>
+      <button type="button" class="btn btn-ghost btn-full" id="tpl-reorder-btn" style="margin-bottom:8px">${icon('reorder', 15)} Reorder exercises</button>
       <select class="input" id="tpl-add-ex"><option value="">+ Add exercise…</option>${exercises.map(ex => `<option value="${esc(ex.id)}">${esc(ex.name)}</option>`).join('')}</select>
       <button class="btn btn-primary btn-full" id="save-tpl-btn" style="margin-top:12px">Save Template</button>
-      ${existing ? `<button class="btn btn-ghost btn-full" id="del-tpl-btn" style="margin-top:8px;color:var(--danger)">🗑 Delete Template</button>` : ''}
+      ${existing ? `<button class="btn btn-ghost btn-full" id="del-tpl-btn" style="margin-top:8px;color:var(--danger)">${icon('trash', 15)} Delete Template</button>` : ''}
     </div>
   `;
 
@@ -634,17 +635,17 @@ export async function showTemplateEditor(el, existing, onSave) {
       const cfg = `<input class="tpl-mini" type="number" inputmode="numeric" min="1" value="${r.defaultSets}" data-i="${i}" data-f="defaultSets" aria-label="Sets"><span class="tpl-x">×</span><input class="tpl-mini" type="number" inputmode="numeric" value="${repVal}" data-i="${i}" data-f="${repField}" aria-label="${uni ? 'Per side' : 'Reps'}"><span class="tpl-x">${repLabel}</span>`;
       const rotating = Array.isArray(r.variantIds) && r.variantIds.length > 1;
       const rotTag = rotating
-        ? `<span class="tpl-rot-tag">⟳ ${r.variantIds.length} variants · ${r.variantMode === 'choice' ? 'choice' : 'auto'}</span>`
+        ? `<span class="tpl-rot-tag">${icon('rotate', 12)} ${r.variantIds.length} variants · ${r.variantMode === 'choice' ? 'choice' : 'auto'}</span>`
         : '';
       const displayName = rotating ? `${(exById[r.variantIds[0]]?.name || name).replace(/_/g, ' ')} +${r.variantIds.length - 1}` : name;
       return `<div class="tpl-ex-row${r.linkedAbove ? ' tpl-linked' : ''}">
-        ${i > 0 ? `<button class="tpl-link${r.linkedAbove ? ' on' : ''}" data-i="${i}" title="${r.linkedAbove ? 'Linked as a superset — tap to unlink' : 'Superset with the exercise above'}" aria-label="Superset with above">⛓</button>` : '<span class="tpl-link-spacer"></span>'}
+        ${i > 0 ? `<button class="tpl-link${r.linkedAbove ? ' on' : ''}" data-i="${i}" title="${r.linkedAbove ? 'Linked as a superset — tap to unlink' : 'Superset with the exercise above'}" aria-label="Superset with above">${icon('chainLink', 15)}</button>` : '<span class="tpl-link-spacer"></span>'}
         <div class="tpl-ex-main">${r.linkedAbove ? '<span class="tpl-linked-tag">superset with above</span>' : ''}<span class="tpl-ex-name">${esc(displayName)}${uni ? ' <span class="uni-tag">per side</span>' : ''}</span>${rotTag}<div class="tpl-ex-cfg">${cfg}</div></div>
         <div class="tpl-ex-ctrls">
-          <button class="tpl-rotate${rotating ? ' on' : ''}" data-i="${i}" title="Rotate through variants" aria-label="Rotate variants">⟳</button>
-          <button class="tpl-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
-          <button class="tpl-move" data-i="${i}" data-d="1" ${i === chosen.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
-          <button class="tpl-remove" data-i="${i}" aria-label="Remove">✕</button>
+          <button class="tpl-rotate${rotating ? ' on' : ''}" data-i="${i}" title="Rotate through variants" aria-label="Rotate variants">${icon('rotate', 15)}</button>
+          <button class="tpl-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">${icon('arrowUp', 15)}</button>
+          <button class="tpl-move" data-i="${i}" data-d="1" ${i === chosen.length - 1 ? 'disabled' : ''} aria-label="Move down">${icon('arrowDown', 15)}</button>
+          <button class="tpl-remove" data-i="${i}" aria-label="Remove">${icon('removeX', 14)}</button>
         </div>
       </div>`;
     }).join('');
@@ -758,9 +759,9 @@ function showRotationEditor(row, exercises, exById, onDone) {
           <div class="rot-row">
             <span class="rot-order">${i + 1}</span>
             <span class="rot-name">${esc((exById[id]?.name || id).replace(/_/g, ' '))}</span>
-            <button class="rot-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Up">↑</button>
-            <button class="rot-move" data-i="${i}" data-d="1" ${i === ids.length - 1 ? 'disabled' : ''} aria-label="Down">↓</button>
-            <button class="rot-del" data-i="${i}" aria-label="Remove">✕</button>
+            <button class="rot-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Up">${icon('arrowUp', 15)}</button>
+            <button class="rot-move" data-i="${i}" data-d="1" ${i === ids.length - 1 ? 'disabled' : ''} aria-label="Down">${icon('arrowDown', 15)}</button>
+            <button class="rot-del" data-i="${i}" aria-label="Remove">${icon('removeX', 14)}</button>
           </div>`).join('')}</div>
         <select class="input" id="rot-add" style="margin-top:10px"><option value="">+ Add a variant…</option>${addOpts}</select>
         ${groupBtn}
@@ -816,7 +817,7 @@ function showReorderEditor(chosen, exById, onDone) {
       const unlink = linked ? `<button type="button" class="reorder-unlink" data-gi="${gi}">unlink</button>` : '';
       const tag = linked ? `<span class="reorder-super">superset · moves together</span>` : '';
       return `<div class="reorder-group${linked ? ' linked' : ''}" data-gi="${gi}">
-        <button type="button" class="reorder-handle" data-gi="${gi}" aria-label="Drag to reorder">⣿</button>
+        <button type="button" class="reorder-handle" data-gi="${gi}" aria-label="Drag to reorder">${icon('dragHandle', 18)}</button>
         <div class="reorder-body">${tag}${names}</div>
         ${unlink}
       </div>`;

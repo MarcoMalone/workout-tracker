@@ -1,4 +1,5 @@
 import { showHelpCenter } from './ui-help.js';
+import { icon } from './icons.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -74,7 +75,7 @@ export function showTermSheet(term) {
     <div class="modal-sheet term-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <h2 class="modal-title" style="margin-bottom:0">${esc(d.label)}</h2>
-        <button class="modal-dismiss-btn" id="term-dismiss" aria-label="Dismiss">✕</button>
+        <button class="modal-dismiss-btn" id="term-dismiss" aria-label="Dismiss">${icon('closeX', 18)}</button>
       </div>
       <p class="term-short">${esc(d.short)}</p>
       ${d.body ? `<p class="term-body">${esc(d.body)}</p>` : ''}

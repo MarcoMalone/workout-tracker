@@ -2,6 +2,7 @@ import { getRunLogs, getWalkLogs, getAllSessions, getExercises, dataVersion } fr
 import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall, computeWeeklyCardio, weeklyCardioSeries } from './metrics.js';
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { switchTab } from './app.js';
+import { icon } from './icons.js';
 
 // The built Progress DOM is cached and reused across tab switches. Building it is
 // expensive (200-session read + ACWR/volume/stall compute + several Chart.js
@@ -36,7 +37,7 @@ export async function renderProgressTab(el) {
       <div class="screen">
         <h1 class="tab-title">Progress</h1>
         <div class="empty-state">
-          <div class="empty-icon">📈</div>
+          <div class="empty-icon">${icon('trendBars', 48)}</div>
           <h2 class="empty-title">Your trends will build here</h2>
           <p class="empty-text">Log a few workouts and this tab starts showing your training load, weekly volume, and estimated 1-rep maxes. Most charts fill in after about 3–4 sessions.</p>
           <button class="btn btn-primary" id="empty-log-cta">Log a workout</button>
@@ -247,8 +248,8 @@ function renderProgressSummary(container, acwr, volume, stalls = [], cardio = nu
   let cardioLine = '';
   if (cardio) {
     const parts = [];
-    if (cardio.runCount) parts.push(`🏃 ${cardio.runMin} min${cardio.runMiles ? ` · ${cardio.runMiles} mi` : ''}`);
-    if (cardio.walkCount) parts.push(`🚶 ${cardio.walkMin} min${cardio.walkMiles ? ` · ${cardio.walkMiles} mi` : ''}`);
+    if (cardio.runCount) parts.push(`${icon('run', 14)} ${cardio.runMin} min${cardio.runMiles ? ` · ${cardio.runMiles} mi` : ''}`);
+    if (cardio.walkCount) parts.push(`${icon('walk', 14)} ${cardio.walkMin} min${cardio.walkMiles ? ` · ${cardio.walkMiles} mi` : ''}`);
     cardioLine = `<div class="vol-cardio">${parts.length ? parts.join(' &nbsp;·&nbsp; ') : 'No running or walking logged this week'}</div>`;
   }
 
@@ -345,7 +346,7 @@ function streakCaption(activityByDate) {
     streak++;
     d.setDate(d.getDate() - 1);
   }
-  if (streak >= 1) return `🔥 ${streak}-day streak`;
+  if (streak >= 1) return `${icon('flame', 13)} ${streak}-day streak`;
   const sorted = Object.keys(activityByDate).sort().reverse();
   if (!sorted.length) return 'No activity logged yet';
   const todayKey = localDateKey(today);
@@ -743,7 +744,7 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
     data = sorted.map(h => Math.max(...h.exercise.sets.map(s => s.seconds || 0)));
     tooltipFn = v => `${v} sec`;
     const best = Math.max(...data);
-    statEl.innerHTML = `<span class="chart-stat-pr">🏆 Best: ${best} sec</span>`;
+    statEl.innerHTML = `<span class="chart-stat-pr">${icon('trophy', 14)} Best: ${best} sec</span>`;
     pointColors = data.map(() => '#c6f135');
     pointRadii = data.map(() => 4);
   } else if (metric === 'e1rm') {
@@ -754,7 +755,7 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
     const best = valid.length ? Math.max(...valid) : 0;
     const change = percentChange(valid);
     const sign = change >= 0 ? '+' : '';
-    statEl.innerHTML = `<span class="chart-stat-pr">🏆 Best: ${best} lbs est.</span><span>📈 ${sign}${change}% over ${valid.length} session${valid.length !== 1 ? 's' : ''}</span>`;
+    statEl.innerHTML = `<span class="chart-stat-pr">${icon('trophy', 14)} Best: ${best} lbs est.</span><span>${icon('trendUp', 13)} ${sign}${change}% over ${valid.length} session${valid.length !== 1 ? 's' : ''}</span>`;
     pointColors = prFlags.map((pr, i) => (pr && data[i] != null) ? '#c6f135' : 'rgba(0,0,0,0)');
     pointRadii = prFlags.map((pr, i) => (pr && data[i] != null) ? 6 : 4);
   } else {
@@ -764,7 +765,7 @@ function renderSlideChart(canvas, { history, isTimed, statEl, navEl, isLR, histL
     const best = data.length ? Math.max(...data) : 0;
     const change = percentChange(data);
     const sign = change >= 0 ? '+' : '';
-    statEl.innerHTML = `<span class="chart-stat-pr">🏆 Best: ${best.toLocaleString()} lbs</span><span>📈 ${sign}${change}% over ${data.length} sessions</span>`;
+    statEl.innerHTML = `<span class="chart-stat-pr">${icon('trophy', 14)} Best: ${best.toLocaleString()} lbs</span><span>${icon('trendUp', 13)} ${sign}${change}% over ${data.length} sessions</span>`;
     pointColors = data.map(() => '#c6f135');
     pointRadii = data.map(() => 4);
   }
@@ -935,7 +936,7 @@ function renderLRChart(canvas, { histL, histR, histBoth, isTimed, statEl, navEl 
   const parts = [];
   if (lBest != null) parts.push(`L: ${lBest}`);
   if (rBest != null) parts.push(`R: ${rBest}`);
-  statEl.innerHTML = `<span class="chart-stat-pr">🏆 ${parts.length ? parts.join(' / ') + ' ' + unit : 'No data yet'}</span>`;
+  statEl.innerHTML = `<span class="chart-stat-pr">${icon('trophy', 14)} ${parts.length ? parts.join(' / ') + ' ' + unit : 'No data yet'}</span>`;
 
   const allVals = [...lData, ...rData, ...uData].filter(v => v != null);
   const minVal = allVals.length ? Math.floor(Math.min(...allVals) * 0.94) : 0;

@@ -1,4 +1,5 @@
 import { getSetting } from './db.js';
+import { icon } from './icons.js';
 import { askHelp } from './claude-api.js';
 
 // Opens the user's mail app with a prefilled feedback email to Marco.
@@ -32,11 +33,11 @@ export function showHelpCenter() {
     <div class="modal-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <h2 class="modal-title" style="margin-bottom:0">Help Center</h2>
-        <button class="modal-dismiss-btn" id="help-dismiss" aria-label="Dismiss">✕</button>
+        <button class="modal-dismiss-btn" id="help-dismiss" aria-label="Dismiss">${icon('closeX', 18)}</button>
       </div>
       <p class="settings-hint" style="margin-bottom:12px">Common questions — tap to expand. Or ask your own below.</p>
       <div class="faq-list">
-        ${FAQ.map((f, i) => `<div class="faq-item"><button class="faq-q" data-i="${i}">${esc(f.q)}<span class="faq-caret">▾</span></button><div class="faq-a hidden" id="faq-a-${i}">${esc(f.a)}</div></div>`).join('')}
+        ${FAQ.map((f, i) => `<div class="faq-item"><button class="faq-q" data-i="${i}">${esc(f.q)}<span class="faq-caret">${icon('chevronDown', 14)}</span></button><div class="faq-a hidden" id="faq-a-${i}">${esc(f.a)}</div></div>`).join('')}
       </div>
       <p class="section-title" style="margin-top:18px">Ask a question</p>
       <textarea class="input" id="help-q" rows="2" placeholder="e.g. How do I log a drop set?"></textarea>
@@ -44,7 +45,7 @@ export function showHelpCenter() {
       <div class="coach-response hidden" id="help-answer"></div>
       <div style="height:1px;background:var(--border);margin:18px 0"></div>
       <p class="settings-hint" style="margin-bottom:8px">Found a bug or have an idea? It helps the app improve fast.</p>
-      <button class="btn btn-ghost btn-full" id="help-feedback">✉ Send feedback</button>
+      <button class="btn btn-ghost btn-full" id="help-feedback">${icon('mail', 16)} Send feedback</button>
     </div>
   `;
   const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };

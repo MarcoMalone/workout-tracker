@@ -1,4 +1,5 @@
 import { APP_VERSION, CHANGELOG } from './version.js';
+import { icon } from './icons.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -20,7 +21,7 @@ export function maybeShowWhatsNew() {
     <div class="modal-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <h2 class="modal-title" style="margin-bottom:0">What's new</h2>
-        <button class="modal-dismiss-btn" id="wn-x" aria-label="Dismiss">✕</button>
+        <button class="modal-dismiss-btn" id="wn-x" aria-label="Dismiss">${icon('closeX', 18)}</button>
       </div>
       <p class="settings-hint" style="margin-bottom:10px">Version ${esc(APP_VERSION)}</p>
       <ul class="whatsnew-list">${entry.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>

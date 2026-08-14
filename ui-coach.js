@@ -1,6 +1,7 @@
 import { getSessionsByBodyPart, getAllSessions, getRunLogs, getWalkLogs, getSetting, getReadiness, getGoals, saveGoals, getGoalLog, getPainLog, setPain, getExercises, addExercise, addTemplate, getTemplates } from './db.js';
 import { buildPreWorkoutContext, buildPostWorkoutContext, callClaude, buildExportSummary, buildSessionSummary, buildGoalSuggestions, buildPrescribedWorkout, buildTemplateFromPrescription } from './claude-api.js';
 import { readinessScore, computeACWR, painSummary } from './metrics.js';
+import { icon } from './icons.js';
 import { toast, confirmSheet } from './ui-feedback.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -207,7 +208,7 @@ export async function renderCoachTab(el) {
         const list = await getGoals();
         list.push({ id: crypto.randomUUID(), title: s.title, target: s.target, unit: s.unit });
         await saveGoals(list);
-        b.textContent = '✓ Added';
+        b.innerHTML = icon('check', 14) + ' Added';
         b.disabled = true;
       }));
     } catch (err) {
@@ -276,11 +277,11 @@ async function runCoach(el, btnSel, respSel, contextFn, apiKey) {
     textEl.textContent = text;
     const copyBtn = document.createElement('button');
     copyBtn.className = 'coach-copy-btn';
-    copyBtn.textContent = '📋 Copy response';
+    copyBtn.innerHTML = icon('copy', 15) + ' Copy response';
     copyBtn.addEventListener('click', async () => {
       await navigator.clipboard.writeText(text);
-      copyBtn.textContent = '✓ Copied!';
-      setTimeout(() => { copyBtn.textContent = '📋 Copy response'; }, 2000);
+      copyBtn.innerHTML = icon('check', 15) + ' Copied!';
+      setTimeout(() => { copyBtn.innerHTML = icon('copy', 15) + ' Copy response'; }, 2000);
     });
     resp.appendChild(textEl);
     resp.appendChild(copyBtn);
@@ -410,7 +411,7 @@ function showPainSheet(container, region, view) {
       <div class="modal-sheet">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <h2 class="modal-title" style="margin-bottom:0;text-transform:capitalize">${esc(region)}</h2>
-          <button class="modal-dismiss-btn" id="bp-dismiss" aria-label="Dismiss">✕</button>
+          <button class="modal-dismiss-btn" id="bp-dismiss" aria-label="Dismiss">${icon('closeX', 18)}</button>
         </div>
         <p class="coach-hint" style="margin-bottom:12px">How much does it bother you right now?</p>
         <div style="display:flex;align-items:center;gap:12px">

@@ -1,4 +1,5 @@
 import { getExercises, addExercise, addTemplate } from './db.js';
+import { icon } from './icons.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -90,11 +91,11 @@ export function showPasteTemplateModal(onDone) {
     <div class="modal-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <h2 class="modal-title" style="margin-bottom:0">Paste a Template</h2>
-        <button class="modal-dismiss-btn" id="pt-dismiss" aria-label="Dismiss">✕</button>
+        <button class="modal-dismiss-btn" id="pt-dismiss" aria-label="Dismiss">${icon('closeX', 18)}</button>
       </div>
       <p class="settings-hint" style="margin-bottom:10px">1. Copy this format. 2. Paste it to Claude or ChatGPT and ask it to fill it out (e.g. "a beginner push day"). 3. Paste the result below and Import. <strong>group</strong> must be arms, legs, or core.</p>
       <pre class="pt-format" id="pt-format">${esc(TEMPLATE_FORMAT)}</pre>
-      <button class="btn btn-ghost btn-full" id="pt-copy" style="margin-bottom:12px">📋 Copy format</button>
+      <button class="btn btn-ghost btn-full" id="pt-copy" style="margin-bottom:12px">${icon('copy', 15)} Copy format</button>
       <textarea class="input" id="pt-input" rows="6" placeholder="Paste the filled-in template here…" style="width:100%;box-sizing:border-box"></textarea>
       <button class="btn btn-primary btn-full" id="pt-import" style="margin-top:10px">Import Template</button>
       <div class="coach-response hidden" id="pt-msg"></div>
@@ -105,8 +106,8 @@ export function showPasteTemplateModal(onDone) {
   overlay.querySelector('#pt-copy').addEventListener('click', () => {
     navigator.clipboard.writeText(TEMPLATE_FORMAT).then(() => {
       const b = overlay.querySelector('#pt-copy');
-      b.textContent = '✓ Copied';
-      setTimeout(() => { b.textContent = '📋 Copy format'; }, 1500);
+      b.innerHTML = icon('check', 14) + ' Copied';
+      setTimeout(() => { b.innerHTML = icon('copy', 15) + ' Copy format'; }, 1500);
     });
   });
   overlay.querySelector('#pt-import').addEventListener('click', async () => {

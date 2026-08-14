@@ -8,6 +8,7 @@ import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { toast, showToast, confirmSheet, undoToast } from './ui-feedback.js';
 import { groupExercises, roundSlots } from './supersets.js';
 import { resolveVariant, isRotating } from './rotation.js';
+import { icon } from './icons.js';
 export { groupExercises, roundSlots };
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -223,13 +224,13 @@ export async function renderLogTab(el) {
   const coachBanner = _pendingCoachNote
     ? `<div class="coach-pending-banner" id="coach-pending-banner">
         <span>Coach note ready for <strong>${esc(_pendingCoachNote.bodyPart)}</strong> — tap a template to start</span>
-        <button class="coach-banner-dismiss" id="dismiss-coach-banner" aria-label="Dismiss">✕</button>
+        <button class="coach-banner-dismiss" id="dismiss-coach-banner" aria-label="Dismiss">${icon('closeX', 18)}</button>
        </div>`
     : '';
 
   const { bars, weekCount, streak } = computeHomeStats(recent, runs, walks);
   const streakPill = streak > 0
-    ? `<div class="log-streak">🔥&nbsp;<b>${streak}</b>-day streak</div>` : '';
+    ? `<div class="log-streak">${icon('flame', 15)}&nbsp;<b>${streak}</b>-day streak</div>` : '';
   const barsHtml = bars.map(b =>
     `<div class="week-bar${b.hot ? ' hot' : ''}">${b.h > 0 ? `<span class="fill" style="height:${b.h}%"></span>` : ''}<span class="day">${b.day}</span></div>`
   ).join('');
@@ -285,7 +286,7 @@ export async function renderLogTab(el) {
     }
     const card = document.createElement('div');
     card.className = 'template-card';
-    card.innerHTML = `<span class="template-name">${esc(tpl.name)}</span><span class="tpl-card-right">${durationTag}<span class="template-tag tag-${esc(tpl.bodyPartGroup)}">${esc(tpl.bodyPartGroup)}</span><button class="tpl-gear-btn" title="Edit template">⚙</button></span>`;
+    card.innerHTML = `<span class="template-name">${esc(tpl.name)}</span><span class="tpl-card-right">${durationTag}<span class="template-tag tag-${esc(tpl.bodyPartGroup)}">${esc(tpl.bodyPartGroup)}</span><button class="tpl-gear-btn" title="Edit template">${icon('settingsGear', 16)}</button></span>`;
     card.addEventListener('click', e => {
       if (!e.target.closest('.tpl-gear-btn')) {
         const note = _pendingCoachNote?.note || '';
@@ -329,10 +330,10 @@ async function renderGoalsSection(container, el) {
     const count = (log[g.id] || {})[today] || 0;
     const done = count >= target;
     const streak = goalStreak(log[g.id] || {}, target);
-    const sub = `${count}/${target}${g.unit ? ` ${esc(g.unit)}` : ''}${streak > 0 ? ` · 🔥 ${streak}` : ''}`;
+    const sub = `${count}/${target}${g.unit ? ` ${esc(g.unit)}` : ''}${streak > 0 ? ` · ${icon('flame', 13)} ${streak}` : ''}`;
     const control = target > 1
       ? `<div class="goal-steps"><button class="goal-dec" data-id="${g.id}" aria-label="Decrease">−</button><button class="goal-inc" data-id="${g.id}" aria-label="Increase">+</button></div>`
-      : `<button class="goal-toggle${done ? ' done' : ''}" data-id="${g.id}" aria-label="Toggle done">${done ? '✓' : ''}</button>`;
+      : `<button class="goal-toggle${done ? ' done' : ''}" data-id="${g.id}" aria-label="Toggle done">${done ? icon('check', 16) : ''}</button>`;
     return `<div class="goal-row${done ? ' goal-done' : ''}">
       <div class="goal-main" data-id="${g.id}"><span class="goal-title">${esc(g.title)}</span><span class="goal-sub">${sub}</span></div>
       ${control}
@@ -375,7 +376,7 @@ async function showGoalModal(el, goalId) {
     <div class="modal-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <h2 class="modal-title" style="margin-bottom:0">${existing ? 'Edit' : 'New'} Goal</h2>
-        <button class="modal-dismiss-btn" id="goal-dismiss" aria-label="Dismiss">✕</button>
+        <button class="modal-dismiss-btn" id="goal-dismiss" aria-label="Dismiss">${icon('closeX', 18)}</button>
       </div>
       <label class="form-label">Goal</label>
       <input class="input" id="goal-title" placeholder="e.g. Dead hangs" value="${esc(existing?.title || '')}">
@@ -385,7 +386,7 @@ async function showGoalModal(el, goalId) {
       </div>
       <p class="settings-hint" style="margin-top:10px">Target 1 = a simple daily habit (tap to check off). Higher targets show a counter.</p>
       <button class="btn btn-primary btn-full" id="goal-save" style="margin-top:14px">${existing ? 'Save' : 'Add Goal'}</button>
-      ${existing ? `<button class="btn btn-ghost btn-full" id="goal-delete" style="margin-top:8px;color:var(--danger)">🗑 Delete Goal</button>` : ''}
+      ${existing ? `<button class="btn btn-ghost btn-full" id="goal-delete" style="margin-top:8px;color:var(--danger)">${icon('trash', 16)} Delete Goal</button>` : ''}
     </div>
   `;
   const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
@@ -430,7 +431,7 @@ async function showReadinessCheckin(el) {
     <div class="modal-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <h2 class="modal-title" style="margin-bottom:0">Morning Check-In</h2>
-        <button class="modal-dismiss-btn" id="rd-dismiss" aria-label="Dismiss">✕</button>
+        <button class="modal-dismiss-btn" id="rd-dismiss" aria-label="Dismiss">${icon('closeX', 18)}</button>
       </div>
       <p class="settings-hint" style="margin-bottom:14px">How ready do you feel? This feeds your coach's pre-workout advice.</p>
       <div id="rd-rows"></div>
@@ -479,7 +480,7 @@ async function renderActiveSession(el) {
           <button class="btn btn-ghost session-finish-btn" id="finish-btn" style="min-height:36px;font-size:14px">Finish</button>
         </div>
       </div>
-      ${(wakeLockEnabled() && wakeLockSupported()) ? '<div class="screen-on-chip">☀ Screen stays on</div>' : ''}
+      ${(wakeLockEnabled() && wakeLockSupported()) ? `<div class="screen-on-chip">${icon('sun', 14)} Screen stays on</div>` : ''}
       <div class="session-time-row">
         <span class="session-time-label">Date</span>
         <input type="date" class="session-time-input" id="session-date" value="${activeSession.date}">
@@ -488,11 +489,11 @@ async function renderActiveSession(el) {
         <span class="session-time-label">Started</span>
         <input type="time" class="session-time-input" id="session-start-time" value="${toTimeInput(activeSession.startedAt)}">
       </div>
-      ${activeSession.sorenessNote ? `<div class="soreness-banner">⚠ ${esc(activeSession.sorenessNote)}</div>` : ''}
+      ${activeSession.sorenessNote ? `<div class="soreness-banner">${icon('warning', 15)} ${esc(activeSession.sorenessNote)}</div>` : ''}
       <div id="exercise-cards"></div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-ghost" id="add-exercise-btn" style="flex:1">+ Add Exercise</button>
-        ${activeSession.exercises.length > 1 ? '<button class="btn btn-ghost" id="reorder-session-btn" style="flex:1">⇅ Reorder</button>' : ''}
+        ${activeSession.exercises.length > 1 ? `<button class="btn btn-ghost" id="reorder-session-btn" style="flex:1">${icon('reorder', 16)} Reorder</button>` : ''}
       </div>
       <div style="margin-top:16px">
         <p class="section-title" style="margin-bottom:6px">Session Notes</p>
@@ -634,15 +635,15 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
   // suggest a small load bump. Purely informational — the athlete still types the weight.
   const prog = suggestProgression(prev ? prev.sets : null, sessionEx.targetReps, exDef);
   const progHint = prog
-    ? `<div class="ex-progress-hint">↑ You hit all your reps last time — try ${prog.to} ${esc(exDef.unit || 'lbs')} today</div>`
+    ? `<div class="ex-progress-hint">${icon('arrowUp', 14)} You hit all your reps last time — try ${prog.to} ${esc(exDef.unit || 'lbs')} today</div>`
     : '';
 
   card.innerHTML = `
     <div class="ex-header">
       <span class="ex-name">${esc(displayName)}${machineLabel}</span>
       <div style="display:flex;gap:4px;align-items:center">
-        <button class="ex-settings-btn" title="Exercise settings">⚙</button>
-        <button class="ex-remove-btn" title="Remove exercise">✕</button>
+        <button class="ex-settings-btn" title="Exercise settings">${icon('settingsGear', 18)}</button>
+        <button class="ex-remove-btn" title="Remove exercise">${icon('closeX', 18)}</button>
       </div>
     </div>
     ${variantSwitcher}
@@ -663,7 +664,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
       <button class="btn btn-primary ex-setup-save" style="margin-top:6px;min-height:36px">Save setup</button>
       <label class="form-label" style="margin-top:12px">Note <span class="form-hint">— just this workout</span></label>
       <textarea class="input ex-note-input" placeholder="e.g. felt tweaky, dropped the weight…" rows="2">${esc(sessionEx.notes || '')}</textarea>
-      ${activeSession.exercises.length > 1 ? '<button class="btn btn-ghost ex-link-btn" style="margin-top:8px">⛓ Superset with another exercise</button>' : ''}
+      ${activeSession.exercises.length > 1 ? `<button class="btn btn-ghost ex-link-btn" style="margin-top:8px">${icon('chainLink', 16)} Superset with another exercise</button>` : ''}
     </div>
     <div class="ex-actions">
       <button class="btn btn-ghost ex-add-set">+ Add Set</button>
@@ -701,7 +702,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
   const renderSetupLine = () => {
     const txt = exDef.setupNotes || '';
     setupLine.innerHTML = txt
-      ? `<button type="button" class="ex-setup-chip" title="Edit in settings">⚙ ${esc(txt)}</button>`
+      ? `<button type="button" class="ex-setup-chip" title="Edit in settings">${icon('settingsGear', 13)} ${esc(txt)}</button>`
       : '';
     setupLine.querySelector('.ex-setup-chip')?.addEventListener('click', () => panel.classList.remove('hidden'));
   };
@@ -789,7 +790,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
     if (!asymEl) return;
     const a = computeAsymmetry(sessionEx, exDef);
     if (a) {
-      asymEl.innerHTML = `⚠ ${termSpan('L/R imbalance', 'asymmetry')} — ${a.weaker} side ${a.gap}% lower`;
+      asymEl.innerHTML = `${icon('warning', 14)} ${termSpan('L/R imbalance', 'asymmetry')} — ${a.weaker} side ${a.gap}% lower`;
       wireInfo(asymEl);
       asymEl.classList.remove('hidden');
     } else {
@@ -832,10 +833,10 @@ function showDropExercisePicker(exIdx, sIdx, parentDef, reRender) {
     <div class="modal-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <h2 class="modal-title" style="margin-bottom:0">Drop into…</h2>
-        <button class="modal-dismiss-btn" id="dpick-dismiss" aria-label="Dismiss">✕</button>
+        <button class="modal-dismiss-btn" id="dpick-dismiss" aria-label="Dismiss">${icon('closeX', 18)}</button>
       </div>
       <p class="settings-hint" style="margin-bottom:8px">Pick the movement for this drop — it logs under that exercise's name and won't affect ${esc((parentDef && parentDef.name || 'this exercise').replace(/_/g, ' '))}'s 1-rep-max.</p>
-      <button class="btn btn-ghost btn-full dpick" data-id="" style="text-align:left;margin-top:2px">↩ Same exercise (normal drop)</button>
+      <button class="btn btn-ghost btn-full dpick" data-id="" style="text-align:left;margin-top:2px">${icon('returnArrow', 15)} Same exercise (normal drop)</button>
       ${siblings.length ? `<p class="settings-hint" style="margin:10px 0 0">Variations</p>${siblings.map(optBtn).join('')}` : ''}
       <p class="settings-hint" style="margin:10px 0 0">All exercises</p>
       <input class="input" id="dpick-search" type="search" placeholder="Search exercises…" autocomplete="off" autocapitalize="off" style="margin:6px 0 4px">
@@ -893,7 +894,7 @@ function showSessionReorder(el) {
       const unlink = linked ? `<button type="button" class="reorder-unlink" data-gi="${gi}">unlink</button>` : '';
       const tag = linked ? `<span class="reorder-super">superset · moves together</span>` : '';
       return `<div class="reorder-group${linked ? ' linked' : ''}" data-gi="${gi}">
-        <button type="button" class="reorder-handle" data-gi="${gi}" aria-label="Drag to reorder">⣿</button>
+        <button type="button" class="reorder-handle" data-gi="${gi}" aria-label="Drag to reorder">${icon('dragHandle', 18)}</button>
         <div class="reorder-body">${tag}${names}</div>
         ${unlink}
       </div>`;
@@ -970,7 +971,7 @@ function showSupersetPicker(srcIdx, el) {
     <div class="modal-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <h2 class="modal-title" style="margin-bottom:0;text-transform:capitalize">Superset ${esc(srcName)} with…</h2>
-        <button class="modal-dismiss-btn" id="ssp-dismiss" aria-label="Dismiss">✕</button>
+        <button class="modal-dismiss-btn" id="ssp-dismiss" aria-label="Dismiss">${icon('closeX', 18)}</button>
       </div>
       <p class="settings-hint" style="margin-bottom:10px">Pick the exercise to pair it with — it moves next to it and logs in rounds. Link more in (or pick one that's already a superset) to build a 3+ exercise circuit.</p>
       ${others.map(o => {
@@ -1017,7 +1018,7 @@ function buildSupersetBlock(g, meta, el) {
   const firstEx = activeSession.exercises[g.exIdxs[0]]; // one note per link, stored here
   const noteVal = firstEx.supersetNote || '';
   block.innerHTML = `
-    <div class="superset-hd"><span class="superset-tag">⛓ Superset</span><span class="superset-ex-names">${esc(names)}</span><div style="display:flex;gap:6px;align-items:center"><button class="ss-note-btn" title="Note for this superset">📝</button><button class="superset-unlink" title="Break this superset apart">unlink</button></div></div>
+    <div class="superset-hd"><span class="superset-tag">${icon('chainLink', 13)} Superset</span><span class="superset-ex-names">${esc(names)}</span><div style="display:flex;gap:6px;align-items:center"><button class="ss-note-btn" title="Note for this superset">${icon('note', 16)}</button><button class="superset-unlink" title="Break this superset apart">unlink</button></div></div>
     <div class="ss-note-row${noteVal ? '' : ' hidden'}"><textarea class="input ss-note-input" rows="2" placeholder="Note for this superset…">${esc(noteVal)}</textarea></div>
     <div class="superset-rounds"></div>
     <button class="btn btn-ghost btn-full superset-add-round" style="margin-top:6px">+ Add round</button>
@@ -1203,25 +1204,25 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
     // the alt name gets its own full-width line and the weight/reps/✓/× wrap below it
     // — otherwise the long name pushes the right side of the row off-screen.
     row.className = 'set-row drop-set alt-drop';
-    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="drop-ex-btn" title="Change the drop exercise">${esc(altName)} ⇄</button><div class="set-fields">${altBw ? '' : `<input type="number" class="set-input w-input" value="${aw}" inputmode="decimal"><span class="set-unit">${esc(altDef.unit || 'lbs')}</span>`}<input type="number" class="set-input r-input" value="${ar}" inputmode="numeric"><span class="set-unit">reps</span><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button></div>`;
+    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="drop-ex-btn" title="Change the drop exercise">${esc(altName)} ${icon('swap', 15)}</button><div class="set-fields">${altBw ? '' : `<input type="number" class="set-input w-input" value="${aw}" inputmode="decimal"><span class="set-unit">${esc(altDef.unit || 'lbs')}</span>`}<input type="number" class="set-input r-input" value="${ar}" inputmode="numeric"><span class="set-unit">reps</span><button class="set-check">${icon('check', 18)}</button><button class="set-remove-btn" title="Remove set">${icon('removeX', 15)}</button></div>`;
     if (!altBw) row.querySelector('.w-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].weight = Number(e.target.value) || null; });
     row.querySelector('.r-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
     row.querySelector('.drop-ex-btn').addEventListener('click', openDropPicker);
   } else if (exDef.isTimed && exDef.isUnilateral) {
     // Timed + unilateral (Side Plank, Side Star Plank, Kneeling Hip Flexor Stretch, Modified Pigeon)
     const seconds = currentSet.seconds ?? prevSet?.seconds ?? '';
-    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input r-input" value="${seconds}" inputmode="numeric" data-field="seconds"><span class="set-unit">sec</span>${sideSelect}<button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input r-input" value="${seconds}" inputmode="numeric" data-field="seconds"><span class="set-unit">sec</span>${sideSelect}<button class="set-check">${icon('check', 18)}</button><button class="set-remove-btn" title="Remove set">${icon('removeX', 15)}</button>`;
     row.querySelector('[data-field="seconds"]').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].seconds = Number(e.target.value) || null; });
     row.querySelector('.set-side').addEventListener('change', e => { activeSession.exercises[exIdx].sets[sIdx].side = e.target.value; });
   } else if (exDef.isTimed) {
     const seconds = currentSet.seconds ?? prevSet?.seconds ?? '';
-    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input r-input" value="${seconds}" inputmode="numeric" data-field="seconds"><span class="set-unit">sec</span><button class="set-check" aria-label="Mark done">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input r-input" value="${seconds}" inputmode="numeric" data-field="seconds"><span class="set-unit">sec</span><button class="set-check" aria-label="Mark done">${icon('check', 18)}</button><button class="set-remove-btn" title="Remove set">${icon('removeX', 15)}</button>`;
     row.querySelector('[data-field="seconds"]').addEventListener('input', e => {
       activeSession.exercises[exIdx].sets[sIdx].seconds = Number(e.target.value) || null;
     });
   } else if (exDef.isBodyweight && exDef.isUnilateral) {
     // Bodyweight unilateral: reps + side, no weight (Straight Leg Raise VMO, Glute Iso, etc.)
-    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><span class="set-unit">reps</span>${sideSelect}<button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><span class="set-unit">reps</span>${sideSelect}<button class="set-check">${icon('check', 18)}</button><button class="set-remove-btn" title="Remove set">${icon('removeX', 15)}</button>`;
     const rInp = row.querySelector('.r-input');
     rInp.addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
     row.querySelector('.set-side').addEventListener('change', e => { activeSession.exercises[exIdx].sets[sIdx].side = e.target.value; });
@@ -1229,13 +1230,13 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
     row.querySelector('.step-up').addEventListener('click', () => { const v = (Number(rInp.value) || 0) + 1; rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
   } else if (exDef.isBodyweight) {
     // Bodyweight: reps only, no weight (Butterfly Bridge, Dead Bug, Bird Dog, Ab Wheel, etc.)
-    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><span class="set-unit">reps</span><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    row.innerHTML = `<span class="set-num">${setLabel}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><span class="set-unit">reps</span><button class="set-check">${icon('check', 18)}</button><button class="set-remove-btn" title="Remove set">${icon('removeX', 15)}</button>`;
     const rInp = row.querySelector('.r-input');
     rInp.addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
     row.querySelector('.step-dn').addEventListener('click', () => { const v = Math.max(0, (Number(rInp.value) || 0) - 1); rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
     row.querySelector('.step-up').addEventListener('click', () => { const v = (Number(rInp.value) || 0) + 1; rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
   } else if (exDef.isUnilateral) {
-    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input w-input" value="${weight}" inputmode="decimal"><span class="set-unit">${unit}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button>${sideSelect}<button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input w-input" value="${weight}" inputmode="decimal"><span class="set-unit">${unit}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button>${sideSelect}<button class="set-check">${icon('check', 18)}</button><button class="set-remove-btn" title="Remove set">${icon('removeX', 15)}</button>`;
     row.querySelector('.w-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].weight = Number(e.target.value) || null; });
     const rInp = row.querySelector('.r-input');
     rInp.addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
@@ -1243,7 +1244,7 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
     row.querySelector('.step-dn').addEventListener('click', () => { const v = Math.max(0, (Number(rInp.value) || 0) - 1); rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
     row.querySelector('.step-up').addEventListener('click', () => { const v = (Number(rInp.value) || 0) + 1; rInp.value = v; activeSession.exercises[exIdx].sets[sIdx].reps = v; });
   } else {
-    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input w-input" value="${weight}" inputmode="decimal"><span class="set-unit">${unit}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><button class="set-check">✓</button><button class="set-remove-btn" title="Remove set">×</button>`;
+    row.innerHTML = `<span class="set-num">${setLabel}</span><input type="number" class="set-input w-input" value="${weight}" inputmode="decimal"><span class="set-unit">${unit}</span><button class="step-btn step-dn">−</button><input type="number" class="set-input r-input" value="${reps}" inputmode="numeric"><button class="step-btn step-up">+</button><button class="set-check">${icon('check', 18)}</button><button class="set-remove-btn" title="Remove set">${icon('removeX', 15)}</button>`;
     row.querySelector('.w-input').addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].weight = Number(e.target.value) || null; });
     const rInp = row.querySelector('.r-input');
     rInp.addEventListener('input', e => { activeSession.exercises[exIdx].sets[sIdx].reps = Number(e.target.value) || null; });
@@ -1257,7 +1258,7 @@ function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts 
     if (chk) {
       const swap = document.createElement('button');
       swap.className = 'drop-ex-btn';
-      swap.textContent = '⇄';
+      swap.innerHTML = icon('swap', 16);
       swap.title = 'Make this drop a different exercise';
       swap.addEventListener('click', openDropPicker);
       chk.parentNode.insertBefore(swap, chk);
@@ -1568,7 +1569,7 @@ async function showPreChecklist(el, template, prefilledNote = '') {
     <div class="modal-sheet">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <h2 class="modal-title" style="margin-bottom:0">${modalTitle}</h2>
-        <button class="modal-dismiss-btn" id="dismiss-checklist" aria-label="Dismiss">✕</button>
+        <button class="modal-dismiss-btn" id="dismiss-checklist" aria-label="Dismiss">${icon('closeX', 18)}</button>
       </div>
       <div class="checklist" id="pre-checklist"></div>
       <input type="text" class="input" id="soreness-note" placeholder="Anything sore or tight today? (e.g. left hip, slept 5 hrs)" style="margin-bottom:14px" value="${esc(prefilledNote)}">
@@ -1690,7 +1691,7 @@ async function showPostChecklist(el) {
       <div class="rating-row">
         <p class="section-title">Session Rating</p>
         <div class="stars" id="star-rating">
-          ${[1, 2, 3, 4, 5].map(n => `<button class="star-btn" data-val="${n}">★</button>`).join('')}
+          ${[1, 2, 3, 4, 5].map(n => `<button class="star-btn" data-val="${n}">${icon('star', 26)}</button>`).join('')}
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:12px">
@@ -1713,7 +1714,7 @@ async function showPostChecklist(el) {
       </div>
       <textarea class="input session-notes-input" placeholder="How did it go? Anything to note…" rows="3" id="session-notes" style="margin-top:8px">${esc(activeSession?.sessionNotes || '')}</textarea>
       <button class="btn btn-primary btn-full" id="save-session-btn" style="margin-top:16px">Save Workout</button>
-      <button class="btn btn-ghost btn-full" id="cancel-finish-btn" style="margin-top:8px">← Back to Workout</button>
+      <button class="btn btn-ghost btn-full" id="cancel-finish-btn" style="margin-top:8px">${icon('backArrow', 15)} Back to Workout</button>
     </div>
   `;
 
@@ -1850,7 +1851,7 @@ function showWalkForm(el) {
   el.innerHTML = `
     <div class="screen">
       <div class="session-header">
-        <h2>🚶 Log a Walk</h2>
+        <h2>${icon('walk', 22)} Log a Walk</h2>
         <button class="btn btn-ghost" id="cancel-walk">Cancel</button>
       </div>
       <div class="run-form">

@@ -2,6 +2,7 @@ import { getAllSessions, getRunLogs, getWalkLogs, deleteSession, saveSession, ad
 import { toast, undoToast } from './ui-feedback.js';
 import { groupExercises, roundSlots } from './supersets.js';
 import { parseDuration, computeRunPace, computeWalkDistance, formatMinSec, formatClock, blankSetsFor } from './ui-log.js';
+import { icon } from './icons.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -55,7 +56,7 @@ function detailExercisesHTML(item, displayName) {
       return `<textarea class="input detail-ex-note-input" data-ex-idx="${i}" rows="2" placeholder="Note for ${esc(displayName(ex.exerciseName))}…" style="width:100%;box-sizing:border-box;margin-top:8px">${esc(ex.notes || '')}</textarea>`;
     }).join('');
     return `<div class="card detail-exercise detail-superset">
-      <p class="ex-name"><span class="superset-tag">⛓ Superset</span> ${esc(names)}</p>
+      <p class="ex-name"><span class="superset-tag">${icon('chainLink', 13)} Superset</span> ${esc(names)}</p>
       ${roundsHtml}
       ${notes}
     </div>`;
@@ -70,7 +71,7 @@ function detailExercisesHTML(item, displayName) {
 function detailExercisesEditHTML(item, displayName) {
   const cards = item.exercises.map((ex, i) => {
     const timed = (ex.sets || []).some(s => s.seconds != null);
-    const superTag = ex.supersetId ? '<span class="uni-tag">⛓ superset</span> ' : '';
+    const superTag = ex.supersetId ? `<span class="uni-tag">${icon('chainLink', 12)} superset</span> ` : '';
     const rows = (ex.sets || []).map((s, si) => {
       const drop = s.isDropSet ? '<span class="uni-tag">drop</span>' : '';
       const side = s.side ? `<span class="uni-tag">${esc(s.side)}</span>` : '';
@@ -143,8 +144,8 @@ export async function renderHistoryTab(el) {
           const meta = (item._type === 'run' || item._type === 'walk')
             ? `${item.distanceMiles} mi · ${Math.round(item.durationMinutes)} min${item.startTime ? ` · ${formatClock(item.startTime)}` : ''}`
             : `${totalVolume(item)} lbs total`;
-          const name = item._type === 'run' ? '🏃 Run'
-            : item._type === 'walk' ? '🚶 Walk'
+          const name = item._type === 'run' ? `${icon('run', 16)} Run`
+            : item._type === 'walk' ? `${icon('walk', 16)} Walk`
             : esc(item.workoutLabel ? `${item.templateName} — ${item.workoutLabel}` : item.templateName);
           return `<div class="history-row" data-id="${item.id}" data-type="${item._type}">
             <div><span class="history-name">${name}</span></div>
@@ -179,14 +180,14 @@ function showDetail(el, item, type) {
   el.innerHTML = `
     <div class="screen">
       <div class="detail-header">
-        <button class="btn btn-ghost" id="back-btn">← Back</button>
+        <button class="btn btn-ghost" id="back-btn">${icon('backArrow', 15)} Back</button>
         <h2>${esc(displayName(item.workoutLabel ? `${item.templateName} — ${item.workoutLabel}` : item.templateName))}</h2>
         <span class="history-date">${item.date}</span>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-        <button class="btn btn-ghost" id="copy-notes-btn" style="flex:1;font-size:12px;min-width:80px">📋 Notes</button>
-        <button class="btn btn-ghost" id="edit-date-btn" style="flex:1;font-size:12px;min-width:80px">📅 Date</button>
-        <button class="btn btn-ghost" id="delete-session-btn" style="flex:1;font-size:12px;min-width:80px;color:var(--danger);border-color:rgba(224,82,82,0.3)">🗑 Delete</button>
+        <button class="btn btn-ghost" id="copy-notes-btn" style="flex:1;font-size:12px;min-width:80px">${icon('copy', 15)} Notes</button>
+        <button class="btn btn-ghost" id="edit-date-btn" style="flex:1;font-size:12px;min-width:80px">${icon('calendar', 15)} Date</button>
+        <button class="btn btn-ghost" id="delete-session-btn" style="flex:1;font-size:12px;min-width:80px;color:var(--danger);border-color:rgba(224,82,82,0.3)">${icon('trash', 15)} Delete</button>
       </div>
       <div id="date-edit-row" style="display:none;gap:8px;margin-bottom:12px;align-items:center">
         <input type="date" class="input" id="date-input" value="${item.date}" style="flex:1;font-size:15px">
@@ -333,7 +334,7 @@ function showDetail(el, item, type) {
 // editable date, add/edit context tag, editable notes, delete.
 function showCardioDetail(el, item, type) {
   const isRun = type === 'run';
-  const title = isRun ? '🏃 Run' : '🚶 Walk';
+  const title = isRun ? `${icon('run', 20)} Run` : `${icon('walk', 20)} Walk`;
   const save = isRun ? addRunLog : addWalkLog;
   const del = isRun ? deleteRunLog : deleteWalkLog;
 
@@ -380,14 +381,14 @@ function showCardioDetail(el, item, type) {
   el.innerHTML = `
     <div class="screen">
       <div class="detail-header">
-        <button class="btn btn-ghost" id="back-btn">← Back</button>
+        <button class="btn btn-ghost" id="back-btn">${icon('backArrow', 15)} Back</button>
         <h2>${title}</h2>
         <span class="history-date">${item.date}</span>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-        <button class="btn btn-ghost" id="copy-notes-btn" style="flex:1;font-size:12px;min-width:80px">📋 Notes</button>
-        <button class="btn btn-ghost" id="edit-date-btn" style="flex:1;font-size:12px;min-width:80px">📅 Date</button>
-        <button class="btn btn-ghost" id="delete-cardio-btn" style="flex:1;font-size:12px;min-width:80px;color:var(--danger);border-color:rgba(224,82,82,0.3)">🗑 Delete</button>
+        <button class="btn btn-ghost" id="copy-notes-btn" style="flex:1;font-size:12px;min-width:80px">${icon('copy', 15)} Notes</button>
+        <button class="btn btn-ghost" id="edit-date-btn" style="flex:1;font-size:12px;min-width:80px">${icon('calendar', 15)} Date</button>
+        <button class="btn btn-ghost" id="delete-cardio-btn" style="flex:1;font-size:12px;min-width:80px;color:var(--danger);border-color:rgba(224,82,82,0.3)">${icon('trash', 15)} Delete</button>
       </div>
       <div id="date-edit-row" style="display:none;gap:8px;margin-bottom:12px;align-items:center">
         <input type="date" class="input" id="date-input" value="${item.date}" style="flex:1;font-size:15px">
@@ -446,7 +447,7 @@ function showCardioDetail(el, item, type) {
 
   el.querySelector('#copy-notes-btn').addEventListener('click', () => {
     if (!item.notes) { toast('No notes recorded.'); return; }
-    navigator.clipboard.writeText(`${title} — ${item.date}\n${item.notes}`).then(() => toast('Copied!', { type: 'success' }));
+    navigator.clipboard.writeText(`${isRun ? 'Run' : 'Walk'} — ${item.date}\n${item.notes}`).then(() => toast('Copied!', { type: 'success' }));
   });
 
   el.querySelector('#edit-date-btn').addEventListener('click', () => {
