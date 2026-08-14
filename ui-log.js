@@ -76,6 +76,21 @@ export function blankSetsFor(existingSets) {
   return uni ? [mk('L'), mk('R')] : [mk(null)];
 }
 
+// Values to pre-fill a newly ADDED set with (so you don't retype): copy the most
+// recent set in THIS session's exercise that has data; if nothing's entered yet,
+// fall back to the last set from the previous time this exercise was performed.
+// Returns nulls only when there's genuinely no source anywhere. Weight/reps for
+// normal lifts, seconds for timed holds. Drop sets don't use this (you drop the load).
+export function prefillForNewSet(sets, exDef, prev) {
+  const timed = !!(exDef && exDef.isTimed);
+  const has = s => s && (timed ? s.seconds != null : (s.weight != null || s.reps != null));
+  const pick = s => timed ? { seconds: s.seconds ?? null } : { weight: s.weight ?? null, reps: s.reps ?? null };
+  for (let i = (sets ? sets.length : 0) - 1; i >= 0; i--) { if (!sets[i].isDropSet && has(sets[i])) return pick(sets[i]); }
+  const p = (prev && prev.sets) || [];
+  for (let i = p.length - 1; i >= 0; i--) { if (!p[i].isDropSet && has(p[i])) return pick(p[i]); }
+  return timed ? { seconds: null } : { weight: null, reps: null };
+}
+
 // Build the Log-home "This Week" bars + activity streak from logged data.
 // Strength days scale by volume; cardio-only days show a short bar. Streak
 // counts consecutive days of any activity ending today (or yesterday if today
@@ -733,9 +748,10 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
   card.querySelector('.ex-add-set').addEventListener('click', () => {
     const sets = activeSession.exercises[exIdx].sets;
     const n = exDef.isUnilateral ? 2 : 1; // unilateral adds an L/R pair, never a lone set
+    const pf = prefillForNewSet(sets, exDef, prev); // carry over last set's weight/reps
     for (let k = 0; k < n; k++) {
       const newIdx = sets.length;
-      sets.push({ setNumber: newIdx + 1, weight: null, reps: null, seconds: null, side: null, isDropSet: false, parentSetIndex: null });
+      sets.push({ setNumber: newIdx + 1, weight: pf.weight ?? null, reps: pf.reps ?? null, seconds: pf.seconds ?? null, side: null, isDropSet: false, parentSetIndex: null });
       appendSetRow(setsEl, exIdx, newIdx, exDef, prev);
     }
   });
@@ -1019,7 +1035,8 @@ function buildSupersetBlock(g, meta, el) {
     for (const i of g.exIdxs) {
       const sets = activeSession.exercises[i].sets;
       const n = meta[i].exDef.isUnilateral ? 2 : 1; // unilateral member gets an L/R pair
-      for (let k = 0; k < n; k++) sets.push({ setNumber: sets.length + 1, weight: null, reps: null, seconds: null, side: null, isDropSet: false, parentSetIndex: null });
+      const pf = prefillForNewSet(sets, meta[i].exDef, meta[i].prev); // carry over each member's last set
+      for (let k = 0; k < n; k++) sets.push({ setNumber: sets.length + 1, weight: pf.weight ?? null, reps: pf.reps ?? null, seconds: pf.seconds ?? null, side: null, isDropSet: false, parentSetIndex: null });
     }
     reRender();
   });
@@ -1106,7 +1123,8 @@ function renderRounds(roundsEl, g, meta, el) {
         addBtn.textContent = '+ add set';
         addBtn.addEventListener('click', () => {
           const sets = activeSession.exercises[exIdx].sets;
-          sets.push({ setNumber: sets.length + 1, weight: null, reps: null, seconds: null, side: null, isDropSet: false, parentSetIndex: null });
+          const pf = prefillForNewSet(sets, exDef, prev); // carry over last set's weight/reps
+          sets.push({ setNumber: sets.length + 1, weight: pf.weight ?? null, reps: pf.reps ?? null, seconds: pf.seconds ?? null, side: null, isDropSet: false, parentSetIndex: null });
           reRender();
         });
         exWrap.appendChild(addBtn);

@@ -9,7 +9,7 @@ vi.mock('../app.js', () => ({ switchTab: () => {} }));
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog, saveGoals } from '../db.js';
-import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises, computeRunPace, computeWalkDistance, formatMinSec, formatClock, blankSetsFor } from '../ui-log.js';
+import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises, computeRunPace, computeWalkDistance, formatMinSec, formatClock, blankSetsFor, prefillForNewSet } from '../ui-log.js';
 
 test('parseDuration: whole minutes, mm:ss, and blank/invalid', () => {
   expect(parseDuration('47')).toBe(47);
@@ -54,6 +54,36 @@ describe('cardio stat helpers (shared by log forms + history editors)', () => {
     expect(formatClock(null)).toBe('');
     expect(formatClock('25:00')).toBe('');   // hour out of range
     expect(formatClock('9:99')).toBe('');     // minute out of range
+  });
+});
+
+describe('prefillForNewSet (Add Set carries over weight/reps)', () => {
+  const wd = { isTimed: false };
+  const tm = { isTimed: true };
+  test('copies the last set in THIS session that has data', () => {
+    const sets = [{ weight: 100, reps: 10 }, { weight: 105, reps: 8 }];
+    expect(prefillForNewSet(sets, wd, null)).toEqual({ weight: 105, reps: 8 });
+  });
+  test('skips trailing empty/blank sets and takes the last one with data', () => {
+    const sets = [{ weight: 100, reps: 10 }, { weight: null, reps: null }];
+    expect(prefillForNewSet(sets, wd, null)).toEqual({ weight: 100, reps: 10 });
+  });
+  test('falls back to the previous session when nothing entered yet', () => {
+    const sets = [{ weight: null, reps: null }];
+    const prev = { sets: [{ weight: 90, reps: 12 }, { weight: 95, reps: 10 }] };
+    expect(prefillForNewSet(sets, wd, prev)).toEqual({ weight: 95, reps: 10 });
+  });
+  test('ignores drop sets as a source (you drop the load on those)', () => {
+    const sets = [{ weight: 100, reps: 10 }, { weight: 60, reps: 12, isDropSet: true }];
+    expect(prefillForNewSet(sets, wd, null)).toEqual({ weight: 100, reps: 10 });
+  });
+  test('timed exercises carry seconds', () => {
+    expect(prefillForNewSet([{ seconds: 30 }], tm, null)).toEqual({ seconds: 30 });
+    expect(prefillForNewSet([{ seconds: null }], tm, { sets: [{ seconds: 45 }] })).toEqual({ seconds: 45 });
+  });
+  test('nulls only when there is truly no source anywhere', () => {
+    expect(prefillForNewSet([], wd, null)).toEqual({ weight: null, reps: null });
+    expect(prefillForNewSet([{ weight: null, reps: null }], wd, { sets: [] })).toEqual({ weight: null, reps: null });
   });
 });
 
