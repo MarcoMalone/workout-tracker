@@ -4,6 +4,7 @@ import { showPasteTemplateModal } from './template-import.js';
 import { buildVariationExercises, deriveVariationGroup, VARIATION_PRESETS } from './variations.js';
 import { toGroups, fromGroups, moveGroup, unlinkGroup } from './template-reorder.js';
 import { icon } from './icons.js';
+import { beginStravaConnect, isStravaConnected, disconnectStrava } from './strava-client.js';
 import { toast, showToast, confirmSheet } from './ui-feedback.js';
 import { APP_VERSION, CHANGELOG } from './version.js';
 
@@ -61,9 +62,10 @@ function wirePrefToggle(el, id, key, defaultOn) {
 }
 
 export async function renderSettingsTab(el) {
-  const [apiKey, healthCtx, preCL, postCL] = await Promise.all([
+  const [apiKey, healthCtx, preCL, postCL, stravaConnected, stravaAthlete] = await Promise.all([
     getSetting('anthropicApiKey'), getSetting('healthContext'),
-    getSetting('preChecklist'), getSetting('postChecklist')
+    getSetting('preChecklist'), getSetting('postChecklist'),
+    isStravaConnected(), getSetting('stravaAthlete')
   ]);
   el.innerHTML = `
     <div class="screen">
@@ -81,6 +83,18 @@ export async function renderSettingsTab(el) {
           <button class="btn btn-secondary settings-save-btn" id="save-api-key" style="flex:1;margin:0">Save Key</button>
           <button class="btn btn-ghost" id="clear-api-key" style="flex:1">Clear</button>
         </div>
+      </div>
+
+      <p class="section-title">Strava</p>
+      <div class="settings-group card" id="strava-card">
+        ${stravaConnected
+          ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+               <span class="settings-label" style="margin:0">${icon('run', 16)} Connected${stravaAthlete ? ` as ${esc(stravaAthlete)}` : ''}</span>
+               <button class="btn btn-ghost" id="strava-disconnect" style="min-height:36px">Disconnect</button>
+             </div>
+             <p class="settings-hint" style="margin-top:8px">Your Garmin runs and walks flow in through Strava. (Syncing UI is coming next.)</p>`
+          : `<button class="btn btn-primary btn-full" id="strava-connect">${icon('run', 16)} Connect Strava</button>
+             <p class="settings-hint" style="margin-top:8px">Pull your runs and walks (with pace, HR, cadence, splits) straight from Strava — no manual entry. Read-only access to your activities.</p>`}
       </div>
 
       <details class="settings-collapsible">
@@ -202,6 +216,12 @@ export async function renderSettingsTab(el) {
     await setSetting('anthropicApiKey', '');
     el.querySelector('#api-key-input').value = '';
     toast('API key cleared');
+  });
+  el.querySelector('#strava-connect')?.addEventListener('click', () => beginStravaConnect());
+  el.querySelector('#strava-disconnect')?.addEventListener('click', async () => {
+    if (!(await confirmSheet({ title: 'Disconnect Strava?', body: 'The app will stop pulling your Strava activities until you reconnect. Your already-imported runs and walks stay.', confirmLabel: 'Disconnect', danger: true }))) return;
+    await disconnectStrava();
+    await renderSettingsTab(el);
   });
   refreshLastBackup(el);
   el.querySelector('#save-health-ctx').addEventListener('click', async () => {

@@ -1,4 +1,4 @@
-const CACHE = 'workout-v76';
+const CACHE = 'workout-v77';
 // Relative precache paths resolve against the service worker's own URL, so the
 // app works both at a GitHub Pages subpath (/workout-tracker/) and at a Vercel
 // domain root (/). Do not hardcode a base path here.
@@ -8,7 +8,7 @@ const PRECACHE = [
   'ui-coach.js', 'ui-settings.js', 'ui-help.js', 'claude-api.js',
   'template-import.js',
   'haptics.js', 'wakelock.js', 'help.js', 'ui-feedback.js', 'version.js', 'whatsnew.js', 'supersets.js',
-  'onboarding.js', 'metrics.js', 'seed-data.js', 'migrate-data.js', 'rotation.js', 'variations.js', 'template-reorder.js', 'icons.js', 'manifest.json',
+  'onboarding.js', 'metrics.js', 'seed-data.js', 'migrate-data.js', 'rotation.js', 'variations.js', 'template-reorder.js', 'icons.js', 'strava-client.js', 'manifest.json',
   'icons/icon-192.png', 'icons/icon-512.png',
   'https://esm.sh/idb@8',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js'

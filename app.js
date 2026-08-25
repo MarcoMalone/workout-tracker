@@ -6,6 +6,8 @@ import { renderCoachTab } from './ui-coach.js';
 import { renderSettingsTab } from './ui-settings.js';
 import { checkOnboarding } from './onboarding.js';
 import { migrateNewTemplates } from './migrate-data.js';
+import { captureStravaFragment } from './strava-client.js';
+import { toast } from './ui-feedback.js';
 
 const TABS = {
   log: renderLogTab,
@@ -44,6 +46,12 @@ async function init() {
   const theme = localStorage.getItem('theme') || 'dark';
   if (theme === 'light') document.body.classList.add('light');
   await initDB();
+  // Catch a return from the Strava OAuth redirect (token arrives in the URL fragment).
+  try {
+    const strava = await captureStravaFragment();
+    if (strava.status === 'connected') toast(`Strava connected${strava.athlete ? ' as ' + strava.athlete : ''}`, { type: 'success' });
+    else if (strava.status === 'error') toast(`Strava connect failed (${strava.error})`, { type: 'error', duration: 6000 });
+  } catch (e) { /* non-fatal */ }
   await seedIfEmpty();
   await migrateNewTemplates();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

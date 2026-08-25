@@ -252,7 +252,7 @@ export async function setPain(region, level, note, dateStr) {
 // ─── Backup / Restore ───────────────────────────────────────────────────────
 const BACKUP_STORES = ['exercise_definitions', 'workout_templates', 'logged_sessions', 'run_logs', 'walk_logs'];
 // Settings that must NEVER leave the device in a backup file (e.g. the API key).
-const SECRET_SETTINGS = ['anthropicApiKey'];
+const SECRET_SETTINGS = ['anthropicApiKey', 'stravaRefreshToken', 'stravaAccessToken'];
 
 // Snapshot every store into a plain object. app_settings is emitted as a
 // key→value map (it's a keyless store) minus any secrets. The API key is
