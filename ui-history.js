@@ -345,7 +345,12 @@ function showCardioDetail(el, item, type) {
       <div class="detail-set-row"><span>Distance</span><span>${esc(item.distanceMiles)} mi</span></div>
       <div class="detail-set-row"><span>Duration</span><span>${formatMinSec(item.durationMinutes)}</span></div>
       <div class="detail-set-row"><span>Pace</span><span>${esc(item.paceMinPerMile)} min/mi</span></div>
-      <div class="detail-set-row"><span>Effort</span><span>${esc(item.perceivedEffort)}/10</span></div>`;
+      ${item.perceivedEffort != null ? `<div class="detail-set-row"><span>Effort</span><span>${esc(item.perceivedEffort)}/10</span></div>` : ''}
+      ${item.avgHr != null ? `<div class="detail-set-row"><span>Avg HR</span><span>${esc(item.avgHr)} bpm</span></div>` : ''}
+      ${item.maxHr != null ? `<div class="detail-set-row"><span>Max HR</span><span>${esc(item.maxHr)} bpm</span></div>` : ''}
+      ${item.avgCadence != null ? `<div class="detail-set-row"><span>Cadence</span><span>${esc(Math.round(item.avgCadence * 2))} spm</span></div>` : ''}
+      ${item.elevationGain != null ? `<div class="detail-set-row"><span>Elevation</span><span>${esc(Math.round(item.elevationGain))} m</span></div>` : ''}
+      ${item.source === 'strava' && item.stravaId ? `<div class="detail-set-row"><span>Source</span><a href="https://www.strava.com/activities/${esc(item.stravaId)}" target="_blank" rel="noopener" style="color:var(--blue)">${icon('run', 13)} View on Strava</a></div>` : ''}`;
     statsEditForm = `
       <label class="form-label">Start time</label>
       <input type="time" class="input" id="edit-time" value="${esc(item.startTime || '')}">
@@ -363,7 +368,9 @@ function showCardioDetail(el, item, type) {
       <div class="detail-set-row"><span>Distance</span><span>${esc(item.distanceMiles)} mi</span></div>
       <div class="detail-set-row"><span>Duration</span><span>${Math.round(item.durationMinutes)} min</span></div>
       <div class="detail-set-row"><span>Speed</span><span>${esc(item.speedMph)} mph</span></div>
-      ${item.calories != null ? `<div class="detail-set-row"><span>Calories</span><span>${esc(item.calories)} <span style="color:var(--text-3);font-size:12px">(treadmill est.)</span></span></div>` : ''}`;
+      ${item.calories != null ? `<div class="detail-set-row"><span>Calories</span><span>${esc(item.calories)} <span style="color:var(--text-3);font-size:12px">(treadmill est.)</span></span></div>` : ''}
+      ${item.avgHr != null ? `<div class="detail-set-row"><span>Avg HR</span><span>${esc(item.avgHr)} bpm</span></div>` : ''}
+      ${item.source === 'strava' && item.stravaId ? `<div class="detail-set-row"><span>Source</span><a href="https://www.strava.com/activities/${esc(item.stravaId)}" target="_blank" rel="noopener" style="color:var(--blue)">${icon('walk', 13)} View on Strava</a></div>` : ''}`;
     statsEditForm = `
       <label class="form-label">Start time</label>
       <input type="time" class="input" id="edit-time" value="${esc(item.startTime || '')}">

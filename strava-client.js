@@ -64,6 +64,52 @@ export async function isStravaConnected() {
   return !!(await getSetting('stravaRefreshToken'));
 }
 
+// The token set we send to the broker (it refreshes if expired and returns a fresh,
+// possibly-rotated set we persist).
+async function readTokens() {
+  const [accessToken, refreshToken, expiresAt] = await Promise.all([
+    getSetting('stravaAccessToken'), getSetting('stravaRefreshToken'), getSetting('stravaExpiresAt'),
+  ]);
+  return { accessToken: accessToken || '', refreshToken: refreshToken || '', expiresAt: Number(expiresAt) || 0 };
+}
+async function saveTokens(t) {
+  if (!t) return;
+  if (t.refreshToken) await setSetting('stravaRefreshToken', t.refreshToken);
+  if (t.accessToken) await setSetting('stravaAccessToken', t.accessToken);
+  if (t.expiresAt) await setSetting('stravaExpiresAt', t.expiresAt);
+}
+
+// A broker POST that carries tokens and persists any rotation. 401 → disconnect +
+// throw an Error with code 'reconnect'. Not-connected throws code 'not_connected'.
+async function brokerPost(path, extra = {}) {
+  const tokens = await readTokens();
+  if (!tokens.refreshToken) { const e = new Error('not connected'); e.code = 'not_connected'; throw e; }
+  const res = await fetch(path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...tokens, ...extra }),
+  });
+  if (res.status === 401) { await disconnectStrava(); const e = new Error('reconnect'); e.code = 'reconnect'; throw e; }
+  if (!res.ok) throw new Error(`${path} failed (${res.status})`);
+  const data = await res.json();
+  await saveTokens(data.tokens);
+  return data;
+}
+
+// List new runs/walks. mode 'sync' (recent) or 'backfill' (paged history).
+export async function stravaFetchActivities({ mode = 'sync', after = 0 } = {}) {
+  const data = await brokerPost(`/api/strava/${mode === 'backfill' ? 'backfill' : 'sync'}`, { after });
+  return { runs: data.runs || [], walks: data.walks || [], skipped: data.skipped || 0 };
+}
+
+// Fetch one activity's rich detail (splits, series, route) for the run detail view.
+export async function stravaFetchDetail(id) {
+  const data = await brokerPost('/api/strava/activity', { id });
+  return data.detail || {};
+}
+
+export async function getStravaLastSync() { return Number(await getSetting('stravaLastSync')) || 0; }
+export async function setStravaLastSync(epoch) { await setSetting('stravaLastSync', epoch); }
+
 export async function disconnectStrava() {
   await setSetting('stravaRefreshToken', '');
   await setSetting('stravaAccessToken', '');

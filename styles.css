@@ -433,6 +433,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .rot-move, .rot-del { width: 30px; height: 30px; display: grid; place-items: center; background: none; border: none; color: var(--text-2); font-size: 15px; cursor: pointer; border-radius: var(--r-sm); }
 .rot-move:disabled { opacity: 0.35; }
 .rot-del { color: var(--danger); }
+/* Strava import preview */
+.strava-imp-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.strava-imp-row:last-child { border-bottom: none; }
+.strava-imp-cb { width: 20px; height: 20px; flex: none; accent-color: var(--accent); }
+.strava-imp-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.strava-imp-title { font-size: 14px; font-weight: 700; }
+.strava-imp-sub { font-size: 12px; color: var(--text-3); font-family: var(--font-mono); }
+.strava-dupe { color: var(--danger); font-family: var(--font); font-weight: 700; }
+
 /* Inline set editing in History detail */
 .hist-set-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .hist-set-row:last-of-type { border-bottom: none; }

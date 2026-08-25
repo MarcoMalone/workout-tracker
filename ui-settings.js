@@ -5,6 +5,7 @@ import { buildVariationExercises, deriveVariationGroup, VARIATION_PRESETS } from
 import { toGroups, fromGroups, moveGroup, unlinkGroup } from './template-reorder.js';
 import { icon } from './icons.js';
 import { beginStravaConnect, isStravaConnected, disconnectStrava } from './strava-client.js';
+import { runStravaSync } from './ui-strava.js';
 import { toast, showToast, confirmSheet } from './ui-feedback.js';
 import { APP_VERSION, CHANGELOG } from './version.js';
 
@@ -92,7 +93,11 @@ export async function renderSettingsTab(el) {
                <span class="settings-label" style="margin:0">${icon('run', 16)} Connected${stravaAthlete ? ` as ${esc(stravaAthlete)}` : ''}</span>
                <button class="btn btn-ghost" id="strava-disconnect" style="min-height:36px">Disconnect</button>
              </div>
-             <p class="settings-hint" style="margin-top:8px">Your Garmin runs and walks flow in through Strava. (Syncing UI is coming next.)</p>`
+             <div style="display:flex;gap:8px;margin-top:10px">
+               <button class="btn btn-secondary" id="strava-sync" style="flex:1;margin:0">${icon('reset', 15)} Sync now</button>
+               <button class="btn btn-ghost" id="strava-backfill" style="flex:1">Import history</button>
+             </div>
+             <p class="settings-hint" style="margin-top:8px">Your Garmin runs and walks flow in through Strava. "Sync now" pulls anything new; "Import history" backfills your past activities (first time).</p>`
           : `<button class="btn btn-primary btn-full" id="strava-connect">${icon('run', 16)} Connect Strava</button>
              <p class="settings-hint" style="margin-top:8px">Pull your runs and walks (with pace, HR, cadence, splits) straight from Strava — no manual entry. Read-only access to your activities.</p>`}
       </div>
@@ -218,6 +223,8 @@ export async function renderSettingsTab(el) {
     toast('API key cleared');
   });
   el.querySelector('#strava-connect')?.addEventListener('click', () => beginStravaConnect());
+  el.querySelector('#strava-sync')?.addEventListener('click', () => runStravaSync(() => renderSettingsTab(el), { backfill: false }));
+  el.querySelector('#strava-backfill')?.addEventListener('click', () => runStravaSync(() => renderSettingsTab(el), { backfill: true }));
   el.querySelector('#strava-disconnect')?.addEventListener('click', async () => {
     if (!(await confirmSheet({ title: 'Disconnect Strava?', body: 'The app will stop pulling your Strava activities until you reconnect. Your already-imported runs and walks stay.', confirmLabel: 'Disconnect', danger: true }))) return;
     await disconnectStrava();
