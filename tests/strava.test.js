@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import {
   stravaKind, stravaLocalDate, stravaLocalTime, metersToMiles, paceFromMps,
   stravaSummaryToRun, stravaSummaryToWalk, mapStravaActivities,
-  decodePolyline, downsample, alreadyImported, probableManualDuplicate,
+  decodePolyline, downsample, alreadyImported, probableManualDuplicate, mapStravaDetail,
 } from '../strava.js';
 
 describe('stravaKind', () => {
@@ -107,6 +107,40 @@ describe('downsample', () => {
     expect(d[d.length - 1]).toBe(999);
   });
   test('short array unchanged', () => expect(downsample([1, 2, 3], 150)).toEqual([1, 2, 3]));
+});
+
+describe('mapStravaDetail', () => {
+  const detail = {
+    splits_standard: [
+      { distance: 1609.344, elapsed_time: 540, average_speed: 2.98, average_heartrate: 150 },
+      { distance: 1609.344, elapsed_time: 555, average_speed: 2.9 },
+    ],
+    map: { polyline: 'abc' },
+  };
+  const streams = {
+    heartrate: { data: Array.from({ length: 800 }, (_, i) => 140 + (i % 20)) },
+    cadence: { data: Array.from({ length: 800 }, () => 85) },
+    velocity_smooth: { data: Array.from({ length: 800 }, () => 2.9) },
+  };
+  test('maps splits with pace + optional HR', () => {
+    const out = mapStravaDetail(detail, streams);
+    expect(out.splits).toHaveLength(2);
+    expect(out.splits[0].distanceMiles).toBe(1);
+    expect(out.splits[0].paceMinPerMile).toBeGreaterThan(0);
+    expect(out.splits[0].avgHr).toBe(150);
+    expect(out.splits[1].avgHr).toBeUndefined();
+  });
+  test('carries the route polyline and downsampled series', () => {
+    const out = mapStravaDetail(detail, streams);
+    expect(out.routePolyline).toBe('abc');
+    expect(out.series.hr.length).toBeLessThanOrEqual(150);
+    expect(out.series.pace.length).toBeLessThanOrEqual(150);
+    expect(out.series.cadence.length).toBeLessThanOrEqual(150);
+  });
+  test('tolerates missing detail/streams', () => {
+    expect(mapStravaDetail(null, null)).toEqual({});
+    expect(mapStravaDetail({}, {})).toEqual({});
+  });
 });
 
 describe('dedup + manual-overlap', () => {

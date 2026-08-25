@@ -92,6 +92,29 @@ export function mapStravaActivities(list) {
   return { runs, walks, skipped };
 }
 
+// Detailed activity + streams → the rich per-run extras stored lazily on a run
+// record the first time its detail view is opened. Everything is optional.
+export function mapStravaDetail(detail, streams) {
+  const out = {};
+  const d = detail || {};
+  const splitsSrc = d.splits_standard || d.splits_metric || [];
+  if (splitsSrc.length) {
+    out.splits = splitsSrc.map(s => {
+      const split = { distanceMiles: metersToMiles(s.distance), elapsedS: s.elapsed_time, paceMinPerMile: paceFromMps(s.average_speed) };
+      if (s.average_heartrate != null) split.avgHr = Math.round(s.average_heartrate);
+      return split;
+    });
+  }
+  if (d.map && (d.map.polyline || d.map.summary_polyline)) out.routePolyline = d.map.polyline || d.map.summary_polyline;
+  const s = streams || {};
+  const series = {};
+  if (s.heartrate && s.heartrate.data) series.hr = downsample(s.heartrate.data, 150);
+  if (s.cadence && s.cadence.data) series.cadence = downsample(s.cadence.data, 150);
+  if (s.velocity_smooth && s.velocity_smooth.data) series.pace = downsample(s.velocity_smooth.data.map(paceFromMps), 150);
+  if (Object.keys(series).length) out.series = series;
+  return out;
+}
+
 // Google encoded-polyline algorithm → [[lat, lng], ...].
 export function decodePolyline(str) {
   const s = String(str || '');
