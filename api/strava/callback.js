@@ -7,7 +7,7 @@ import { creds, exchangeCode, appOrigin, redirect } from './_strava.js';
 
 export default async function handler(req, res) {
   const origin = appOrigin(req);
-  const { code, error } = req.query || {};
+  const { code, error, state } = req.query || {};
   if (error || !code) { redirect(res, `${origin}/#strava_error=${encodeURIComponent(error || 'no_code')}`); return; }
   try {
     const { clientId, clientSecret } = creds();
@@ -18,6 +18,7 @@ export default async function handler(req, res) {
       strava_access: t.access_token || '',
       strava_expires: String(t.expires_at || ''),
       athlete,
+      strava_state: state || '', // echoed for the client's CSRF check
     });
     redirect(res, `${origin}/#${frag.toString()}`);
   } catch (e) {

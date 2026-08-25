@@ -12,5 +12,9 @@ export default function handler(req, res) {
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('scope', 'activity:read_all');
   url.searchParams.set('approval_prompt', 'auto');
+  // CSRF: the client passes an unguessable state it stored locally; we forward it to
+  // Strava, callback echoes it back, and the client rejects the token unless it matches.
+  const state = req.query && req.query.state ? String(req.query.state) : '';
+  if (state) url.searchParams.set('state', state);
   redirect(res, url.toString());
 }

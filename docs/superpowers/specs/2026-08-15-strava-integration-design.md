@@ -136,8 +136,14 @@ Extend run/walk records (all optional; absence = manual entry as today):
 
 - `client_secret` server-side only; read-only scope `activity:read_all`.
 - Refresh token in IndexedDB (own account, single user), excluded from backups.
-- App↔function same-origin (no CORS); Strava calls server-side. OAuth `state`/CSRF
-  hardening skipped (solo app, low value) — acknowledged, not built.
+- App↔function same-origin (no CORS); Strava calls server-side.
+- **OAuth CSRF via client-bound `state`** (revised 2026-08-25 after a commit security
+  review flagged the public callback): the client generates an unguessable `state`,
+  stores it locally, and passes it to `/connect`; the callback echoes it back in the
+  fragment; the client rejects the returned token unless `state` matches its stored
+  value. Server functions forward/echo `state` (done); client generate+verify lands
+  with the Phase 3 connect UI. Client-bound (not a server cookie) so it survives the
+  same fragment/PWA context as the token.
 
 ## Testing
 
@@ -151,7 +157,7 @@ Extend run/walk records (all optional; absence = manual entry as today):
 ## Out of scope (v1)
 
 Webhooks/push · strength import · multi-user · full in-app slippy map (SVG trace
-fast-follow + Strava deep-link) · laps · OAuth CSRF hardening · write-back to Strava.
+fast-follow + Strava deep-link) · laps · write-back to Strava.
 
 ## Follow-on roadmap (each its own small spec later — NOT this build)
 
