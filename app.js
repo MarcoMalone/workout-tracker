@@ -54,7 +54,25 @@ async function init() {
   } catch (e) { /* non-fatal */ }
   await seedIfEmpty();
   await migrateNewTemplates();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // Force an update check on load and whenever the app regains focus. Installed iOS
+      // PWAs resume from background without a fresh navigation, so without this they can
+      // sit on a stale version indefinitely. update() re-fetches sw.js; a byte change
+      // installs the new SW, which skipWaiting()s and claims clients → controllerchange.
+      reg.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      });
+    }).catch(() => {});
+    // When the freshly-activated SW takes control, reload once so its new assets load.
+    let swReloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (swReloaded) return;
+      swReloaded = true;
+      window.location.reload();
+    });
+  }
   document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
   document.getElementById('resume-bar')?.addEventListener('click', () => switchTab('log'));
   // Universal "tap the backdrop to close" for every sheet rendered into the shared
