@@ -1,10 +1,17 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.13';
+export const APP_VERSION = '1.7.14';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.14',
+    date: '2026-08-25',
+    items: [
+      'Fixed the home-screen app icon — the app now installs to your phone as a real app (Share → Add to Home Screen) with a proper dumbbell icon.',
+    ],
+  },
   {
     v: '1.7.13',
     date: '2026-08-25',
