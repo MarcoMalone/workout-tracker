@@ -30,14 +30,19 @@ function randomState() {
   return btoa(String.fromCharCode(...a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-// Start connect: stash an unguessable state, then navigate to the broker's /connect
-// (which forwards the state to Strava; the callback echoes it back for us to verify).
-// localStorage (not sessionStorage) so the state survives the OAuth app-switch on iOS,
-// where the round-trip runs in a separate in-app browser and the user pastes a code back.
+// Start connect: stash an unguessable state, then open the broker's /connect (which
+// forwards the state to Strava; the callback echoes it back for us to verify).
+// Open in a SEPARATE tab, not via location.href: on an installed iOS PWA a same-window
+// navigation to the out-of-scope OAuth URL leaves a dead "page not found" behind in the
+// app and can fire the callback twice (consuming the single-use code). A new tab keeps
+// the app on Settings; the user copies the code the callback shows and pastes it back.
+// localStorage (not sessionStorage) so the state survives the OAuth app-switch.
 export function beginStravaConnect() {
   const state = randomState();
   try { localStorage.setItem(STATE_KEY, state); } catch (e) {}
-  window.location.href = `/api/strava/connect?state=${encodeURIComponent(state)}`;
+  const url = `/api/strava/connect?state=${encodeURIComponent(state)}`;
+  const opened = window.open(url, '_blank');
+  if (!opened) window.location.href = url; // popup blocked → fall back to same-window nav
 }
 
 // On app load: if we returned from Strava, verify state, store tokens, clear the hash.

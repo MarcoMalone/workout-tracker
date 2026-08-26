@@ -1,15 +1,15 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.16';
+export const APP_VERSION = '1.7.17';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
   {
-    v: '1.7.16',
+    v: '1.7.17',
     date: '2026-08-25',
     items: [
-      'Strava now connects on the installed iPhone app: after approving on Strava, copy the code it shows and paste it in Settings → Strava → Paste connection code.',
+      'Strava now connects on the installed iPhone app: tap Connect Strava, approve, then copy the code it shows and paste it in Settings → Strava → Paste connection code. (Connect now opens in a separate tab so the app no longer shows a "page not found" behind it.)',
     ],
   },
   {
