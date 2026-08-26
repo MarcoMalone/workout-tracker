@@ -4,7 +4,7 @@ import { showPasteTemplateModal } from './template-import.js';
 import { buildVariationExercises, deriveVariationGroup, VARIATION_PRESETS } from './variations.js';
 import { toGroups, fromGroups, moveGroup, unlinkGroup } from './template-reorder.js';
 import { icon } from './icons.js';
-import { beginStravaConnect, isStravaConnected, disconnectStrava } from './strava-client.js';
+import { beginStravaConnect, isStravaConnected, disconnectStrava, redeemStravaCode } from './strava-client.js';
 import { runStravaSync } from './ui-strava.js';
 import { toast, showToast, confirmSheet } from './ui-feedback.js';
 import { APP_VERSION, CHANGELOG } from './version.js';
@@ -62,6 +62,36 @@ function wirePrefToggle(el, id, key, defaultOn) {
   });
 }
 
+// iOS-PWA fallback: paste the connection code shown by the Strava callback page.
+function showStravaPaste(onDone) {
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <div class="modal-sheet">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 class="modal-title" style="margin-bottom:0">Paste connection code</h2>
+        <button class="modal-dismiss-btn" id="sp-x" aria-label="Dismiss">${icon('closeX', 18)}</button>
+      </div>
+      <p class="settings-hint" style="margin-bottom:10px">After you approve on Strava, it shows a code. Tap <b>Copy code</b> there, come back here, and paste it below.</p>
+      <textarea class="input" id="sp-code" rows="4" placeholder="Paste the code from Strava" style="font-family:ui-monospace,monospace;font-size:13px;word-break:break-all"></textarea>
+      <button class="btn btn-primary btn-full" id="sp-go" style="margin-top:12px">Connect</button>
+    </div>`;
+  const close = () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; };
+  overlay.querySelector('#sp-x').addEventListener('click', close);
+  overlay.querySelector('#sp-go').addEventListener('click', async () => {
+    try {
+      const r = await redeemStravaCode(overlay.querySelector('#sp-code').value);
+      close();
+      showToast(r.athlete ? `Connected as ${r.athlete}` : 'Strava connected');
+      if (typeof onDone === 'function') await onDone();
+    } catch (e) {
+      toast(e.code === 'state_mismatch'
+        ? 'That code was from a different connect attempt. Tap Connect Strava again, then paste the new code.'
+        : 'That code isn\'t valid. Copy the whole code from the Strava page and try again.', { type: 'error', duration: 5500 });
+    }
+  });
+}
+
 export async function renderSettingsTab(el) {
   const [apiKey, healthCtx, preCL, postCL, stravaConnected, stravaAthlete] = await Promise.all([
     getSetting('anthropicApiKey'), getSetting('healthContext'),
@@ -99,7 +129,8 @@ export async function renderSettingsTab(el) {
              </div>
              <p class="settings-hint" style="margin-top:8px">Your Garmin runs and walks flow in through Strava. "Sync now" pulls anything new; "Import history" backfills your past activities (first time).</p>`
           : `<button class="btn btn-primary btn-full" id="strava-connect">${icon('run', 16)} Connect Strava</button>
-             <p class="settings-hint" style="margin-top:8px">Pull your runs and walks (with pace, HR, cadence, splits) straight from Strava — no manual entry. Read-only access to your activities.</p>`}
+             <button class="btn btn-ghost btn-full" id="strava-paste" style="margin-top:8px">Paste connection code</button>
+             <p class="settings-hint" style="margin-top:8px">Pull your runs and walks (with pace, HR, cadence, splits) straight from Strava — no manual entry. Read-only access to your activities. On iPhone, after you approve on Strava, copy the code it shows and paste it here.</p>`}
       </div>
 
       <details class="settings-collapsible">
@@ -223,6 +254,7 @@ export async function renderSettingsTab(el) {
     toast('API key cleared');
   });
   el.querySelector('#strava-connect')?.addEventListener('click', () => beginStravaConnect());
+  el.querySelector('#strava-paste')?.addEventListener('click', () => showStravaPaste(() => renderSettingsTab(el)));
   el.querySelector('#strava-sync')?.addEventListener('click', () => runStravaSync(() => renderSettingsTab(el), { backfill: false }));
   el.querySelector('#strava-backfill')?.addEventListener('click', () => runStravaSync(() => renderSettingsTab(el), { backfill: true }));
   el.querySelector('#strava-disconnect')?.addEventListener('click', async () => {

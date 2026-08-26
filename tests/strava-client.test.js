@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import 'fake-indexeddb/auto';
 import { describe, test, expect } from 'vitest';
-import { parseStravaHash } from '../strava-client.js';
+import { parseStravaHash, decodeStravaCode } from '../strava-client.js';
 
 describe('parseStravaHash', () => {
   test('empty / bare hash → none', () => {
@@ -22,5 +22,26 @@ describe('parseStravaHash', () => {
   });
   test('an unrelated hash is ignored', () => {
     expect(parseStravaHash('#lastTab=log')).toEqual({ kind: 'none' });
+  });
+});
+
+describe('decodeStravaCode', () => {
+  test('round-trips a base64url code (as the callback emits it) into a token', () => {
+    const fragment = new URLSearchParams({
+      strava_refresh: 'R', strava_access: 'A', strava_expires: '123',
+      athlete: 'Marco Di Leo', strava_state: 'xyz',
+    }).toString();
+    const code = Buffer.from(fragment, 'utf8').toString('base64url');
+    expect(decodeStravaCode(code)).toEqual({
+      kind: 'token', refreshToken: 'R', accessToken: 'A', expiresAt: 123, athlete: 'Marco Di Leo', state: 'xyz',
+    });
+  });
+  test('tolerates surrounding whitespace from a paste', () => {
+    const code = Buffer.from('strava_refresh=R', 'utf8').toString('base64url');
+    expect(decodeStravaCode(`  ${code}\n`)).toMatchObject({ kind: 'token', refreshToken: 'R' });
+  });
+  test('empty or garbage → none (no throw)', () => {
+    expect(decodeStravaCode('')).toEqual({ kind: 'none' });
+    expect(decodeStravaCode('!!!not-valid!!!')).toEqual({ kind: 'none' });
   });
 });

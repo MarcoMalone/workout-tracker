@@ -32,9 +32,11 @@ function randomState() {
 
 // Start connect: stash an unguessable state, then navigate to the broker's /connect
 // (which forwards the state to Strava; the callback echoes it back for us to verify).
+// localStorage (not sessionStorage) so the state survives the OAuth app-switch on iOS,
+// where the round-trip runs in a separate in-app browser and the user pastes a code back.
 export function beginStravaConnect() {
   const state = randomState();
-  try { sessionStorage.setItem(STATE_KEY, state); } catch (e) {}
+  try { localStorage.setItem(STATE_KEY, state); } catch (e) {}
   window.location.href = `/api/strava/connect?state=${encodeURIComponent(state)}`;
 }
 
@@ -49,7 +51,7 @@ export async function captureStravaFragment() {
   };
   if (res.kind === 'error') { clearHash(); return { status: 'error', error: res.error }; }
   let expected = null;
-  try { expected = sessionStorage.getItem(STATE_KEY); sessionStorage.removeItem(STATE_KEY); } catch (e) {}
+  try { expected = localStorage.getItem(STATE_KEY); localStorage.removeItem(STATE_KEY); } catch (e) {}
   if (!expected || res.state !== expected) { clearHash(); return { status: 'error', error: 'state_mismatch' }; }
   if (!res.refreshToken) { clearHash(); return { status: 'error', error: 'no_token' }; }
   await setSetting('stravaRefreshToken', res.refreshToken);
@@ -57,6 +59,39 @@ export async function captureStravaFragment() {
   await setSetting('stravaExpiresAt', res.expiresAt);
   if (res.athlete) await setSetting('stravaAthlete', res.athlete);
   clearHash();
+  return { status: 'connected', athlete: res.athlete };
+}
+
+// Pure: decode a pasted connection code (base64url of the callback fragment) into the
+// same shape parseStravaHash returns. Used by the iOS-PWA paste fallback. Unit-tested.
+export function decodeStravaCode(codeStr) {
+  const clean = String(codeStr || '').trim();
+  if (!clean) return { kind: 'none' };
+  let b64 = clean.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  let fragment;
+  try {
+    fragment = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
+  } catch (e) { return { kind: 'none' }; }
+  return parseStravaHash('#' + fragment);
+}
+
+// Redeem a pasted connection code: verify state (when we still have the stored one)
+// and persist the tokens, mirroring captureStravaFragment.
+export async function redeemStravaCode(codeStr) {
+  const res = decodeStravaCode(codeStr);
+  if (res.kind !== 'token' || !res.refreshToken) { const e = new Error('invalid code'); e.code = 'bad_code'; throw e; }
+  let expected = null;
+  try { expected = localStorage.getItem(STATE_KEY); } catch (e) {}
+  // Only enforce state when we have one to compare against (the app may have restarted
+  // during the OAuth app-switch, dropping it). The code itself is authentic — it came
+  // from a server-side code exchange guarded by the client secret.
+  if (expected && res.state && res.state !== expected) { const e = new Error('state mismatch'); e.code = 'state_mismatch'; throw e; }
+  try { localStorage.removeItem(STATE_KEY); } catch (e) {}
+  await setSetting('stravaRefreshToken', res.refreshToken);
+  await setSetting('stravaAccessToken', res.accessToken);
+  await setSetting('stravaExpiresAt', res.expiresAt);
+  if (res.athlete) await setSetting('stravaAthlete', res.athlete);
   return { status: 'connected', athlete: res.athlete };
 }
 
