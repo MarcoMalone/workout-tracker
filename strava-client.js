@@ -83,10 +83,11 @@ export async function redeemStravaCode(codeStr) {
   if (res.kind !== 'token' || !res.refreshToken) { const e = new Error('invalid code'); e.code = 'bad_code'; throw e; }
   let expected = null;
   try { expected = localStorage.getItem(STATE_KEY); } catch (e) {}
-  // Only enforce state when we have one to compare against (the app may have restarted
-  // during the OAuth app-switch, dropping it). The code itself is authentic — it came
-  // from a server-side code exchange guarded by the client secret.
-  if (expected && res.state && res.state !== expected) { const e = new Error('state mismatch'); e.code = 'state_mismatch'; throw e; }
+  // CSRF: the pasted code must carry the state we generated at connect time. STATE_KEY
+  // lives in localStorage, which survives the iOS OAuth app-switch AND a full app restart,
+  // so enforce it unconditionally — same as the redirect path (captureStravaFragment).
+  // A missing state means this paste wasn't solicited by a connect on this device: reject it.
+  if (!expected || !res.state || res.state !== expected) { const e = new Error('state mismatch'); e.code = 'state_mismatch'; throw e; }
   try { localStorage.removeItem(STATE_KEY); } catch (e) {}
   await setSetting('stravaRefreshToken', res.refreshToken);
   await setSetting('stravaAccessToken', res.accessToken);

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import 'fake-indexeddb/auto';
-import { describe, test, expect } from 'vitest';
-import { parseStravaHash, decodeStravaCode } from '../strava-client.js';
+import { describe, test, expect, beforeAll } from 'vitest';
+import { parseStravaHash, decodeStravaCode, redeemStravaCode } from '../strava-client.js';
 
 describe('parseStravaHash', () => {
   test('empty / bare hash → none', () => {
@@ -43,5 +43,44 @@ describe('decodeStravaCode', () => {
   test('empty or garbage → none (no throw)', () => {
     expect(decodeStravaCode('')).toEqual({ kind: 'none' });
     expect(decodeStravaCode('!!!not-valid!!!')).toEqual({ kind: 'none' });
+  });
+});
+
+describe('redeemStravaCode (CSRF state enforcement)', () => {
+  // jsdom here doesn't provide a working localStorage; give it an in-memory one.
+  beforeAll(() => {
+    const store = new Map();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: k => (store.has(k) ? store.get(k) : null),
+        setItem: (k, v) => { store.set(k, String(v)); },
+        removeItem: k => { store.delete(k); },
+        clear: () => store.clear(),
+      },
+    });
+  });
+
+  const mkCode = (state) => Buffer.from(new URLSearchParams({
+    strava_refresh: 'R', strava_access: 'A', strava_expires: '123', athlete: 'Marco', strava_state: state,
+  }).toString(), 'utf8').toString('base64url');
+
+  test('accepts a code whose state matches the stored one, then clears the state', async () => {
+    localStorage.setItem('stravaOAuthState', 'good');
+    const r = await redeemStravaCode(mkCode('good'));
+    expect(r).toMatchObject({ status: 'connected', athlete: 'Marco' });
+    expect(localStorage.getItem('stravaOAuthState')).toBeNull();
+  });
+  test('rejects a mismatched state', async () => {
+    localStorage.setItem('stravaOAuthState', 'good');
+    await expect(redeemStravaCode(mkCode('evil'))).rejects.toMatchObject({ code: 'state_mismatch' });
+  });
+  test('rejects an unsolicited paste (no state stored on this device)', async () => {
+    localStorage.removeItem('stravaOAuthState');
+    await expect(redeemStravaCode(mkCode('anything'))).rejects.toMatchObject({ code: 'state_mismatch' });
+  });
+  test('rejects an invalid/garbage code before any state check', async () => {
+    localStorage.setItem('stravaOAuthState', 'good');
+    await expect(redeemStravaCode('not-a-real-code')).rejects.toMatchObject({ code: 'bad_code' });
   });
 });
