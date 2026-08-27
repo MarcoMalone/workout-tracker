@@ -10,7 +10,13 @@ const localDateStr = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth
 
 function readinessNoteFor(entry) {
   if (!entry) return '';
-  return `Today's readiness: ${readinessScore(entry)}/100 (sleep ${entry.sleep}/5, energy ${entry.energy}/5, soreness ${entry.soreness}/5, mood ${entry.mood}/5).`;
+  let note = `Today's readiness: ${readinessScore(entry)}/100 (sleep ${entry.sleep}/5, energy ${entry.energy}/5, soreness ${entry.soreness}/5, mood ${entry.mood}/5).`;
+  const rec = [];
+  if (entry.sleepHours != null) rec.push(`${entry.sleepHours}h sleep`);
+  if (entry.hrv != null) rec.push(`HRV ${entry.hrv}ms`);
+  if (entry.bodyBattery != null) rec.push(`Body Battery ${entry.bodyBattery}`);
+  if (rec.length) note += ` This morning (from watch): ${rec.join(', ')}.`;
+  return note;
 }
 
 function goalsNoteFor(goals, log, today) {
@@ -434,7 +440,7 @@ function showPainSheet(container, region, view) {
       renderBodyMap(container, view);
     });
     overlay.querySelector('#bp-clear').addEventListener('click', async () => {
-      await setPain(region, 0);
+      await setPain(region, 0, '', localDateStr());
       close();
       renderBodyMap(container, view);
     });

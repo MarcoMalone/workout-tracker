@@ -436,6 +436,12 @@ async function showReadinessCheckin(el) {
       </div>
       <p class="settings-hint" style="margin-bottom:14px">How ready do you feel? This feeds your coach's pre-workout advice.</p>
       <div id="rd-rows"></div>
+      <div class="rd-recovery">
+        <p class="settings-hint" style="margin:16px 0 8px">Optional — read off your watch this morning:</p>
+        <div class="rd-num-row"><label for="rd-sleephours">Sleep (hrs)</label><input type="number" inputmode="decimal" step="0.1" min="0" class="input rd-num" id="rd-sleephours" value="${existing?.sleepHours ?? ''}" placeholder="7.5"></div>
+        <div class="rd-num-row"><label for="rd-hrv">HRV (ms)</label><input type="number" inputmode="numeric" step="1" min="0" class="input rd-num" id="rd-hrv" value="${existing?.hrv ?? ''}" placeholder="—"></div>
+        <div class="rd-num-row"><label for="rd-bb">Body Battery</label><input type="number" inputmode="numeric" step="1" min="0" max="100" class="input rd-num" id="rd-bb" value="${existing?.bodyBattery ?? ''}" placeholder="0–100"></div>
+      </div>
       <button class="btn btn-primary btn-full" id="rd-save" style="margin-top:16px">Save Check-In</button>
     </div>
   `;
@@ -459,9 +465,12 @@ async function showReadinessCheckin(el) {
   });
   overlay.querySelector('#rd-dismiss').addEventListener('click', () => { overlay.classList.add('hidden'); overlay.innerHTML = ''; });
   overlay.querySelector('#rd-save').addEventListener('click', async () => {
-    await saveReadiness(localDateStr(), {
-      sleep: answers.sleep, energy: answers.energy, soreness: answers.soreness, mood: answers.mood
-    });
+    const numField = id => { const v = overlay.querySelector(id).value.trim(); const n = Number(v); return v === '' || Number.isNaN(n) ? undefined : n; };
+    const entry = { sleep: answers.sleep, energy: answers.energy, soreness: answers.soreness, mood: answers.mood };
+    const sh = numField('#rd-sleephours'); if (sh != null) entry.sleepHours = sh;
+    const hrv = numField('#rd-hrv'); if (hrv != null) entry.hrv = hrv;
+    const bb = numField('#rd-bb'); if (bb != null) entry.bodyBattery = bb;
+    await saveReadiness(localDateStr(), entry);
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
     showToast(`Readiness ${readinessScore(answers)}/100 logged`);

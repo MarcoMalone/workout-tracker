@@ -242,11 +242,20 @@ export async function setGoalProgress(goalId, dateStr, count) {
 export async function getPainLog() {
   return (await getSetting('painLog')) || {};
 }
+export async function getPainHistory() {
+  return (await getSetting('painHistory')) || [];
+}
 export async function setPain(region, level, note, dateStr) {
+  const date = dateStr || new Date().toISOString().slice(0, 10);
   const log = await getPainLog();
-  if (level > 0) log[region] = { level, note: note || '', date: dateStr || null };
+  if (level > 0) log[region] = { level, note: note || '', date };
   else delete log[region];
-  return setSetting('painLog', log);
+  await setSetting('painLog', log);
+  // Append every change to an immutable history so flares can later be correlated with
+  // training load over time (the snapshot above only keeps the current state per region).
+  const history = await getPainHistory();
+  history.push({ region, level: level || 0, note: note || '', date });
+  await setSetting('painHistory', history);
 }
 
 // ─── Backup / Restore ───────────────────────────────────────────────────────

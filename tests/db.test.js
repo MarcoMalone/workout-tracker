@@ -7,7 +7,7 @@ import { initDB, getSetting, setSetting, addExercise, getExercises,
          getLastSessionForExercise, addRunLog, getRunLogs, deleteRunLog,
          addWalkLog, getWalkLogs, deleteWalkLog, getTemplate,
          exportAllData, importAllData, getReadiness, saveReadiness,
-         getGoals, saveGoals, getGoalLog, setGoalProgress, getPainLog, setPain,
+         getGoals, saveGoals, getGoalLog, setGoalProgress, getPainLog, getPainHistory, setPain,
          seedIfEmpty, _resetForTest, dataVersion,
          getExerciseUsageCounts, mergeExercises } from '../db.js';
 
@@ -288,4 +288,19 @@ test('setPain / getPainLog round-trip; level 0 clears; rides in backup', async (
   await setPain('groin', 3, '', '2026-07-07');
   const data = await exportAllData();
   expect(data.stores.app_settings.painLog.groin.level).toBe(3);
+});
+
+test('setPain records an append-only painHistory alongside the snapshot', async () => {
+  await setPain('knee', 3, 'dull', '2026-07-08');
+  await setPain('knee', 6, 'sharp', '2026-07-10');
+  await setPain('knee', 0, '', '2026-07-12'); // resolved
+  const knee = (await getPainHistory()).filter(h => h.region === 'knee');
+  expect(knee.map(h => h.level)).toEqual([3, 6, 0]);
+  expect(knee.map(h => h.date)).toEqual(['2026-07-08', '2026-07-10', '2026-07-12']);
+  expect((await getPainLog()).knee).toBeUndefined(); // snapshot cleared after resolve
+});
+
+test('saveReadiness stores optional recovery metrics (hrv/bodyBattery/sleepHours)', async () => {
+  await saveReadiness('2026-07-08', { sleep: 4, energy: 3, soreness: 2, mood: 4, hrv: 62, bodyBattery: 78, sleepHours: 7.5 });
+  expect(await getReadiness('2026-07-08')).toMatchObject({ hrv: 62, bodyBattery: 78, sleepHours: 7.5 });
 });

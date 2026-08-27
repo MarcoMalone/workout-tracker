@@ -111,6 +111,10 @@ button svg, .icon-inline, .set-num svg, span svg, b svg, p svg { vertical-align:
 .rd-pill { flex: 1; min-height: 44px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-hi); color: var(--text-2); font-size: 15px; font-weight: 700; cursor: pointer; font-variant-numeric: tabular-nums; }
 .rd-pill.on { background: var(--accent); color: var(--volt-ink); border-color: var(--accent); }
 .rd-ends { display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: var(--text-3); }
+.rd-recovery { border-top: 1px solid var(--border); margin-top: 6px; }
+.rd-num-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.rd-num-row label { font-size: 14px; color: var(--text-2); }
+.rd-num { width: 120px; text-align: right; }
 
 /* Daily goals */
 .goals-head { display: flex; align-items: center; justify-content: space-between; margin: 28px 0 10px; }
