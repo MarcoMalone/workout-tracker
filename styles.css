@@ -454,6 +454,16 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 /* Per-run graphs (Strava run detail) */
 .rg-title { font-size: 12px; font-weight: 700; color: var(--text-2); letter-spacing: 0.02em; margin: 0 0 6px; }
+.rg-splits-hd { font-size: 12px; color: var(--text-3); margin: 4px 0 10px; line-height: 1.5; }
+.rg-splits-hd b { color: var(--text); font-weight: 700; }
+.rg-split { display: grid; grid-template-columns: 40px 1fr auto auto; align-items: center; gap: 9px; padding: 3px 0; }
+.rg-split-mi { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.rg-split-track { height: 13px; background: var(--surface-hi); border-radius: 100px; overflow: hidden; }
+.rg-split-fill { display: block; height: 100%; background: var(--accent); border-radius: 100px; }
+.rg-split-pace { font-size: 13px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+.rg-split-hr { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; }
+.rg-split.is-fast .rg-split-pace { color: var(--accent); }
+.rg-split.is-slow .rg-split-fill { background: var(--text-3); }
 
 /* Inline set editing in History detail */
 .hist-set-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }

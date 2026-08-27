@@ -118,6 +118,7 @@ describe('mapStravaDetail', () => {
     map: { polyline: 'abc' },
   };
   const streams = {
+    distance: { data: Array.from({ length: 800 }, (_, i) => i * 4) },
     heartrate: { data: Array.from({ length: 800 }, (_, i) => 140 + (i % 20)) },
     cadence: { data: Array.from({ length: 800 }, () => 85) },
     velocity_smooth: { data: Array.from({ length: 800 }, () => 2.9) },
@@ -130,16 +131,21 @@ describe('mapStravaDetail', () => {
     expect(out.splits[0].avgHr).toBe(150);
     expect(out.splits[1].avgHr).toBeUndefined();
   });
-  test('carries the route polyline and downsampled series', () => {
+  test('carries the route polyline and downsampled, aligned series', () => {
     const out = mapStravaDetail(detail, streams);
     expect(out.routePolyline).toBe('abc');
     expect(out.series.hr.length).toBeLessThanOrEqual(150);
     expect(out.series.pace.length).toBeLessThanOrEqual(150);
     expect(out.series.cadence.length).toBeLessThanOrEqual(150);
+    // distance series is in miles and aligned point-for-point with the others
+    expect(out.series.dist.length).toBe(out.series.hr.length);
+    expect(out.series.dist[0]).toBe(0);
+    expect(out.series.dist[out.series.dist.length - 1]).toBeGreaterThan(1);
+    expect(out.v).toBe(2);
   });
-  test('tolerates missing detail/streams', () => {
-    expect(mapStravaDetail(null, null)).toEqual({});
-    expect(mapStravaDetail({}, {})).toEqual({});
+  test('tolerates missing detail/streams (still stamps a version)', () => {
+    expect(mapStravaDetail(null, null)).toEqual({ v: 2 });
+    expect(mapStravaDetail({}, {})).toEqual({ v: 2 });
   });
 });
 

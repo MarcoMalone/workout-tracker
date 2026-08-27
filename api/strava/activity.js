@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const detail = await stravaGet(`/activities/${id}`, tokens.accessToken);
     let streams = {};
     try {
-      streams = await stravaGet(`/activities/${id}/streams?keys=heartrate,cadence,velocity_smooth&key_by_type=true`, tokens.accessToken);
+      streams = await stravaGet(`/activities/${id}/streams?keys=distance,heartrate,cadence,velocity_smooth&key_by_type=true`, tokens.accessToken);
     } catch { /* streams optional (some activities have none) */ }
     res.setHeader('Content-Type', 'application/json');
     res.statusCode = 200;

@@ -108,10 +108,14 @@ export function mapStravaDetail(detail, streams) {
   if (d.map && (d.map.polyline || d.map.summary_polyline)) out.routePolyline = d.map.polyline || d.map.summary_polyline;
   const s = streams || {};
   const series = {};
+  // All Strava streams share an index, so downsampling each to the same length keeps
+  // them aligned — series.dist[i] is the mile mark for series.hr[i]/pace[i]/cadence[i].
+  if (s.distance && s.distance.data) series.dist = downsample(s.distance.data.map(metersToMiles), 150);
   if (s.heartrate && s.heartrate.data) series.hr = downsample(s.heartrate.data, 150);
   if (s.cadence && s.cadence.data) series.cadence = downsample(s.cadence.data, 150);
   if (s.velocity_smooth && s.velocity_smooth.data) series.pace = downsample(s.velocity_smooth.data.map(paceFromMps), 150);
   if (Object.keys(series).length) out.series = series;
+  out.v = 2; // detail-shape version, so the client can refresh caches missing newer fields
   return out;
 }
 

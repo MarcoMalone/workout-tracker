@@ -1,10 +1,17 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.21';
+export const APP_VERSION = '1.7.22';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.22',
+    date: '2026-08-27',
+    items: [
+      'Better run graphs: mile splits now compare against your run\'s own range (fastest, slowest, and average called out) instead of flat zero-based bars, and the pace/heart-rate/cadence charts plot against distance with a scrub line you can drag, an average-pace line, and a zoomed-in pace scale.',
+    ],
+  },
   {
     v: '1.7.21',
     date: '2026-08-27',
