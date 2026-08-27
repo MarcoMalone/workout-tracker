@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import {
   stravaKind, stravaLocalDate, stravaLocalTime, metersToMiles, paceFromMps,
   stravaSummaryToRun, stravaSummaryToWalk, mapStravaActivities,
-  decodePolyline, downsample, alreadyImported, probableManualDuplicate, mapStravaDetail,
+  decodePolyline, downsample, alreadyImported, probableManualDuplicate, findManualDuplicate, mapStravaDetail,
 } from '../strava.js';
 
 describe('stravaKind', () => {
@@ -157,5 +157,12 @@ describe('dedup + manual-overlap', () => {
   test('does not flag against other Strava imports', () => {
     const existing = [{ date: '2026-08-14', distanceMiles: 3.1, source: 'strava' }];
     expect(probableManualDuplicate({ date: '2026-08-14', distanceMiles: 3.1 }, existing)).toBe(false);
+  });
+  test('findManualDuplicate returns the matched manual log (for replace), else null', () => {
+    const manual = { id: 'run-abc', date: '2026-08-14', distanceMiles: 3.1, source: 'manual' };
+    const existing = [manual, { id: 'strava-9', date: '2026-08-14', distanceMiles: 3.1, source: 'strava' }];
+    expect(findManualDuplicate({ date: '2026-08-14', distanceMiles: 3.11 }, existing)).toBe(manual);
+    expect(findManualDuplicate({ date: '2026-08-14', distanceMiles: 5.0 }, existing)).toBeNull();
+    expect(findManualDuplicate(null, existing)).toBeNull();
   });
 });

@@ -1,10 +1,17 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.18';
+export const APP_VERSION = '1.7.19';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.19',
+    date: '2026-08-26',
+    items: [
+      'Importing Strava history now replaces a run you logged by hand with the richer Strava version (heart rate, elevation, cadence) instead of leaving a duplicate. Matching runs are pre-checked as "replaces your manual entry" — uncheck any you\'d rather keep.',
+    ],
+  },
   {
     v: '1.7.18',
     date: '2026-08-26',

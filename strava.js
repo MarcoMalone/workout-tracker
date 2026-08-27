@@ -147,14 +147,20 @@ export function alreadyImported(record, existingIds) {
   return !!(record && existingIds && existingIds.has(record.id));
 }
 
-// Flag a Strava candidate that looks like an existing MANUAL log: same date, distance
-// within 10%. Guards against double-counting runs the user already entered by hand.
-export function probableManualDuplicate(record, existingLogs) {
-  if (!record) return false;
-  return (existingLogs || []).some(e =>
+// Find the existing MANUAL log a Strava candidate likely duplicates: same date,
+// distance within 10%. Returns the matched log (so the caller can replace it with the
+// richer Strava version) or null. Pass same-kind logs (runs for a run candidate, etc.).
+export function findManualDuplicate(record, existingLogs) {
+  if (!record) return null;
+  return (existingLogs || []).find(e =>
     e.source !== 'strava' &&
     e.date === record.date &&
     e.distanceMiles > 0 && record.distanceMiles > 0 &&
     Math.abs(e.distanceMiles - record.distanceMiles) / e.distanceMiles <= 0.10
-  );
+  ) || null;
+}
+
+// Boolean form: does this Strava candidate look like a run the user logged by hand?
+export function probableManualDuplicate(record, existingLogs) {
+  return !!findManualDuplicate(record, existingLogs);
 }
