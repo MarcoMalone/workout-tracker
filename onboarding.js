@@ -29,9 +29,11 @@ function renderOnboarding() {
   function renderWelcome(el) {
     el.innerHTML = `
       <div class="onboard-screen">
-        <div class="onboard-hero">💪</div>
+        <div class="onboard-brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5v9M7.5 10v4M16.5 10v4M20 7.5v9M7.5 12h9"/></svg></div>
+        <p class="onboard-kicker">Welcome</p>
         <h1 class="onboard-title">Workout Tracker</h1>
-        <p class="onboard-sub">Log workouts, track progression, get AI coaching. Works offline. How do you want to start?</p>
+        <p class="onboard-sub">Log lifts, runs, and walks, track your progression, and get AI coaching — with runs syncing straight from Strava. Works offline.</p>
+        <p class="onboard-cta-label">How do you want to start?</p>
         <button class="btn btn-primary btn-full" id="start-splits">Use starter splits <span style="font-weight:400;opacity:.8">— Arms · Legs · Core</span></button>
         <button class="btn btn-secondary btn-full" id="start-build" style="margin-top:8px">Build my own</button>
         <button class="btn btn-secondary btn-full" id="start-paste" style="margin-top:8px">Paste a template <span style="font-weight:400;opacity:.8">— AI-assisted</span></button>

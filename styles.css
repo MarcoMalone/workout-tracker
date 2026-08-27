@@ -60,6 +60,16 @@ button svg, .icon-inline, .set-num svg, span svg, b svg, p svg { vertical-align:
 .faq-caret { color: var(--text-3); transition: transform 0.15s; flex-shrink: 0; }
 .faq-q.open .faq-caret { transform: rotate(180deg); }
 .faq-a { font-size: 13.5px; color: var(--text-2); line-height: 1.55; padding: 0 0 13px; }
+/* Onboarding / welcome */
+.onboard-screen { max-width: 430px; margin: 0 auto; padding: max(46px, 8vh) 22px 40px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.onboard-brand { width: 78px; height: 78px; border-radius: var(--r-lg); background: var(--surface-hi); border: 1px solid var(--border); color: var(--accent); display: flex; align-items: center; justify-content: center; margin-bottom: 22px; box-shadow: 0 0 0 6px rgba(198,241,53,0.05), 0 12px 34px rgba(0,0,0,0.45); }
+.onboard-brand svg { width: 42px; height: 42px; }
+.onboard-kicker { font-size: 12px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+.onboard-title { font-size: 30px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.1; color: var(--text); margin-bottom: 10px; }
+.onboard-sub { font-size: 15px; color: var(--text-2); line-height: 1.55; margin-bottom: 24px; max-width: 350px; }
+.onboard-cta-label { align-self: flex-start; font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); margin: 2px 0 12px; }
+.onboard-step-title { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; color: var(--text); margin-bottom: 8px; }
+.onboard-step-sub { font-size: 14px; color: var(--text-2); line-height: 1.55; margin-bottom: 18px; }
 .onboard-note { font-size: 13px; color: var(--text-2); margin-top: 14px; text-align: center; line-height: 1.5; }
 .tpl-empty { font-size: 13px; color: var(--text-3); line-height: 1.5; margin-bottom: 10px; }
 .pt-format { background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.45; color: var(--text-2); overflow-x: auto; white-space: pre; margin-bottom: 8px; }
