@@ -452,6 +452,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .strava-imp-sub { font-size: 12px; color: var(--text-3); font-family: var(--font-mono); }
 .strava-dupe { color: var(--danger); font-family: var(--font); font-weight: 700; }
 
+/* Per-run graphs (Strava run detail) */
+.rg-title { font-size: 12px; font-weight: 700; color: var(--text-2); letter-spacing: 0.02em; margin: 0 0 6px; }
+
 /* Inline set editing in History detail */
 .hist-set-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .hist-set-row:last-of-type { border-bottom: none; }
