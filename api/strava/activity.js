@@ -1,11 +1,12 @@
 // POST /api/strava/activity — body { accessToken, expiresAt, refreshToken, id }.
 // Fetches one activity's rich detail + streams (splits, HR/pace/cadence series, route)
 // for the run-detail view. Called lazily, only for a run you actually open.
-import { creds, refreshIfNeeded, stravaGet, readJsonBody } from './_strava.js';
+import { creds, refreshIfNeeded, stravaGet, readJsonBody, sameOrigin } from './_strava.js';
 import { mapStravaDetail } from '../../strava.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return; }
+  if (!sameOrigin(req)) { res.statusCode = 403; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ error: 'forbidden' })); return; }
   const body = readJsonBody(req);
   const { clientId, clientSecret } = creds();
   try {
@@ -24,6 +25,6 @@ export default async function handler(req, res) {
   } catch (e) {
     res.setHeader('Content-Type', 'application/json');
     res.statusCode = e.status === 401 ? 401 : 502;
-    res.end(JSON.stringify({ error: e.status === 401 ? 'reconnect' : String(e.message || e) }));
+    res.end(JSON.stringify({ error: e.status === 401 ? 'reconnect' : 'upstream_error' }));
   }
 }

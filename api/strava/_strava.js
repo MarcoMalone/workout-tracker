@@ -62,6 +62,15 @@ export function appOrigin(req) {
   return `https://${host}`;
 }
 
+// Block cross-site browser abuse of the broker: a request carrying an Origin that
+// isn't this deployment is rejected. Same-origin app calls (Origin === our origin, or
+// absent on some same-origin POSTs) pass. Not a substitute for a WAF rate-limit rule,
+// but it stops casual/browser-based quota abuse without breaking the app.
+export function sameOrigin(req) {
+  const origin = req.headers.origin;
+  return !origin || origin === appOrigin(req);
+}
+
 // Plain-Node 302 redirect (works across runtimes).
 export function redirect(res, url) {
   res.writeHead(302, { Location: url });

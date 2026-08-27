@@ -4,7 +4,7 @@
 // the token in the URL fragment (auto-captured); on an installed iOS PWA the OAuth
 // round-trip runs in a separate in-app browser that can't hand the fragment back to
 // the standalone app, so the user copies the code and pastes it in Settings → Strava.
-import { creds, exchangeCode, appOrigin } from './_strava.js';
+import { creds, exchangeCode } from './_strava.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -31,14 +31,13 @@ function shell(inner) {
 </style></head><body><div class="card">${inner}</div></body></html>`;
 }
 
-function successPage({ code, athlete, origin, fragment }) {
+function successPage({ code, athlete }) {
   return shell(`
     <h1><span class="ok">✓</span> Connected to Strava${athlete ? `, ${esc(athlete)}` : ''}</h1>
-    <p>One last step on your phone:</p>
+    <p>One last step:</p>
     <div class="step">1. Tap <b>Copy code</b> below.<br>2. Return to the <b>Workout</b> app.<br>3. <b>Settings → Strava → Paste connection code</b>, and paste.</div>
     <textarea id="code" readonly>${esc(code)}</textarea>
     <button id="copy">Copy code</button>
-    <span class="sub">On a computer? <a href="${esc(origin)}/#${esc(fragment)}">Open the app automatically</a></span>
     <script>
       var b=document.getElementById('copy'), t=document.getElementById('code');
       b.addEventListener('click',function(){
@@ -57,10 +56,10 @@ function errorPage(msg) {
 }
 
 export default async function handler(req, res) {
-  const origin = appOrigin(req);
   const { code, error, state } = req.query || {};
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store'); // never cache/store the token-bearing page
   if (error || !code) { res.end(errorPage(error === 'access_denied' ? 'You declined access' : (error || 'No authorization code'))); return; }
   try {
     const { clientId, clientSecret } = creds();
@@ -74,7 +73,7 @@ export default async function handler(req, res) {
       strava_state: state || '', // echoed for the client's CSRF check
     }).toString();
     const code64 = Buffer.from(fragment, 'utf8').toString('base64url');
-    res.end(successPage({ code: code64, athlete, origin, fragment }));
+    res.end(successPage({ code: code64, athlete }));
   } catch (e) {
     res.end(errorPage('Strava rejected the sign-in'));
   }
