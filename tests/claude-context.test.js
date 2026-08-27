@@ -1,5 +1,5 @@
 // tests/claude-context.test.js
-import { buildSessionSummary, buildExportSummary, parseGoalSuggestions } from '../claude-api.js';
+import { buildSessionSummary, buildExportSummary, parseGoalSuggestions, buildRunSummary, buildRunDebriefContext, buildPreWorkoutContext } from '../claude-api.js';
 
 // ── parseGoalSuggestions ──────────────────────────────────────────────────────
 test('parseGoalSuggestions: parses a JSON array, clamps target, keeps unit/why', () => {
@@ -51,4 +51,39 @@ test('buildExportSummary produces a non-empty string', () => {
   expect(typeof summary).toBe('string');
   expect(summary.length).toBeGreaterThan(50);
   expect(summary).toContain('Arm A');
+});
+
+// ── run-aware Coach ───────────────────────────────────────────────────────────
+const SAMPLE_RUN = {
+  id: 'r1', date: '2026-08-27', distanceMiles: 5.2, durationMinutes: 48, paceMinPerMile: 9.23,
+  avgHr: 152, maxHr: 171, avgCadence: 84, perceivedEffort: 6, source: 'strava',
+  stravaDetail: { splits: [{ paceMinPerMile: 9.0 }, { paceMinPerMile: 9.0 }, { paceMinPerMile: 9.5 }, { paceMinPerMile: 9.6 }] },
+};
+
+test('buildRunSummary includes distance, mm:ss pace, HR, cadence x2, effort', () => {
+  const s = buildRunSummary(SAMPLE_RUN);
+  expect(s).toContain('5.2 mi');
+  expect(s).toContain('9:14/mi'); // 9.23 min/mi
+  expect(s).toContain('HR 152/171');
+  expect(s).toContain('168 spm'); // 84 per-leg x2
+  expect(s).toContain('effort 6/10');
+});
+
+test('buildRunSummary flags a second-half fade from cached splits', () => {
+  expect(buildRunSummary(SAMPLE_RUN)).toMatch(/faded \d+s\/mi in the 2nd half/);
+});
+
+test('buildRunDebriefContext puts the run under "This run" and excludes it from history', () => {
+  const other = { id: 'r0', date: '2026-08-20', distanceMiles: 3.1, paceMinPerMile: 10 };
+  const { system, userMessage } = buildRunDebriefContext(SAMPLE_RUN, [SAMPLE_RUN, other], 'Knee: monitor.');
+  expect(system).toContain('Knee: monitor.');
+  expect(userMessage).toContain('This run:');
+  expect(userMessage).toContain('3.1 mi');           // the other run, in history
+  expect(userMessage.match(/5\.2 mi/g)).toHaveLength(1); // this run appears once, not duplicated in history
+});
+
+test('buildPreWorkoutContext adds a Recent runs block when runs are passed', () => {
+  const { userMessage } = buildPreWorkoutContext([SAMPLE_SESSION], 'ready?', '', '', [SAMPLE_RUN]);
+  expect(userMessage).toContain('Recent runs:');
+  expect(userMessage).toContain('5.2 mi');
 });

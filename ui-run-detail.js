@@ -4,6 +4,7 @@
 // non-zero pace scale, an average-pace reference line, and a scrub crosshair.
 // Fetched from the broker on first open, cached on the run record. Chart.js is global.
 import { stravaFetchDetail } from './strava-client.js';
+import { getSetting, getRunLogs } from './db.js';
 import { icon } from './icons.js';
 
 const DETAIL_V = 2;              // must match strava.js mapStravaDetail out.v
@@ -172,4 +173,43 @@ export async function renderRunGraphs(container, item, persist) {
   if (cad.length) runCharts.push(metricChart(container.querySelector('#rg-cad'), cad.map(v => (v == null ? null : Math.round(v * 2))), dist, {
     color: CAD_GREEN, fmt: v => `${Math.round(v)} spm`,
   }));
+}
+
+// A one-tap AI debrief for a run, shown on its detail view when the Coach key is set.
+// The Anthropic SDK is imported dynamically on click so opening a run stays lightweight.
+export async function renderRunDebrief(container, item) {
+  if (!container) return;
+  container.innerHTML = '';
+  if (!(item && item.distanceMiles > 0)) return;
+  const apiKey = await getSetting('anthropicApiKey');
+  if (!apiKey) return; // no Coach configured → no button
+  container.innerHTML = `
+    <button class="btn btn-secondary btn-full" id="run-debrief-btn" style="margin-top:12px">${icon('star', 15)} Coach debrief</button>
+    <div class="coach-response hidden" id="run-debrief-resp" style="margin-top:10px"></div>`;
+  const btn = container.querySelector('#run-debrief-btn');
+  const resp = container.querySelector('#run-debrief-resp');
+  btn.addEventListener('click', async () => {
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = 'Thinking…';
+    resp.classList.remove('hidden');
+    resp.textContent = '';
+    try {
+      const [{ buildRunDebriefContext, callClaude }, recent, health] = await Promise.all([
+        import('./claude-api.js'), getRunLogs(30), getSetting('healthContext'),
+      ]);
+      const { system, userMessage } = buildRunDebriefContext(item, recent, health);
+      const text = await callClaude(system, userMessage, apiKey);
+      const p = document.createElement('p');
+      p.style.cssText = 'margin:0;white-space:pre-wrap';
+      p.textContent = text;
+      resp.innerHTML = '';
+      resp.appendChild(p);
+    } catch (e) {
+      resp.textContent = `Coach error: ${(e && e.message) || e}`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  });
 }

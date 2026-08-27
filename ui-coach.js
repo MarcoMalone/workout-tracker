@@ -112,7 +112,7 @@ export async function renderCoachTab(el) {
       const acwr = computeACWR(allSessions, runs, walks);
       const acwrNote = acwr.hasBaseline ? `Training load (ACWR): ${acwr.ratio.toFixed(2)} — ${acwr.zone} (0.8-1.3 is the safe zone).` : '';
       const statusNote = [readinessNoteFor(readiness), acwrNote, painSummary(painLog), goalsNoteFor(goals, goalLog, today)].filter(Boolean).join('\n\n');
-      return buildPreWorkoutContext(recent, note, health, statusNote);
+      return buildPreWorkoutContext(recent, note, health, statusNote, runs.slice(0, 6));
     }, apiKey);
     const resp = el.querySelector('#pre-response');
     if (!resp.classList.contains('hidden') && !resp.textContent.startsWith('Error:')) {

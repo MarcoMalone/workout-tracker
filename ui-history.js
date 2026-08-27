@@ -3,7 +3,7 @@ import { toast, undoToast } from './ui-feedback.js';
 import { groupExercises, roundSlots } from './supersets.js';
 import { parseDuration, computeRunPace, computeWalkDistance, formatMinSec, formatClock, blankSetsFor } from './ui-log.js';
 import { icon } from './icons.js';
-import { renderRunGraphs } from './ui-run-detail.js';
+import { renderRunGraphs, renderRunDebrief } from './ui-run-detail.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -432,6 +432,7 @@ function showCardioDetail(el, item, type) {
         </div>
       </div>
       ${isRun ? '<div id="run-graphs"></div>' : ''}
+      ${isRun ? '<div id="run-debrief"></div>' : ''}
       <div id="notes-section" style="margin-top:12px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <p class="section-title" style="margin:0">Notes</p>
@@ -454,6 +455,7 @@ function showCardioDetail(el, item, type) {
 
   // Strava runs get lazily-loaded HR/pace/cadence/splits graphs (cached after first open).
   if (isRun) renderRunGraphs(el.querySelector('#run-graphs'), item, persist);
+  if (isRun) renderRunDebrief(el.querySelector('#run-debrief'), item);
 
   el.querySelector('#back-btn').addEventListener('click', () => renderHistoryTab(el));
 

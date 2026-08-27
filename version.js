@@ -1,10 +1,17 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.23';
+export const APP_VERSION = '1.7.24';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.24',
+    date: '2026-08-27',
+    items: [
+      'The Coach can now see your runs. Your recent runs (pace, heart rate, cadence, and whether you faded) feed into the pre-workout Coach, and every run has a new "Coach debrief" button for specific feedback on that run.',
+    ],
+  },
   {
     v: '1.7.23',
     date: '2026-08-27',

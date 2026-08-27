@@ -19,11 +19,41 @@ export function buildSessionSummary(session) {
   return lines.join('\n');
 }
 
-export function buildPreWorkoutContext(recentSessions, userNote, healthContext, readinessNote = '') {
+const fmtPace = mpm => {
+  if (!(mpm > 0)) return '—';
+  const m = Math.floor(mpm);
+  const s = Math.round((mpm - m) * 60);
+  return s === 60 ? `${m + 1}:00` : `${m}:${String(s).padStart(2, '0')}`;
+};
+
+// First-half vs second-half pace drift from cached splits (empty string if no splits).
+function runFade(run) {
+  const splits = run.stravaDetail && run.stravaDetail.splits;
+  if (!splits || splits.length < 2) return '';
+  const mid = Math.floor(splits.length / 2);
+  const avg = arr => arr.reduce((a, s) => a + (s.paceMinPerMile || 0), 0) / arr.length;
+  const diffSec = Math.round((avg(splits.slice(mid)) - avg(splits.slice(0, mid))) * 60);
+  if (Math.abs(diffSec) <= 5) return 'even splits';
+  return diffSec > 0 ? `faded ${diffSec}s/mi in the 2nd half` : `negative split (${-diffSec}s/mi faster 2nd half)`;
+}
+
+// One-line run summary for the Coach: distance, pace, HR, cadence, elevation, effort, fade.
+export function buildRunSummary(run) {
+  const parts = [`${run.distanceMiles} mi`, `${fmtPace(run.paceMinPerMile)}/mi`];
+  if (run.avgHr != null) parts.push(`HR ${run.avgHr}${run.maxHr != null ? `/${run.maxHr}` : ''}`);
+  if (run.avgCadence != null) parts.push(`${Math.round(run.avgCadence * 2)} spm`);
+  if (run.elevationGain != null) parts.push(`${Math.round(run.elevationGain)}m elev`);
+  if (run.perceivedEffort != null) parts.push(`effort ${run.perceivedEffort}/10`);
+  const fade = runFade(run);
+  return `${run.date} — Run: ${parts.join(', ')}${fade ? `; ${fade}` : ''}`;
+}
+
+export function buildPreWorkoutContext(recentSessions, userNote, healthContext, readinessNote = '', recentRuns = []) {
   const system = healthContext ? `${SYSTEM_BASE}\n\n${healthContext}` : SYSTEM_BASE;
   const sessionBlock = recentSessions.map(buildSessionSummary).join('\n\n');
+  const runsBlock = recentRuns.length ? `\n\nRecent runs:\n${recentRuns.map(buildRunSummary).join('\n')}` : '';
   const readinessBlock = readinessNote ? `\n\n${readinessNote}` : '';
-  const userMessage = `Recent training sessions:\n\n${sessionBlock}${readinessBlock}\n\n---\nPre-workout check-in: ${userNote}`;
+  const userMessage = `Recent training sessions:\n\n${sessionBlock}${runsBlock}${readinessBlock}\n\n---\nPre-workout check-in: ${userNote}`;
   return { system, userMessage };
 }
 
@@ -31,6 +61,14 @@ export function buildPostWorkoutContext(justFinished, recentSessions, healthCont
   const system = healthContext ? `${SYSTEM_BASE}\n\n${healthContext}` : SYSTEM_BASE;
   const sessionBlock = recentSessions.map(buildSessionSummary).join('\n\n');
   const userMessage = `Recent sessions for context:\n\n${sessionBlock}\n\n---\nJust completed:\n\n${buildSessionSummary(justFinished)}\n\nPlease give me a post-workout debrief — what went well, what to watch, and a recommendation for next session.`;
+  return { system, userMessage };
+}
+
+// Debrief for a single run, opened from the run's detail view.
+export function buildRunDebriefContext(run, recentRuns, healthContext) {
+  const system = healthContext ? `${SYSTEM_BASE}\n\n${healthContext}` : SYSTEM_BASE;
+  const history = (recentRuns || []).filter(r => r.id !== run.id).slice(0, 6).map(buildRunSummary).join('\n');
+  const userMessage = `Recent runs for context:\n${history || '(none yet)'}\n\n---\nThis run:\n${buildRunSummary(run)}\n\nGive me a short debrief on this run — pacing, effort vs heart rate, and one specific thing to work on next run. Reference the actual numbers.`;
   return { system, userMessage };
 }
 
