@@ -2,7 +2,8 @@
 import { showHelpCenter, openFeedback } from './ui-help.js';
 import { showPasteTemplateModal } from './template-import.js';
 import { buildVariationExercises, deriveVariationGroup, VARIATION_PRESETS } from './variations.js';
-import { toGroups, fromGroups, moveGroup, unlinkGroup } from './template-reorder.js';
+import { toGroups, fromGroups, unlinkGroup } from './template-reorder.js';
+import { enableReorderDrag } from './reorder-drag.js';
 import { icon } from './icons.js';
 import { beginStravaConnect, isStravaConnected, disconnectStrava, redeemStravaCode } from './strava-client.js';
 import { runStravaSync } from './ui-strava.js';
@@ -901,31 +902,7 @@ function showReorderEditor(chosen, exById, onDone) {
       groups = unlinkGroup(groups, +b.dataset.gi);
       render();
     }));
-    host.querySelectorAll('.reorder-handle').forEach(h => h.addEventListener('pointerdown', e => startDrag(e, +h.dataset.gi)));
-  }
-
-  function startDrag(e, gi) {
-    e.preventDefault();
-    let from = gi;
-    const mark = () => host.querySelectorAll('.reorder-group').forEach(el => el.classList.toggle('dragging', +el.dataset.gi === from));
-    mark();
-    const move = ev => {
-      const y = ev.clientY;
-      const els = [...host.querySelectorAll('.reorder-group')];
-      let target = els.length - 1;
-      for (let k = 0; k < els.length; k++) {
-        const r = els[k].getBoundingClientRect();
-        if (y < r.top + r.height / 2) { target = k; break; }
-      }
-      if (target !== from) { groups = moveGroup(groups, from, target); from = target; render(); mark(); }
-    };
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      host.querySelectorAll('.reorder-group').forEach(el => el.classList.remove('dragging'));
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    enableReorderDrag(host.querySelector('.reorder-list'), order => { groups = order.map(i => groups[i]); render(); });
   }
 
   render();

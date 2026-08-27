@@ -8,6 +8,7 @@ import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { toast, showToast, confirmSheet, undoToast } from './ui-feedback.js';
 import { groupExercises, roundSlots } from './supersets.js';
 import { resolveVariant, isRotating } from './rotation.js';
+import { enableReorderDrag } from './reorder-drag.js';
 import { icon } from './icons.js';
 export { groupExercises, roundSlots };
 
@@ -922,37 +923,7 @@ function showSessionReorder(el) {
       groups.splice(gi, 1, ...freed.map(ex => [ex]));
       render();
     }));
-    host.querySelectorAll('.reorder-handle').forEach(h => h.addEventListener('pointerdown', e => startDrag(e, +h.dataset.gi)));
-  }
-
-  function startDrag(e, gi) {
-    e.preventDefault();
-    let from = gi;
-    const mark = () => host.querySelectorAll('.reorder-group').forEach(g => g.classList.toggle('dragging', +g.dataset.gi === from));
-    mark();
-    const move = ev => {
-      const y = ev.clientY;
-      const els = [...host.querySelectorAll('.reorder-group')];
-      let target = els.length - 1;
-      for (let k = 0; k < els.length; k++) {
-        const r = els[k].getBoundingClientRect();
-        if (y < r.top + r.height / 2) { target = k; break; }
-      }
-      if (target !== from) {
-        const [moved] = groups.splice(from, 1);
-        groups.splice(target, 0, moved);
-        from = target;
-        render();
-        mark();
-      }
-    };
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      host.querySelectorAll('.reorder-group').forEach(g => g.classList.remove('dragging'));
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    enableReorderDrag(host.querySelector('.reorder-list'), order => { groups = order.map(i => groups[i]); render(); });
   }
 
   render();
