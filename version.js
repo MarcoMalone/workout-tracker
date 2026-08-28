@@ -1,10 +1,17 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.25';
+export const APP_VERSION = '1.7.26';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.26',
+    date: '2026-08-28',
+    items: [
+      'Security hardening (nothing you\'ll notice): the database library is now bundled into the app instead of loaded from a third-party CDN, added a content-security policy, and retired the old Excel-import library. CSV import still works — just export your sheet as CSV.',
+    ],
+  },
   {
     v: '1.7.25',
     date: '2026-08-27',

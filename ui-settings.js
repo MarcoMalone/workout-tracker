@@ -217,8 +217,8 @@ export async function renderSettingsTab(el) {
         <button class="btn btn-ghost btn-full" id="restore-json-btn" style="margin-top:8px">${icon('upload', 16)} Restore from Backup</button>
         <input type="file" id="json-file-input" accept="application/json,.json" class="hidden">
         <div style="height:1px;background:var(--border);margin:12px 0"></div>
-        <button class="btn btn-ghost btn-full" id="import-csv-btn">Import from Google Sheets (CSV or Excel)</button>
-        <input type="file" id="csv-file-input" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
+        <button class="btn btn-ghost btn-full" id="import-csv-btn">Import from Google Sheets (CSV)</button>
+        <input type="file" id="csv-file-input" accept=".csv,text/csv" class="hidden">
       </div>
 
       <details class="settings-collapsible" open>

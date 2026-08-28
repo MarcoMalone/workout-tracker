@@ -38,7 +38,7 @@ function renderOnboarding() {
         <button class="btn btn-secondary btn-full" id="start-build" style="margin-top:8px">Build my own</button>
         <button class="btn btn-secondary btn-full" id="start-paste" style="margin-top:8px">Paste a template <span style="font-weight:400;opacity:.8">— AI-assisted</span></button>
         <button class="btn btn-ghost btn-full" id="import-btn" style="margin-top:8px">Import Google Sheets history</button>
-        <input type="file" id="csv-input" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
+        <input type="file" id="csv-input" accept=".csv,text/csv" class="hidden">
         <p class="onboard-note" id="start-note"></p>
       </div>
     `;
@@ -108,15 +108,12 @@ function renderOnboarding() {
 }
 
 export async function importCSV(file, el) {
-  let text;
+  if (!file) return;
   if (file.name.toLowerCase().endsWith('.xlsx')) {
-    const buffer = await file.arrayBuffer();
-    const workbook = window.XLSX.read(buffer);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    text = window.XLSX.utils.sheet_to_csv(sheet);
-  } else {
-    text = await file.text();
+    toast('Please export your sheet as CSV (File → Download → CSV) and import that.', { type: 'error', duration: 5000 });
+    return;
   }
+  const text = await file.text();
   const sessions = parseWorkoutCSV(text);
   let count = 0;
   for (const session of sessions) {
