@@ -1,4 +1,4 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries, todayStatus } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries, todayStatus, activityLoad } from '../metrics.js';
 
 describe('todayStatus', () => {
   test('all clear → green "Good to go"', () => {
@@ -21,6 +21,24 @@ describe('todayStatus', () => {
   });
   test('ACWR without a baseline is ignored', () => {
     expect(todayStatus({ acwr: { hasBaseline: false, zone: 'high' } }).level).toBe('green');
+  });
+});
+
+describe('activityLoad (intensity-weighted cardio)', () => {
+  test('a hard run outweighs an equally long easy walk', () => {
+    expect(activityLoad({ durationMinutes: 30, perceivedEffort: 9 }, 'run')).toBe(54); // 30 × 1.8
+    expect(activityLoad({ durationMinutes: 30 }, 'walk')).toBe(15);                    // 30 × 0.5
+    expect(activityLoad({ durationMinutes: 30, perceivedEffort: 9 }, 'run'))
+      .toBeGreaterThan(activityLoad({ durationMinutes: 30 }, 'walk'));
+  });
+  test('effort 5 is neutral (= minutes), factors clamp at 2×', () => {
+    expect(activityLoad({ durationMinutes: 40, perceivedEffort: 5 }, 'run')).toBe(40);
+    expect(activityLoad({ durationMinutes: 40, perceivedEffort: 20 }, 'run')).toBe(80);
+  });
+  test('runs fall back to HR, then neutral; zero duration → 0', () => {
+    expect(activityLoad({ durationMinutes: 30, avgHr: 160 }, 'run')).toBe(60); // hrFactor(160)=2
+    expect(activityLoad({ durationMinutes: 30 }, 'run')).toBe(30);
+    expect(activityLoad({ durationMinutes: 0, perceivedEffort: 9 }, 'run')).toBe(0);
   });
 });
 

@@ -19,6 +19,27 @@ export function sessionLoadMinutes(s) {
   return 40;
 }
 
+// Intensity-weighted load (minutes) for a cardio record, so a threshold run counts
+// more than an easy jog and an easy walk counts less than either. Runs use the 1–10
+// perceived effort (effort 5 = neutral = 1×), falling back to avg HR; walks are light
+// by default. Factors are clamped to [0.4, 2]× so one session can't dominate.
+export function activityLoad(a, kind) {
+  const mins = Math.round((a && a.durationMinutes) || 0);
+  if (mins <= 0) return 0;
+  const effortFactor = e => Math.max(0.4, Math.min(2, e / 5));
+  const hrFactor = hr => Math.max(0.5, Math.min(2, (hr - 100) / 40 + 0.5));
+  if (kind === 'run') {
+    if (a.perceivedEffort > 0) return Math.round(mins * effortFactor(a.perceivedEffort));
+    if (a.avgHr > 0) return Math.round(mins * hrFactor(a.avgHr));
+    return mins;
+  }
+  if (kind === 'walk') {
+    if (a.avgHr > 0) return Math.round(mins * hrFactor(a.avgHr));
+    return Math.round(mins * 0.5);
+  }
+  return mins;
+}
+
 // Acute:Chronic Workload Ratio using training minutes as a transparent external
 // load. acute = last 7 days total; chronic = 28-day average week (coupled).
 // ratio in 0.8-1.3 is the evidence-backed "sweet spot"; <0.8 detraining, >1.5
@@ -27,8 +48,8 @@ export function computeACWR(sessions, runs, walks, today = new Date()) {
   const load = {};
   const add = (date, mins) => { if (date && mins > 0) load[date] = (load[date] || 0) + mins; };
   for (const s of sessions) add(s.date, sessionLoadMinutes(s));
-  for (const r of runs) add(r.date, Math.round(r.durationMinutes || 0));
-  for (const w of walks) add(w.date, Math.round(w.durationMinutes || 0));
+  for (const r of runs) add(r.date, activityLoad(r, 'run'));
+  for (const w of walks) add(w.date, activityLoad(w, 'walk'));
 
   const sumDays = (offset, count) => {
     let sum = 0;

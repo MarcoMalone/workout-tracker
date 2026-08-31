@@ -1,10 +1,17 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.27';
+export const APP_VERSION = '1.7.28';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.28',
+    date: '2026-08-28',
+    items: [
+      'Training load (ACWR) is now run-aware: a hard run counts more than an easy jog, and walks count as the lighter effort they are — weighted by your effort rating or heart rate. Your Progress gauge and the Today chip both get more accurate.',
+    ],
+  },
   {
     v: '1.7.27',
     date: '2026-08-28',
