@@ -1,4 +1,24 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries, todayStatus, activityLoad, asymmetryBoard } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries, todayStatus, activityLoad, asymmetryBoard, efficiencyFactor, runEfficiencySeries } from '../metrics.js';
+
+describe('running efficiency', () => {
+  test('efficiencyFactor = speed(m/min) / avgHr; null without HR/distance/time', () => {
+    expect(efficiencyFactor({ distanceMiles: 1, durationMinutes: 9, avgHr: 150 })).toBeCloseTo(1.19, 1);
+    expect(efficiencyFactor({ distanceMiles: 1, durationMinutes: 9 })).toBeNull();
+    expect(efficiencyFactor({ distanceMiles: 1, durationMinutes: 0, avgHr: 150 })).toBeNull();
+  });
+  test('runEfficiencySeries keeps HR runs, sorts oldest→newest, doubles cadence', () => {
+    const runs = [
+      { date: '2026-08-20', distanceMiles: 3, durationMinutes: 27, avgHr: 150, avgCadence: 84 },
+      { date: '2026-08-10', distanceMiles: 3, durationMinutes: 30, avgHr: 150 },
+      { date: '2026-08-15', distanceMiles: 3, durationMinutes: 28, avgHr: 155, avgCadence: 82 },
+      { date: '2026-08-05', distanceMiles: 3, durationMinutes: 30 }, // no HR → excluded
+    ];
+    const s = runEfficiencySeries(runs, 12);
+    expect(s.map(x => x.date)).toEqual(['2026-08-10', '2026-08-15', '2026-08-20']);
+    expect(s[2].cadence).toBe(168);
+    expect(s[0].cadence).toBeNull();
+  });
+});
 
 describe('asymmetryBoard', () => {
   const defs = [{ id: 'ex-split-squat', name: 'Split Squat', isUnilateral: true }];

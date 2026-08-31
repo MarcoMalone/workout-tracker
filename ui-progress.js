@@ -1,5 +1,5 @@
 import { getRunLogs, getWalkLogs, getAllSessions, getExercises, dataVersion } from './db.js';
-import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall, computeWeeklyCardio, weeklyCardioSeries, asymmetryBoard } from './metrics.js';
+import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall, computeWeeklyCardio, weeklyCardioSeries, asymmetryBoard, runEfficiencySeries } from './metrics.js';
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { switchTab } from './app.js';
 import { icon } from './icons.js';
@@ -59,6 +59,7 @@ export async function renderProgressTab(el) {
       <div id="layer-a-heatmap"></div>
       <div id="progress-summary"></div>
       <div id="asym-board"></div>
+      <div id="run-efficiency"></div>
       <div class="seg-control" id="body-part-seg">
         <button class="seg-btn active" data-part="arms">Arms</button>
         <button class="seg-btn" data-part="legs">Legs</button>
@@ -83,6 +84,7 @@ export async function renderProgressTab(el) {
     computeWeeklyCardio(runs, walks)
   );
   renderAsymBoard(root.querySelector('#asym-board'), asymmetryBoard(allSessions, exercises));
+  renderRunEfficiency(root.querySelector('#run-efficiency'), runEfficiencySeries(runs));
 
   const activityByDate = buildActivityByDate(allSessions, runs, walks);
   const multiByDate = buildMultiActivityByDate(allSessions, runs, walks);
@@ -123,6 +125,46 @@ const shortDate = dateStr => new Date(dateStr + 'T12:00:00').toLocaleDateString(
 function hexToRgb(hex) {
   const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex || '');
   return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : { r: 91, g: 164, b: 224 };
+}
+
+// Auto-scaled inline-SVG sparkline (range-fit, not zero-based — for narrow-band trends
+// like efficiency and cadence where the meaningful variation is small).
+function miniSparkline(values, { w = 104, h = 32, color = 'var(--accent)' } = {}) {
+  const present = values.filter(v => v != null);
+  if (present.length < 2) return '';
+  const min = Math.min(...present), max = Math.max(...present);
+  const span = (max - min) || 1;
+  const xf = i => (i / (values.length - 1)) * (w - 4) + 2;
+  const yf = v => h - 3 - ((v - min) / span) * (h - 6);
+  const pts = values.map((v, i) => (v == null ? null : `${xf(i).toFixed(1)},${yf(v).toFixed(1)}`)).filter(Boolean).join(' ');
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" class="mini-spark" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+// Running efficiency + cadence trends over recent HR runs (top-level Progress section).
+function renderRunEfficiency(container, series) {
+  if (!container) return;
+  const efVals = series.map(s => s.ef);
+  const cadVals = series.map(s => s.cadence);
+  const efN = efVals.filter(v => v != null).length;
+  if (efN < 3) { container.innerHTML = ''; return; }
+  const sign = n => (n >= 0 ? '+' : '') + n + '%';
+  const efChange = percentChange(efVals.filter(v => v != null));
+  const latestEf = efVals.filter(v => v != null).slice(-1)[0];
+  const cadClean = cadVals.filter(v => v != null);
+  const cadRow = cadClean.length >= 3 ? `
+    <div class="eff-row">
+      <div class="eff-main"><span class="eff-name">Cadence</span><span class="eff-sub">${cadClean.slice(-1)[0]} spm · <span class="asym-trend${percentChange(cadClean) >= 0 ? ' good' : ''}">${sign(percentChange(cadClean))}</span></span></div>
+      ${miniSparkline(cadVals, { color: '#52c785' })}
+    </div>` : '';
+  container.innerHTML = `<p class="section-title">Running Efficiency</p>
+    <div class="card eff-board">
+      <div class="eff-row">
+        <div class="eff-main"><span class="eff-name">Aerobic efficiency</span><span class="eff-sub">${latestEf} m/min per bpm · <span class="asym-trend ${efChange >= 0 ? 'good' : 'bad'}">${sign(efChange)} over ${efN} runs</span></span></div>
+        ${miniSparkline(efVals, { color: 'var(--accent)' })}
+      </div>
+      ${cadRow}
+      <p class="settings-hint" style="margin:8px 2px 2px">More distance per heartbeat means your aerobic fitness is improving — even at the same pace.</p>
+    </div>`;
 }
 
 // Tiny inline-SVG gap sparkline for the asymmetry board (dashed 15% threshold line).

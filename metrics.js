@@ -248,6 +248,25 @@ export function asymmetryBoard(sessions, exercises) {
   return out.sort((a, b) => b.currentGap - a.currentGap);
 }
 
+// Aerobic efficiency factor: speed (m/min) per heart beat. Rising over time = fitter
+// (more distance per heartbeat, even at the same pace). Null without HR/distance/time.
+export function efficiencyFactor(run) {
+  if (!(run && run.avgHr > 0 && run.distanceMiles > 0 && run.durationMinutes > 0)) return null;
+  const metersPerMin = (run.distanceMiles * 1609.344) / run.durationMinutes;
+  return Math.round((metersPerMin / run.avgHr) * 100) / 100;
+}
+
+// Efficiency + cadence series over recent runs that have heart rate, oldest→newest,
+// capped at `limit`. Cadence is per-leg ×2 (steps/min); null when the run lacks it.
+export function runEfficiencySeries(runs, limit = 12) {
+  return (runs || [])
+    .filter(r => efficiencyFactor(r) != null)
+    .slice()
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .slice(-limit)
+    .map(r => ({ date: r.date, ef: efficiencyFactor(r), cadence: r.avgCadence != null ? Math.round(r.avgCadence * 2) : null }));
+}
+
 // Detect a stalled lift from a chronological e1RM series (oldest→newest).
 // Stalled when the best estimate is 3+ sessions in the past (no PR since) and
 // there are at least 4 data points. Returns sessions-since-best for the nudge.

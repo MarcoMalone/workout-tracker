@@ -135,6 +135,14 @@ button svg, .icon-inline, .set-num svg, span svg, b svg, p svg { vertical-align:
 .asym-trend.bad { color: var(--danger); }
 .asym-spark { flex: none; }
 
+/* Running efficiency board (Progress tab) */
+.eff-board { padding: 10px 14px; }
+.eff-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.eff-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.eff-name { font-size: 14px; font-weight: 700; }
+.eff-sub { font-size: 12px; color: var(--text-3); }
+.mini-spark { flex: none; }
+
 .rd-recovery { border-top: 1px solid var(--border); margin-top: 6px; }
 .rd-num-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .rd-num-row label { font-size: 14px; color: var(--text-2); }
