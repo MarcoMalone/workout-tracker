@@ -1,5 +1,5 @@
 import { getRunLogs, getWalkLogs, getAllSessions, getExercises, dataVersion } from './db.js';
-import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall, computeWeeklyCardio, weeklyCardioSeries } from './metrics.js';
+import { getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, computeACWR, computeWeeklyVolume, detectStall, computeWeeklyCardio, weeklyCardioSeries, asymmetryBoard } from './metrics.js';
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { switchTab } from './app.js';
 import { icon } from './icons.js';
@@ -58,6 +58,7 @@ export async function renderProgressTab(el) {
       </div>
       <div id="layer-a-heatmap"></div>
       <div id="progress-summary"></div>
+      <div id="asym-board"></div>
       <div class="seg-control" id="body-part-seg">
         <button class="seg-btn active" data-part="arms">Arms</button>
         <button class="seg-btn" data-part="legs">Legs</button>
@@ -81,6 +82,7 @@ export async function renderProgressTab(el) {
     computeStalls(allSessions, exNameById),
     computeWeeklyCardio(runs, walks)
   );
+  renderAsymBoard(root.querySelector('#asym-board'), asymmetryBoard(allSessions, exercises));
 
   const activityByDate = buildActivityByDate(allSessions, runs, walks);
   const multiByDate = buildMultiActivityByDate(allSessions, runs, walks);
@@ -121,6 +123,41 @@ const shortDate = dateStr => new Date(dateStr + 'T12:00:00').toLocaleDateString(
 function hexToRgb(hex) {
   const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex || '');
   return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : { r: 91, g: 164, b: 224 };
+}
+
+// Tiny inline-SVG gap sparkline for the asymmetry board (dashed 15% threshold line).
+function asymSparkline(values, w = 88, h = 30, threshold = 15) {
+  if (!values || !values.length) return '';
+  const max = Math.max(threshold + 5, ...values);
+  const xf = i => values.length === 1 ? w / 2 : (i / (values.length - 1)) * (w - 4) + 2;
+  const yf = v => h - 2 - (v / max) * (h - 5);
+  const pts = values.map((v, i) => `${xf(i).toFixed(1)},${yf(v).toFixed(1)}`).join(' ');
+  const ty = yf(threshold).toFixed(1);
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" class="asym-spark" aria-hidden="true">
+    <line x1="0" y1="${ty}" x2="${w}" y2="${ty}" stroke="var(--text-3)" stroke-dasharray="3 3" opacity="0.5"/>
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+}
+
+// The Left/Right balance board: one row per unilateral exercise, worst gap first.
+function renderAsymBoard(container, board) {
+  if (!container) return;
+  if (!board || !board.length) { container.innerHTML = ''; return; }
+  const trendTag = t => t === 'improving'
+    ? '<span class="asym-trend good">↘ improving</span>'
+    : t === 'worsening' ? '<span class="asym-trend bad">↗ widening</span>'
+    : '<span class="asym-trend">→ steady</span>';
+  const rows = board.map(b => `
+    <div class="asym-row${b.flagged ? ' flagged' : ''}">
+      <div class="asym-main">
+        <span class="asym-name">${esc(b.name)}</span>
+        <span class="asym-sub">${b.currentGap < 1 ? 'balanced' : `${b.weaker === 'L' ? 'Left' : 'Right'} ${b.currentGap}% lower`} · ${trendTag(b.trend)}</span>
+      </div>
+      ${asymSparkline(b.series)}
+    </div>`).join('');
+  container.innerHTML = `<p class="section-title">Left / Right Balance ${infoBtnHTML('asymmetry')}</p>
+    <div class="card asym-board">${rows}</div>`;
+  wireInfo(container);
 }
 
 // Weekly cardio bars: each week's bar is stacked into per-session segments, shaded

@@ -1,4 +1,24 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries, todayStatus, activityLoad } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries, todayStatus, activityLoad, asymmetryBoard } from '../metrics.js';
+
+describe('asymmetryBoard', () => {
+  const defs = [{ id: 'ex-split-squat', name: 'Split Squat', isUnilateral: true }];
+  const mk = (date, l, r) => ({ date, exercises: [{ exerciseId: 'ex-split-squat', sets: [{ side: 'L', weight: l }, { side: 'R', weight: r }] }] });
+  test('rolls per-session gaps, sorts worst-first, flags + trends', () => {
+    const sessions = [mk('2026-08-01', 80, 100), mk('2026-08-08', 85, 100), mk('2026-08-15', 92, 100), mk('2026-08-22', 96, 100)];
+    const b = asymmetryBoard(sessions, defs)[0];
+    expect(b.name).toBe('Split Squat');
+    expect(b.weaker).toBe('L');
+    expect(b.series).toEqual([20, 15, 8, 4]);
+    expect(b.currentGap).toBe(4);
+    expect(b.flagged).toBe(false);
+    expect(b.trend).toBe('improving');
+  });
+  test('ignores bilateral exercises and single-session data', () => {
+    expect(asymmetryBoard([mk('2026-08-01', 80, 100)], defs)).toEqual([]); // one session only
+    const bi = [{ id: 'ex-split-squat', name: 'Split Squat', isUnilateral: false }];
+    expect(asymmetryBoard([mk('2026-08-01', 80, 100), mk('2026-08-08', 80, 100)], bi)).toEqual([]);
+  });
+});
 
 describe('todayStatus', () => {
   test('all clear → green "Good to go"', () => {

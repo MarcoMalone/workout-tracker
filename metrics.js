@@ -193,6 +193,61 @@ export function todayStatus({ readiness = null, acwr = null, painLog = {} } = {}
   return { level, label, reason: reasons.join(' · ') };
 }
 
+// Roll L/R imbalance across history per unilateral exercise, so the rehab story is the
+// gap CLOSING over weeks (the in-session flag is only today's set). For each unilateral
+// exercise it builds a chronological gap% series (per session, avg of each side's metric),
+// then reports the current gap + weaker side, a trend, and whether it's still flagged
+// (>=15%). Sorted worst-first. Pure — sessions can be any order.
+export function asymmetryBoard(sessions, exercises) {
+  const defById = {};
+  for (const e of (exercises || [])) defById[e.id] = e;
+  const dated = (sessions || []).filter(s => s && s.date).slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+  const byEx = {};
+  for (const sess of dated) {
+    for (const ex of (sess.exercises || [])) {
+      const def = defById[ex.exerciseId];
+      if (!def || !def.isUnilateral) continue;
+      const metric = def.isTimed ? 'seconds' : (def.isBodyweight ? 'reps' : 'weight');
+      const sides = { L: [], R: [] };
+      for (const s of (ex.sets || [])) {
+        const v = s[metric];
+        if (v != null && (s.side === 'L' || s.side === 'R')) sides[s.side].push(v);
+      }
+      if (!sides.L.length || !sides.R.length) continue;
+      const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+      const l = avg(sides.L), r = avg(sides.R);
+      const hi = Math.max(l, r);
+      if (hi <= 0) continue;
+      const rec = byEx[ex.exerciseId] || (byEx[ex.exerciseId] = { name: def.name || ex.exerciseName || ex.exerciseId, gaps: [], weaker: [] });
+      rec.gaps.push(Math.round((1 - Math.min(l, r) / hi) * 100));
+      rec.weaker.push(l < r ? 'L' : 'R');
+    }
+  }
+  const mean = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  const out = [];
+  for (const [exerciseId, rec] of Object.entries(byEx)) {
+    if (rec.gaps.length < 2) continue;
+    const gaps = rec.gaps;
+    let trend = 'flat';
+    if (gaps.length >= 4) {
+      const half = Math.floor(gaps.length / 2);
+      const d = mean(gaps.slice(half)) - mean(gaps.slice(0, half));
+      trend = d <= -3 ? 'improving' : d >= 3 ? 'worsening' : 'flat';
+    }
+    out.push({
+      exerciseId,
+      name: String(rec.name).replace(/_/g, ' '),
+      currentGap: gaps[gaps.length - 1],
+      weaker: rec.weaker[rec.weaker.length - 1],
+      trend,
+      series: gaps,
+      flagged: gaps[gaps.length - 1] >= 15,
+      sessions: gaps.length,
+    });
+  }
+  return out.sort((a, b) => b.currentGap - a.currentGap);
+}
+
 // Detect a stalled lift from a chronological e1RM series (oldest→newest).
 // Stalled when the best estimate is 3+ sessions in the past (no PR since) and
 // there are at least 4 data points. Returns sessions-since-best for the nudge.

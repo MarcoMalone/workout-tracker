@@ -1,10 +1,17 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.28';
+export const APP_VERSION = '1.7.29';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.29',
+    date: '2026-08-28',
+    items: [
+      'New Left / Right Balance board on the Progress tab — your side-to-side gap over time for each single-side exercise, with a trend arrow and a flag when a gap stays above 15%. Watch the gap close as you rehab.',
+    ],
+  },
   {
     v: '1.7.28',
     date: '2026-08-28',

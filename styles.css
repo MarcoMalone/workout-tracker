@@ -123,6 +123,18 @@ button svg, .icon-inline, .set-num svg, span svg, b svg, p svg { vertical-align:
 .today-amber { border-color: color-mix(in srgb, #e8b23a 45%, var(--border)); }
 .today-red { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
 
+/* Left/Right balance board (Progress tab) */
+.asym-board { padding: 6px 14px; }
+.asym-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.asym-row:last-child { border-bottom: none; }
+.asym-row.flagged .asym-name { color: var(--danger); }
+.asym-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.asym-name { font-size: 14px; font-weight: 700; }
+.asym-sub { font-size: 12px; color: var(--text-3); }
+.asym-trend.good { color: var(--success); }
+.asym-trend.bad { color: var(--danger); }
+.asym-spark { flex: none; }
+
 .rd-recovery { border-top: 1px solid var(--border); margin-top: 6px; }
 .rd-num-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .rd-num-row label { font-size: 14px; color: var(--text-2); }
