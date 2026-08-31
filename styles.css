@@ -111,6 +111,18 @@ button svg, .icon-inline, .set-num svg, span svg, b svg, p svg { vertical-align:
 .rd-pill { flex: 1; min-height: 44px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-hi); color: var(--text-2); font-size: 15px; font-weight: 700; cursor: pointer; font-variant-numeric: tabular-nums; }
 .rd-pill.on { background: var(--accent); color: var(--volt-ink); border-color: var(--accent); }
 .rd-ends { display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: var(--text-3); }
+/* "Today" status chip (Log tab) */
+.today-chip { display: flex; align-items: center; gap: 9px; padding: 11px 14px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); margin-top: 12px; }
+.today-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.today-label { font-size: 14px; font-weight: 800; }
+.today-reason { font-size: 13px; color: var(--text-3); margin-left: auto; text-align: right; }
+.today-green .today-dot { background: var(--success); }
+.today-amber .today-dot { background: #e8b23a; }
+.today-red .today-dot { background: var(--danger); }
+.today-green { border-color: color-mix(in srgb, var(--success) 45%, var(--border)); }
+.today-amber { border-color: color-mix(in srgb, #e8b23a 45%, var(--border)); }
+.today-red { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+
 .rd-recovery { border-top: 1px solid var(--border); margin-top: 6px; }
 .rd-num-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .rd-num-row label { font-size: 14px; color: var(--text-2); }

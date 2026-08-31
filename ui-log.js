@@ -1,5 +1,5 @@
 import { getTemplates, getTemplate, getExercise, getExercises, addExercise, getLastSessionForExercise, getSessionsForExercise, saveSession, getSetting, setSetting, addRunLog, addWalkLog, getRunLogs, getWalkLogs, getAllSessions, deleteTemplate, addTemplate, getReadiness, getReadinessLog, saveReadiness, getGoals, getGoalLog, saveGoals, setGoalProgress, getPainLog } from './db.js';
-import { readinessScore, goalStreak, painSummary, calcE1RM, getBestE1RM, suggestProgression } from './metrics.js';
+import { readinessScore, goalStreak, painSummary, calcE1RM, getBestE1RM, suggestProgression, computeACWR, todayStatus } from './metrics.js';
 import { showHelpCenter } from './ui-help.js';
 import { switchTab } from './app.js';
 import { haptic } from './haptics.js';
@@ -210,9 +210,15 @@ export async function renderLogTab(el) {
     return;
   }
   releaseWakeLock(); // no active workout on the Log home → let the screen sleep
-  const [templates, recent, runs, walks, todayReadiness] = await Promise.all([
-    getTemplates(), getAllSessions(200), getRunLogs(60), getWalkLogs(60), getReadiness(localDateStr())
+  const [templates, recent, runs, walks, todayReadiness, painLog] = await Promise.all([
+    getTemplates(), getAllSessions(200), getRunLogs(60), getWalkLogs(60), getReadiness(localDateStr()), getPainLog()
   ]);
+  const status = todayStatus({
+    readiness: todayReadiness ? readinessScore(todayReadiness) : null,
+    acwr: computeACWR(recent, runs, walks),
+    painLog,
+  });
+  const todayChip = `<div class="today-chip today-${status.level}"><span class="today-dot"></span><span class="today-label">${status.label}</span>${status.reason ? `<span class="today-reason">${status.reason}</span>` : ''}</div>`;
   const lastArms = recent.find(s => s.bodyPartGroup === 'arms');
   const lastLegs = recent.find(s => s.bodyPartGroup === 'legs');
   const lastLine = (lastArms || lastLegs) ? `
@@ -262,6 +268,7 @@ export async function renderLogTab(el) {
         <div class="week-hd"><b>This Week</b><span>${weekCount} active ${weekCount === 1 ? 'day' : 'days'}</span></div>
         <div class="week-bars-wrap"><div class="week-bars">${barsHtml}</div></div>
       </div>
+      ${todayChip}
       ${readinessCard}
       <div id="daily-goals"></div>
       <div class="log-cardio-row">

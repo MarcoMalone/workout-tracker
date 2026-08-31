@@ -145,6 +145,33 @@ export function painSummary(painLog = {}) {
   return 'Active pain/soreness: ' + active.map(([region, v]) => `${region} ${v.level}/10${v.note ? ` (${v.note})` : ''}`).join(', ') + '.';
 }
 
+// Combine today's readiness, ACWR zone, and active pain into one go/caution/stop
+// signal for the Log tab. Pure — takes already-computed inputs; every input is optional.
+export function todayStatus({ readiness = null, acwr = null, painLog = {} } = {}) {
+  const rank = { green: 0, amber: 1, red: 2 };
+  let level = 'green';
+  const reasons = [];
+  const bump = (to, why) => { if (rank[to] > rank[level]) level = to; if (why) reasons.push(why); };
+
+  const maxPain = Object.values(painLog || {}).reduce((m, v) => Math.max(m, (v && v.level) || 0), 0);
+  if (maxPain >= 6) bump('red', `pain ${maxPain}/10`);
+  else if (maxPain >= 3) bump('amber', `pain ${maxPain}/10`);
+
+  if (acwr && acwr.hasBaseline) {
+    if (acwr.zone === 'high') bump('red', 'load spiking');
+    else if (acwr.zone === 'caution') bump('amber', 'load climbing');
+    else if (acwr.zone === 'low') bump('amber', 'detraining');
+  }
+
+  if (readiness != null) {
+    if (readiness < 34) bump('red', `readiness ${readiness}`);
+    else if (readiness < 55) bump('amber', `readiness ${readiness}`);
+  }
+
+  const label = level === 'green' ? 'Good to go' : level === 'amber' ? 'Ease in today' : 'Back off today';
+  return { level, label, reason: reasons.join(' · ') };
+}
+
 // Detect a stalled lift from a chronological e1RM series (oldest→newest).
 // Stalled when the best estimate is 3+ sessions in the past (no PR since) and
 // there are at least 4 data points. Returns sessions-since-best for the nudge.

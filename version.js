@@ -1,10 +1,18 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.26';
+export const APP_VERSION = '1.7.27';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.27',
+    date: '2026-08-28',
+    items: [
+      'New "Today" chip on the Log tab — a green / amber / red read on whether to push or ease off, combining your readiness, training load (ACWR), and any active pain into one glance.',
+      'Settings → Anthropic API Key now has Show and Copy buttons, so you can retrieve the key you saved on this device.',
+    ],
+  },
   {
     v: '1.7.26',
     date: '2026-08-28',

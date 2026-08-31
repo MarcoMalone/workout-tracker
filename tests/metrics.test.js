@@ -1,4 +1,28 @@
-import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries } from '../metrics.js';
+import { calcE1RM, getBestE1RM, findPRIndices, percentChange, buildConsistencyMap, readinessScore, computeACWR, computeWeeklyVolume, goalStreak, detectStall, painSummary, suggestProgression, computeWeeklyCardio, weeklyCardioSeries, todayStatus } from '../metrics.js';
+
+describe('todayStatus', () => {
+  test('all clear → green "Good to go"', () => {
+    const s = todayStatus({ readiness: 80, acwr: { hasBaseline: true, zone: 'optimal' }, painLog: {} });
+    expect(s.level).toBe('green');
+    expect(s.label).toBe('Good to go');
+  });
+  test('a load spike or severe pain → red, and reasons are collected', () => {
+    expect(todayStatus({ acwr: { hasBaseline: true, zone: 'high' } }).level).toBe('red');
+    const s = todayStatus({ readiness: 30, painLog: { knee: { level: 7 } } });
+    expect(s.level).toBe('red');
+    expect(s.reason).toContain('pain 7/10');
+    expect(s.reason).toContain('readiness 30');
+  });
+  test('moderate pain or climbing load → amber (worst signal wins)', () => {
+    expect(todayStatus({ painLog: { hip: { level: 4 } } }).level).toBe('amber');
+    expect(todayStatus({ acwr: { hasBaseline: true, zone: 'caution' } }).level).toBe('amber');
+    // red beats amber
+    expect(todayStatus({ acwr: { hasBaseline: true, zone: 'caution' }, painLog: { hip: { level: 8 } } }).level).toBe('red');
+  });
+  test('ACWR without a baseline is ignored', () => {
+    expect(todayStatus({ acwr: { hasBaseline: false, zone: 'high' } }).level).toBe('green');
+  });
+});
 
 // ── getBestE1RM alt-drop exclusion ────────────────────────────────────────────────
 test('getBestE1RM: ignores drop sets (same-exercise and cross-exercise)', () => {

@@ -115,6 +115,10 @@ export async function renderSettingsTab(el) {
           <button class="btn btn-secondary settings-save-btn" id="save-api-key" style="flex:1;margin:0">Save Key</button>
           <button class="btn btn-ghost" id="clear-api-key" style="flex:1">Clear</button>
         </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-ghost" id="show-api-key" style="flex:1">Show</button>
+          <button class="btn btn-ghost" id="copy-api-key" style="flex:1">Copy key</button>
+        </div>
       </div>
 
       <p class="section-title">Strava</p>
@@ -248,6 +252,19 @@ export async function renderSettingsTab(el) {
   el.querySelector('#save-api-key').addEventListener('click', async () => {
     await setSetting('anthropicApiKey', el.querySelector('#api-key-input').value.trim());
     showToast('API key saved');
+  });
+  el.querySelector('#show-api-key').addEventListener('click', () => {
+    const inp = el.querySelector('#api-key-input');
+    const btn = el.querySelector('#show-api-key');
+    const reveal = inp.type === 'password';
+    inp.type = reveal ? 'text' : 'password';
+    btn.textContent = reveal ? 'Hide' : 'Show';
+  });
+  el.querySelector('#copy-api-key').addEventListener('click', async () => {
+    const v = el.querySelector('#api-key-input').value.trim();
+    if (!v) { toast('No key is saved on this device — you\'ll need to paste a new one.'); return; }
+    try { await navigator.clipboard.writeText(v); showToast('Key copied to clipboard'); }
+    catch { toast('Copy blocked — tap Show and copy it by hand.', { type: 'error' }); }
   });
   el.querySelector('#clear-api-key').addEventListener('click', async () => {
     await setSetting('anthropicApiKey', '');
