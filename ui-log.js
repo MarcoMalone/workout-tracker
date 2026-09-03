@@ -898,8 +898,7 @@ function showSessionReorder(el) {
     else groups.push([ex]);
   });
   const host = document.createElement('div');
-  host.className = 'modal-overlay';
-  host.style.zIndex = '60';
+  host.className = 'modal-overlay'; // z-index 100 — above the sticky finish bar (90) + rest timer (95)
   document.body.appendChild(host);
   const close = () => host.remove();
   const nameOf = ex => (ex.exerciseName || _exDefById[ex.exerciseId]?.name || ex.exerciseId || '').replace(/_/g, ' ');
@@ -1295,6 +1294,7 @@ let restInterval = null;
 let restEndAt = 0; // wall-clock ms when the current rest ends (0 = no rest running)
 let restTarget = REST_DEFAULT;
 let restExId = null;
+let restDoneTimeout = null; // auto-hide of the "Rest done" cue; cleared when a new set restarts rest
 
 function restRemainingSec() {
   return restEndAt ? Math.round((restEndAt - Date.now()) / 1000) : 0;
@@ -1304,6 +1304,9 @@ async function startRest(exId) {
   try { if (localStorage.getItem('restTimer') === 'off') return; } catch (e) {}
   const bar = document.getElementById('rest-timer');
   if (!bar) return;
+  // A new set logged mid-"Rest done" cue: cancel its pending auto-hide so it doesn't
+  // hide the fresh timer we're about to show.
+  clearTimeout(restDoneTimeout); restDoneTimeout = null;
   restExId = exId || null;
   const map = (await getSetting('restByExercise')) || {};
   restTarget = (restExId && map[restExId]) || REST_DEFAULT;
@@ -1338,7 +1341,7 @@ function updateRest() {
     renderRest(bar, true);
     haptic('rest');
     maybeRestBeep();
-    setTimeout(() => {
+    restDoneTimeout = setTimeout(() => {
       const b = document.getElementById('rest-timer');
       if (b) { b.classList.add('hidden'); b.classList.remove('rest-done'); b.innerHTML = ''; }
     }, 4000);
@@ -1362,6 +1365,8 @@ function renderRest(bar, done = false) {
 function clearRest() {
   clearInterval(restInterval);
   restInterval = null;
+  clearTimeout(restDoneTimeout);
+  restDoneTimeout = null;
   restEndAt = 0;
   restExId = null;
   const bar = document.getElementById('rest-timer');
@@ -1785,10 +1790,10 @@ async function showAddExerciseModal(el, cardsEl) {
   const overlay = document.getElementById('modal-overlay');
   overlay.classList.remove('hidden');
   overlay.innerHTML = `
-    <div class="modal-sheet">
-      <h2 class="modal-title">Add Exercise</h2>
+    <div class="modal-sheet modal-sheet-top">
+      <h2 class="modal-title" style="margin-bottom:10px">Add Exercise</h2>
       <input class="input" id="add-ex-search" type="search" placeholder="Search exercises…" autocomplete="off" autocapitalize="off" style="margin-bottom:10px">
-      <div id="add-ex-list" style="max-height:52vh;overflow-y:auto"></div>
+      <div id="add-ex-list" style="flex:1;min-height:0;overflow-y:auto"></div>
       <button class="btn btn-ghost btn-full" id="cancel-add-ex" style="margin-top:12px">Cancel</button>
     </div>
   `;
@@ -1807,11 +1812,14 @@ async function showAddExerciseModal(el, cardsEl) {
     const exDef = await getExercise(exId);
     const prev = await getLastSessionForExercise(exId);
     const newIdx = activeSession.exercises.length;
+    // Unilateral exercises are logged per side, so 3 sets = 3 PAIRED L/R rows (6 total);
+    // appendSetRow assigns the L/R by index parity.
+    const rows = 3 * (exDef && exDef.isUnilateral ? 2 : 1);
     activeSession.exercises.push({
       exerciseId: exId,
       exerciseName: exDef.name,
       notes: '',
-      sets: Array.from({ length: 3 }, (_, i) => ({
+      sets: Array.from({ length: rows }, (_, i) => ({
         setNumber: i + 1, weight: null, reps: null, seconds: null,
         side: null, isDropSet: false, parentSetIndex: null
       }))

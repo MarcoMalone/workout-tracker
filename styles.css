@@ -195,6 +195,9 @@ button svg, .icon-inline, .set-num svg, span svg, b svg, p svg { vertical-align:
 
 /* Modal */
 .modal-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 24px 16px calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 80vh; overflow-y: auto; }
+/* Top-anchored sheet: search pinned at the top, list flexes/scrolls above the keyboard
+   (dvh shrinks with the on-screen keyboard so the list is never buried). */
+.modal-sheet-top { top: 0; bottom: auto; border-radius: 0 0 var(--r-lg) var(--r-lg); display: flex; flex-direction: column; overflow: hidden; max-height: 85vh; max-height: 85dvh; padding-top: calc(20px + env(safe-area-inset-top, 0px)); }
 .modal-title { font-size: 21px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 16px; }
 .modal-dismiss-btn { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-hi); color: var(--text-3); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0; line-height: 1; }
 .modal-dismiss-btn:active { background: var(--navy); color: var(--text); }
@@ -510,6 +513,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 /* Reorder mode — draggable exercise chips */
 .reorder-list { display: flex; flex-direction: column; gap: 8px; }
+/* Reordering is a drag gesture — never let a long-press select the exercise text. */
+.reorder-list, .reorder-group, .reorder-name { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .reorder-group { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-md); }
 .reorder-group.linked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface-hi)); flex-wrap: wrap; }
 .reorder-group.dragging { opacity: 0.85; border-color: var(--accent); box-shadow: 0 6px 18px rgba(0,0,0,0.35); }

@@ -1,10 +1,20 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.30';
+export const APP_VERSION = '1.7.31';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.31',
+    date: '2026-09-03',
+    items: [
+      'Adding a single-side exercise (like Pallof Press) now drops in paired L/R sets, not singles.',
+      'Reorder screen: the Finish Workout button no longer floats over the list, and holding to drag no longer selects the text.',
+      'Add-exercise search now stays pinned at the top so the keyboard doesn\'t cover the exercise list.',
+      'Logging a set now clears any lingering "rest done" message and starts the next rest timer right away — no need to tap "Got it" first.',
+    ],
+  },
   {
     v: '1.7.30',
     date: '2026-08-28',
