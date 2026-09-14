@@ -38,3 +38,21 @@ export function roundSlots(sets) {
   });
   return slots;
 }
+
+// Pull ONE exercise out of its superset without breaking the rest of the group:
+// clear its supersetId and move it to sit right after the group, so the remaining
+// members stay adjacent (grouping is adjacency-based — a gap would split them).
+// Pure over the exercises array (mutates in place).
+export function leaveSuperset(exIdx, exercises) {
+  if (!exercises) return;
+  const ex = exercises[exIdx];
+  if (!ex || !ex.supersetId) return;
+  const gid = ex.supersetId;
+  let end = exIdx;
+  while (end + 1 < exercises.length && exercises[end + 1].supersetId === gid) end++;
+  ex.supersetId = null;
+  if (end !== exIdx) {
+    exercises.splice(exIdx, 1);
+    exercises.splice(end, 0, ex); // end shifted down by one after the splice → lands after the group
+  }
+}

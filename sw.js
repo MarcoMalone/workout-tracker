@@ -1,4 +1,4 @@
-const CACHE = 'workout-v97';
+const CACHE = 'workout-v98';
 // Relative precache paths resolve against the service worker's own URL, so the
 // app works both at a GitHub Pages subpath (/workout-tracker/) and at a Vercel
 // domain root (/). Do not hardcode a base path here.

@@ -6,11 +6,11 @@ import { haptic } from './haptics.js';
 import { acquire as acquireWakeLock, release as releaseWakeLock, wakeLockEnabled, wakeLockSupported } from './wakelock.js';
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { toast, showToast, confirmSheet, undoToast } from './ui-feedback.js';
-import { groupExercises, roundSlots } from './supersets.js';
+import { groupExercises, roundSlots, leaveSuperset } from './supersets.js';
 import { resolveVariant, isRotating } from './rotation.js';
 import { enableReorderDrag } from './reorder-drag.js';
 import { icon } from './icons.js';
-export { groupExercises, roundSlots };
+export { groupExercises, roundSlots, leaveSuperset };
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function localDateStr(d = new Date()) {
@@ -669,20 +669,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
     ${progHint}
     <div class="ex-sets" id="sets-${exIdx}"></div>
     ${exDef.isUnilateral ? `<div class="asym-chip hidden" id="asym-${exIdx}"></div>` : ''}
-    <div class="ex-settings-panel hidden" id="settings-${exIdx}">
-      ${exDef.isUnilateral ? `
-      <label class="form-label" style="margin-top:2px">Start side</label>
-      <div class="side-toggle">
-        <button type="button" class="side-opt${exDef.startSide === 'R' ? '' : ' on'}" data-side="L">Left first</button>
-        <button type="button" class="side-opt${exDef.startSide === 'R' ? ' on' : ''}" data-side="R">Right first</button>
-      </div>` : ''}
-      <label class="form-label" style="margin-top:10px">Machine setup <span class="form-hint">— shows every time you log this</span></label>
-      <textarea class="input ex-setup-input" placeholder="Seat height, pad positions, pin, angle…" rows="2">${esc(exDef.setupNotes || '')}</textarea>
-      <button class="btn btn-primary ex-setup-save" style="margin-top:6px;min-height:36px">Save setup</button>
-      <label class="form-label" style="margin-top:12px">Note <span class="form-hint">— just this workout</span></label>
-      <textarea class="input ex-note-input" placeholder="e.g. felt tweaky, dropped the weight…" rows="2">${esc(sessionEx.notes || '')}</textarea>
-      ${activeSession.exercises.length > 1 ? `<button class="btn btn-ghost ex-link-btn" style="margin-top:8px">${icon('chainLink', 16)} Superset with another exercise</button>` : ''}
-    </div>
+    <div class="ex-settings-slot"></div>
     <div class="ex-actions">
       <button class="btn btn-ghost ex-add-set">+ Add Set</button>
       <button class="btn btn-ghost ex-repeat-set">Repeat</button>
@@ -714,46 +701,15 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
 
   // Consolidated ⚙ settings panel: start-side, persistent machine setup, this-workout
   // note, and superset link — all behind the gear so the card stays focused on reps.
-  const setupLine = card.querySelector(`#setup-${exIdx}`);
-  const panel = card.querySelector(`#settings-${exIdx}`);
-  const renderSetupLine = () => {
-    const txt = exDef.setupNotes || '';
-    setupLine.innerHTML = txt
-      ? `<button type="button" class="ex-setup-chip" title="Edit in settings">${icon('settingsGear', 13)} ${esc(txt)}</button>`
-      : '';
-    setupLine.querySelector('.ex-setup-chip')?.addEventListener('click', () => panel.classList.remove('hidden'));
-  };
-  renderSetupLine();
-  card.querySelector('.ex-settings-btn').addEventListener('click', () => panel.classList.toggle('hidden'));
-
-  // Start side (unilateral): flip which side leads. Persist on the def and reassign
-  // the current sets' L/R by index parity, then re-render the rows.
-  card.querySelectorAll('.side-opt').forEach(b => b.addEventListener('click', async () => {
-    const side = b.dataset.side === 'R' ? 'R' : 'L';
-    exDef.startSide = side;
-    if (_exDefById[exDef.id]) _exDefById[exDef.id].startSide = side;
-    card.querySelectorAll('.side-opt').forEach(o => o.classList.toggle('on', o.dataset.side === side));
-    const first = side, second = side === 'L' ? 'R' : 'L';
-    activeSession.exercises[exIdx].sets.forEach((s, i) => { s.side = i % 2 === 0 ? first : second; });
-    refreshSets(setsEl, exIdx, exDef, prev);
-    try { await addExercise(exDef); } catch (e) {}
-  }));
-
-  // Persistent machine-setup note — stored on the exercise def, shown every session.
-  card.querySelector('.ex-setup-save').addEventListener('click', async () => {
-    const val = card.querySelector('.ex-setup-input').value.trim();
-    exDef.setupNotes = val || '';
-    if (_exDefById[exDef.id]) _exDefById[exDef.id].setupNotes = exDef.setupNotes;
-    try { await addExercise(exDef); } catch (e) {}
-    renderSetupLine();
-    toast('Setup saved', { duration: 1400 });
+  // Shared with superset members (see attachExerciseSettings) so linked exercises
+  // get exactly the same per-exercise settings as standalone ones.
+  const settings = attachExerciseSettings({
+    exIdx, exDef, el,
+    setupLine: card.querySelector(`#setup-${exIdx}`),
+    panelHost: card.querySelector('.ex-settings-slot'),
+    refresh: () => refreshSets(setsEl, exIdx, exDef, prev),
   });
-  // This-workout note (per-session).
-  card.querySelector('.ex-note-input').addEventListener('input', e => {
-    activeSession.exercises[exIdx].notes = e.target.value;
-  });
-  // Ad-hoc superset: pick which exercise to pair with (any other in the workout).
-  card.querySelector('.ex-link-btn')?.addEventListener('click', () => showSupersetPicker(exIdx, el));
+  card.querySelector('.ex-settings-btn').addEventListener('click', settings.toggle);
   card.querySelector('.ex-remove-btn').addEventListener('click', async () => {
     const removed = activeSession.exercises[exIdx];
     activeSession.exercises.splice(exIdx, 1);
@@ -821,6 +777,109 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
   }
 
   return card;
+}
+
+// Per-exercise ⚙ settings — ONE implementation for standalone cards AND every
+// member of a superset, so linking exercises never loses features. Renders:
+//   • start side (unilateral only) — persisted on the exercise def
+//   • machine setup — persisted on the def, surfaced as a chip above the sets
+//   • this-workout note — per session exercise (activeSession.exercises[exIdx].notes)
+//   • superset controls — link (standalone) or leave-superset / add-another (member)
+//   • remove from workout (members only; standalone cards have the × in the header)
+// Each superset member owns its own panel + its own def + its own note, whether
+// the group is 2 exercises or 10.
+// opts: { exIdx, exDef, el, setupLine, panelHost, refresh, inSuperset }
+//   setupLine — element that shows the machine-setup chip (may be null)
+//   panelHost — element the settings panel is appended to
+//   refresh   — re-render this exercise's set rows (after start-side flips)
+// Returns { panel, toggle, open }.
+function attachExerciseSettings(opts) {
+  const { exIdx, exDef, el, setupLine, panelHost, refresh, inSuperset = false } = opts;
+  const sessionEx = activeSession.exercises[exIdx];
+  const panel = document.createElement('div');
+  panel.className = 'ex-settings-panel hidden';
+  const canLink = activeSession.exercises.length > 1;
+  const supersetControls = inSuperset
+    ? `<div class="ex-settings-actions">
+         ${canLink ? `<button type="button" class="btn btn-ghost ex-link-btn">${icon('chainLink', 16)} Add another exercise to this superset</button>` : ''}
+         <button type="button" class="btn btn-ghost ex-leave-ss-btn">Take out of superset</button>
+         <button type="button" class="btn btn-ghost ex-member-remove-btn" style="color:var(--danger)">Remove from workout</button>
+       </div>`
+    : (canLink ? `<button type="button" class="btn btn-ghost ex-link-btn" style="margin-top:8px">${icon('chainLink', 16)} Superset with another exercise</button>` : '');
+  panel.innerHTML = `
+    ${exDef.isUnilateral ? `
+    <label class="form-label" style="margin-top:2px">Start side</label>
+    <div class="side-toggle">
+      <button type="button" class="side-opt${exDef.startSide === 'R' ? '' : ' on'}" data-side="L">Left first</button>
+      <button type="button" class="side-opt${exDef.startSide === 'R' ? ' on' : ''}" data-side="R">Right first</button>
+    </div>` : ''}
+    <label class="form-label" style="margin-top:10px">Machine setup <span class="form-hint">— shows every time you log this</span></label>
+    <textarea class="input ex-setup-input" placeholder="Seat height, pad positions, pin, angle…" rows="2">${esc(exDef.setupNotes || '')}</textarea>
+    <button type="button" class="btn btn-primary ex-setup-save" style="margin-top:6px;min-height:36px">Save setup</button>
+    <label class="form-label" style="margin-top:12px">Note <span class="form-hint">— just this workout</span></label>
+    <textarea class="input ex-note-input" placeholder="e.g. felt tweaky, dropped the weight…" rows="2">${esc(sessionEx.notes || '')}</textarea>
+    ${supersetControls}
+  `;
+  panelHost.appendChild(panel);
+
+  const renderSetupLine = () => {
+    if (!setupLine) return;
+    const txt = exDef.setupNotes || '';
+    setupLine.innerHTML = txt
+      ? `<button type="button" class="ex-setup-chip" title="Edit in settings">${icon('settingsGear', 13)} ${esc(txt)}</button>`
+      : '';
+    setupLine.querySelector('.ex-setup-chip')?.addEventListener('click', () => panel.classList.remove('hidden'));
+  };
+  renderSetupLine();
+
+  // Start side (unilateral): flip which side leads. Persist on the def and reassign
+  // the current sets' L/R by index parity, then re-render the rows.
+  panel.querySelectorAll('.side-opt').forEach(b => b.addEventListener('click', async () => {
+    const side = b.dataset.side === 'R' ? 'R' : 'L';
+    exDef.startSide = side;
+    if (_exDefById[exDef.id]) _exDefById[exDef.id].startSide = side;
+    panel.querySelectorAll('.side-opt').forEach(o => o.classList.toggle('on', o.dataset.side === side));
+    const first = side, second = side === 'L' ? 'R' : 'L';
+    activeSession.exercises[exIdx].sets.forEach((s, i) => { s.side = i % 2 === 0 ? first : second; });
+    if (refresh) refresh();
+    try { await addExercise(exDef); } catch (e) {}
+  }));
+
+  // Persistent machine-setup note — stored on the exercise def, shown every session.
+  panel.querySelector('.ex-setup-save').addEventListener('click', async () => {
+    const val = panel.querySelector('.ex-setup-input').value.trim();
+    exDef.setupNotes = val || '';
+    if (_exDefById[exDef.id]) _exDefById[exDef.id].setupNotes = exDef.setupNotes;
+    try { await addExercise(exDef); } catch (e) {}
+    renderSetupLine();
+    toast('Setup saved', { duration: 1400 });
+  });
+  // This-workout note (per-session, per-exercise).
+  panel.querySelector('.ex-note-input').addEventListener('input', e => {
+    activeSession.exercises[exIdx].notes = e.target.value;
+  });
+  // Superset controls.
+  panel.querySelector('.ex-link-btn')?.addEventListener('click', () => showSupersetPicker(exIdx, el));
+  panel.querySelector('.ex-leave-ss-btn')?.addEventListener('click', () => {
+    leaveSuperset(exIdx, activeSession.exercises);
+    renderActiveSession(el);
+  });
+  panel.querySelector('.ex-member-remove-btn')?.addEventListener('click', async () => {
+    const removed = activeSession.exercises[exIdx];
+    const name = (exDef.name || removed.exerciseName || '').replace(/_/g, ' ');
+    activeSession.exercises.splice(exIdx, 1);
+    await renderActiveSession(el);
+    undoToast(`Removed ${name}`, async () => {
+      activeSession.exercises.splice(exIdx, 0, removed);
+      await renderActiveSession(el);
+    });
+  });
+
+  return {
+    panel,
+    toggle: () => panel.classList.toggle('hidden'),
+    open: () => panel.classList.remove('hidden'),
+  };
 }
 
 // ── Supersets (round-interleaved) ─────────────────────────────────────────────
@@ -1067,10 +1126,30 @@ function renderRounds(roundsEl, g, meta, el) {
         const prevSets = prev ? prev.sets.filter(s => s.seconds != null || s.weight != null || s.reps != null) : [];
         const prevText = prevSets.length ? prevSets.map(s => s.seconds != null ? `${s.seconds}s` : `${s.weight}×${s.reps}`).join(', ') : 'No previous data';
         head += `<div class="ss-ex-prev">Previous: ${esc(prevText)}</div>`;
+        // Per-member machine-setup chip + ⚙ settings panel slot (round 1 only).
+        head += `<div class="ex-setup ss-ex-setup"></div><div class="ex-settings-slot"></div>`;
       }
-      exWrap.innerHTML = `<div class="ss-ex-name"><span class="ss-ex-title">${esc((exDef.name || '').replace(/_/g, ' '))}${uni}</span></div>${head}<div class="ss-ex-sets"></div>`;
-      const nameEl = exWrap.querySelector('.ss-ex-name');
+      const machineLabel = exDef.machineId ? ` <span class="ss-ex-machine">(${esc(exDef.machineId)})</span>` : '';
+      exWrap.innerHTML = `<div class="ss-ex-name"><span class="ss-ex-title">${esc((exDef.name || '').replace(/_/g, ' '))}${machineLabel}${uni}</span><div class="ss-ex-tools"></div></div>${head}<div class="ss-ex-sets"></div>`;
+      const nameEl = exWrap.querySelector('.ss-ex-tools');
       const setsHost = exWrap.querySelector('.ss-ex-sets');
+      if (r === 0) {
+        // Every linked exercise gets the SAME settings a standalone card has — its own
+        // start side, machine setup, this-workout note, and superset controls.
+        const settings = attachExerciseSettings({
+          exIdx, exDef, el, inSuperset: true,
+          setupLine: exWrap.querySelector('.ss-ex-setup'),
+          panelHost: exWrap.querySelector('.ex-settings-slot'),
+          refresh: reRender,
+        });
+        const gearBtn = document.createElement('button');
+        gearBtn.type = 'button';
+        gearBtn.className = 'ss-ex-settings-btn';
+        gearBtn.title = 'Exercise settings';
+        gearBtn.innerHTML = icon('settingsGear', 16);
+        gearBtn.addEventListener('click', settings.toggle);
+        nameEl.appendChild(gearBtn);
+      }
       // Variant switch inside a superset (either/or slots stay switchable when linked).
       exWrap.querySelectorAll('.ss-variant-chip').forEach(chip => chip.addEventListener('click', async () => {
         const vid = chip.dataset.vid;

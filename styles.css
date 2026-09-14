@@ -545,6 +545,14 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .ss-ex-title { text-transform: capitalize; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ss-add-drop { flex-shrink: 0; background: none; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-3); font-size: 12px; font-weight: 700; padding: 3px 10px; min-height: 28px; cursor: pointer; }
 .ss-add-drop:active { background: var(--surface-hi); }
+.ss-ex-tools { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ss-ex-settings-btn { background: none; border: none; cursor: pointer; padding: 4px; opacity: 0.75; color: var(--text-2); display: inline-flex; align-items: center; }
+.ss-ex-settings-btn:active { opacity: 1; }
+.ss-ex-machine { text-transform: none; color: var(--text-3); font-weight: 600; }
+.ss-ex-setup { margin: 2px 0 6px; }
+.ss-ex .ex-settings-panel { margin: 4px 0 8px; }
+.ex-settings-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.ex-settings-actions .btn { text-align: left; justify-content: flex-start; }
 .ss-ex-prev { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); margin: 0 0 6px; }
 .ss-note-row { margin: 0 0 10px; }
 .ss-note-input { width: 100%; box-sizing: border-box; }

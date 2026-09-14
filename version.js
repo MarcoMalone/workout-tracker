@@ -1,10 +1,18 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.32';
+export const APP_VERSION = '1.7.33';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.33',
+    date: '2026-09-14',
+    items: [
+      'Superset exercises now have the same settings gear as standalone ones. Every linked exercise gets its own machine setup, its own start side, and its own per-workout note, whether 2 or 10 exercises are linked.',
+      'From a linked exercise\'s settings you can now add another exercise to the superset, take just that one exercise out (the rest stay linked), or remove it from the workout.',
+    ],
+  },
   {
     v: '1.7.32',
     date: '2026-09-08',

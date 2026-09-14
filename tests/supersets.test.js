@@ -39,3 +39,34 @@ describe('assignSupersetIds', () => {
     expect(assignSupersetIds([])).toEqual([]);
   });
 });
+
+// leaveSuperset: pull one member out without splitting the rest of the group.
+import { leaveSuperset, groupExercises } from '../supersets.js';
+describe('leaveSuperset (take one exercise out of a superset)', () => {
+  const mk = () => [
+    { exerciseId: 'a', supersetId: 'g' },
+    { exerciseId: 'b', supersetId: 'g' },
+    { exerciseId: 'c', supersetId: 'g' },
+    { exerciseId: 'd', supersetId: null },
+  ];
+  it('first member moves after the group, others stay linked', () => {
+    const exs = mk(); leaveSuperset(0, exs);
+    expect(exs.map(e => e.exerciseId)).toEqual(['b', 'c', 'a', 'd']);
+    expect(exs.map(e => e.supersetId)).toEqual(['g', 'g', null, null]);
+    expect(groupExercises(exs).map(g => g.exIdxs.length)).toEqual([2, 1, 1]);
+  });
+  it('middle member moves after the group', () => {
+    const exs = mk(); leaveSuperset(1, exs);
+    expect(exs.map(e => e.exerciseId)).toEqual(['a', 'c', 'b', 'd']);
+    expect(groupExercises(exs).map(g => g.exIdxs.length)).toEqual([2, 1, 1]);
+  });
+  it('last member just unlinks in place', () => {
+    const exs = mk(); leaveSuperset(2, exs);
+    expect(exs.map(e => e.exerciseId)).toEqual(['a', 'b', 'c', 'd']);
+    expect(exs[2].supersetId).toBeNull();
+  });
+  it('no-op on a standalone exercise', () => {
+    const exs = mk(); leaveSuperset(3, exs);
+    expect(exs.map(e => e.exerciseId)).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
