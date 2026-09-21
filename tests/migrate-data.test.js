@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
-import { initDB, addTemplate, getTemplate, getSetting, setSetting, _resetForTest } from '../db.js';
+import { initDB, addTemplate, getTemplate, addExercise, getExercise, getSetting, setSetting, _resetForTest } from '../db.js';
 
 // Marco's real device already ran the Jul-2026 legs rework (v3), so the one-time
 // force-sync of the canonical leg templates is skipped there — only the targeted
@@ -130,4 +130,54 @@ test('pulldown rotation: skips a slot already made into a rotation', async () =>
   await migrateNewTemplates();
   const armA = await getTemplate('tpl-arm-a');
   expect(armA.exercises[0].variantMode).toBe('choice'); // user's own rotation left intact
+});
+
+test('library refresh preserves user-owned fields on an exercise def, repo still wins on the rest', async () => {
+  // A def as it looks after Marco saves a machine setup in the log tab, plus a stale name.
+  await addExercise({
+    id: 'ex-hamstring-curls', name: 'Hammy Curls (old name)', bodyPartGroup: 'legs',
+    equipment: 'machine', unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false,
+    setupNotes: 'seat 4, pad at the ankle bone', startSide: 'R', variationGroupId: 'grp-mine',
+  });
+  await migrateNewTemplates();
+  const ex = await getExercise('ex-hamstring-curls');
+  // User-owned fields survive the every-launch library refresh.
+  expect(ex.setupNotes).toBe('seat 4, pad at the ankle bone');
+  expect(ex.startSide).toBe('R');
+  expect(ex.variationGroupId).toBe('grp-mine');
+  // Repo-owned fields are still refreshed.
+  expect(ex.name).toBe('Hamstring Curls');
+});
+
+test('library refresh: a def that is not in the DB yet is created from the repo', async () => {
+  await migrateNewTemplates();
+  const ex = await getExercise('ex-rdl-db');
+  expect(ex.name).toBe('Romanian Deadlift (Dumbbell)');
+  expect(ex.isUnilateral).toBe(false); // must match ex-rdl or swapping rewrites the set rows
+  expect(ex.unit).toBe('lbs');
+});
+
+test('legs B RDL: becomes a Smith ⇄ dumbbell choice slot, Smith stays the default', async () => {
+  await REWORK_DONE();
+  await addTemplate({ id: 'tpl-legs-b', name: 'Legs B', bodyPartGroup: 'legs', exercises: [
+    { exerciseId: 'ex-rdl', defaultSets: 3, targetReps: 8, defaultWeight: 95, order: 0 },
+    { exerciseId: 'ex-hip-thrusts', defaultSets: 3, targetReps: 10, order: 1 },
+  ] });
+  await migrateNewTemplates();
+  const slot = (await getTemplate('tpl-legs-b')).exercises.find(e => e.exerciseId === 'ex-rdl');
+  expect(slot.variantIds).toEqual(['ex-rdl', 'ex-rdl-db']);
+  expect(slot.variantMode).toBe('choice');
+  expect(slot.defaultWeight).toBe(95); // slot defaults untouched
+  expect(await getSetting('tplSync_legsBDbRdl_2026_09')).toBe(true);
+});
+
+test('legs B RDL: leaves a slot alone if it already carries its own rotation', async () => {
+  await REWORK_DONE();
+  await addTemplate({ id: 'tpl-legs-b', name: 'Legs B', bodyPartGroup: 'legs', exercises: [
+    { exerciseId: 'ex-rdl', variantIds: ['ex-rdl', 'ex-hip-thrusts'], variantMode: 'auto', order: 0 },
+  ] });
+  await migrateNewTemplates();
+  const slot = (await getTemplate('tpl-legs-b')).exercises[0];
+  expect(slot.variantIds).toEqual(['ex-rdl', 'ex-hip-thrusts']);
+  expect(slot.variantMode).toBe('auto');
 });

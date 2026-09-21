@@ -1,10 +1,19 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.33';
+export const APP_VERSION = '1.7.34';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.34',
+    date: '2026-09-21',
+    items: [
+      'Fixed: machine setups (and start side) no longer disappear. Saving one worked, but the exercise library refresh on every app launch was quietly overwriting it with the built-in version. Anything you save now sticks. Setups lost before this update are gone — re-enter them once and they will hold.',
+      'Fixed: editing an exercise in Settings no longer wipes its machine setup, start side, or variation grouping.',
+      'Legs B: the Romanian Deadlift slot is now a choice — tap the exercise name to swap the Smith machine version for Romanian Deadlift (Dumbbell) on days you want the fuller range of motion. Smith is still the default.',
+    ],
+  },
   {
     v: '1.7.33',
     date: '2026-09-14',

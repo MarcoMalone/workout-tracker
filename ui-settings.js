@@ -623,7 +623,6 @@ function showExerciseForm(el, existing) {
       isTimed: overlay.querySelector('#ex-timed').checked,
       isUnilateral: overlay.querySelector('#ex-uni').checked,
       isBodyweight: bwChk.checked,
-      notes: '',
     };
     const name = overlay.querySelector('#ex-name').value.trim();
     if (!name) { toast('Name required', { type: 'error' }); return; }
@@ -637,7 +636,10 @@ function showExerciseForm(el, existing) {
       await renderSettingsTab(el);
       return;
     }
-    await addExercise({ id: existing?.id || crypto.randomUUID(), name, ...attrs });
+    // Merge over the existing record — the form only carries a handful of fields, so a
+    // bare { id, name, ...attrs } write would silently drop machine setup, start side and
+    // variation grouping every time an exercise is edited.
+    await addExercise({ notes: '', ...(existing || {}), ...attrs, id: existing?.id || crypto.randomUUID(), name });
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
     await renderSettingsTab(el);

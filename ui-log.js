@@ -842,7 +842,7 @@ function attachExerciseSettings(opts) {
     const first = side, second = side === 'L' ? 'R' : 'L';
     activeSession.exercises[exIdx].sets.forEach((s, i) => { s.side = i % 2 === 0 ? first : second; });
     if (refresh) refresh();
-    try { await addExercise(exDef); } catch (e) {}
+    try { await addExercise(exDef); } catch (e) { toast('Could not save start side', { type: 'error' }); }
   }));
 
   // Persistent machine-setup note — stored on the exercise def, shown every session.
@@ -850,7 +850,14 @@ function attachExerciseSettings(opts) {
     const val = panel.querySelector('.ex-setup-input').value.trim();
     exDef.setupNotes = val || '';
     if (_exDefById[exDef.id]) _exDefById[exDef.id].setupNotes = exDef.setupNotes;
-    try { await addExercise(exDef); } catch (e) {}
+    // Only claim success if the write actually landed — a silent catch here is how a
+    // setup could look saved and be gone on the next launch.
+    try {
+      await addExercise(exDef);
+    } catch (e) {
+      toast('Could not save setup', { type: 'error' });
+      return;
+    }
     renderSetupLine();
     toast('Setup saved', { duration: 1400 });
   });

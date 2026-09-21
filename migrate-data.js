@@ -1,8 +1,11 @@
-import { addExercise, addTemplate, getTemplate, deleteTemplate, getSetting, setSetting } from './db.js';
+import { addExercise, getExercise, addTemplate, getTemplate, deleteTemplate, getSetting, setSetting } from './db.js';
 
 const MIGRATE_V = 6;
 
-// All exercise definitions — put() is an upsert, safe to re-run
+// All exercise definitions. These are the REPO-owned fields; on every load they are
+// merged over whatever is already in the DB (see upsertLibraryExercise below), which
+// preserves the fields the user owns in-app. Never write a bare addExercise() of these
+// records — put() is a whole-record replace and silently wipes user edits.
 const ALL_EXERCISES = [
   // === ARM EXERCISES (updated to add isBodyweight where applicable) ===
   { id: 'ex-mn-lat-pulldown', name: 'Neutral-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '', variationGroupId: 'grp-lat-pulldown', variationBase: 'Lat Pulldown', variationLabel: 'Neutral-Grip' },
@@ -33,6 +36,10 @@ const ALL_EXERCISES = [
   { id: 'ex-hip-thrusts', name: 'Hip Thrusts', bodyPartGroup: 'legs', equipment: 'barbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   // RDL now done on the Smith Machine (fixed bar path while relearning the hinge).
   { id: 'ex-rdl', name: 'Romanian Deadlift (Smith Machine)', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Smith Machine for now — transition to free weight once the hinge is automatic and pain-free' },
+  // Free-weight RDL — offered as a swap on the Legs B RDL slot: the Smith bar's fixed
+  // path limits how far the dumbbells can travel, so ROM suffers. Two dumbbells, both
+  // legs (bilateral, like ex-rdl) so swapping between them keeps the same set rows.
+  { id: 'ex-rdl-db', name: 'Romanian Deadlift (Dumbbell)', bodyPartGroup: 'legs', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Two dumbbells, hinge at the hips. Let them track down the front of the legs — go for the deeper stretch the Smith bar path blocks.' },
   { id: 'ex-hamstring-curls', name: 'Hamstring Curls', bodyPartGroup: 'legs', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   // Legs A finisher — Nordic (primary) with a single-leg-curl fallback for no-anchor days (choice slot).
   { id: 'ex-nordic-hamstring-curl', name: 'Nordic Hamstring Curl', bodyPartGroup: 'legs', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: 'Needs an anchor for the ankles — lower under control, push back up. If no anchor is available, swap to the Single-Leg Hamstring Curl.' },
@@ -166,7 +173,10 @@ const ALL_TEMPLATES = [
     createdAt: 1750896000001,
     exercises: [
       { exerciseId: 'ex-butterfly-bridge', defaultSets: 3, targetReps: 8, order: 0 },
-      { exerciseId: 'ex-rdl', defaultSets: 3, targetReps: 8, defaultWeight: 95, order: 1 }, // Smith Machine — hardest lift, done fresh
+      // Choice slot: Smith RDL (default) ⇄ Dumbbell RDL for better range of motion.
+      // NOTE: adding this did NOT bump REWORK_SYNC_KEY on purpose — re-running that sync
+      // would overwrite every in-app template edit. Live devices get it via ensureLegsBDbRdl().
+      { exerciseId: 'ex-rdl', variantIds: ['ex-rdl', 'ex-rdl-db'], variantMode: 'choice', defaultSets: 3, targetReps: 8, defaultWeight: 95, order: 1 }, // Smith Machine — hardest lift, done fresh
       { exerciseId: 'ex-hip-thrusts', defaultSets: 3, targetReps: 10, defaultWeight: 135, order: 2 },
       { exerciseId: 'ex-leg-press', defaultSets: 3, targetReps: 12, defaultWeight: 180, order: 3 }, // inserted after hip thrusts (3×10–12); prefills from prior leg-press history
       { exerciseId: 'ex-side-lying-hip-abduction', defaultSets: 3, targetReps: 15, order: 4 }, // 3 per side, 3 lb ankle weight
@@ -236,10 +246,36 @@ const OLD_TEMPLATE_IDS_TO_REMOVE = ['tpl-leg-a', 'tpl-leg-b'];
 // sync should (re)apply; a brand-new install has none, so it never gets pushed.
 const MARCO_SPLIT_IDS = ['tpl-leg-a', 'tpl-leg-b', 'tpl-legs-a', 'tpl-legs-b', 'tpl-legs-c'];
 
+// Fields on an exercise definition that the USER owns, not the repo. They are set
+// in-app (log tab ⚙ panel, Settings → exercise edit / "group as variations") and must
+// survive the library refresh below — otherwise they silently revert on the next app
+// launch, which is exactly what made saved machine setups look like they never saved.
+// Add any new user-editable def field here.
+const USER_OWNED_FIELDS = [
+  'setupNotes',      // machine setup note — ⚙ panel, shown as a chip every session
+  'startSide',       // which side leads on a unilateral exercise
+  'variationGroupId', // set by Settings → group existing exercises as variations
+  'variationBase',
+  'variationLabel',
+];
+
+// Refresh one library exercise from the repo WITHOUT destroying user-owned fields.
+// Repo wins on name/equipment/flags/coaching notes (that's the point of the refresh);
+// the user wins on everything in USER_OWNED_FIELDS.
+async function upsertLibraryExercise(repoDef) {
+  const current = await getExercise(repoDef.id);
+  if (!current) { await addExercise(repoDef); return; }
+  const merged = { ...current, ...repoDef };
+  for (const f of USER_OWNED_FIELDS) {
+    if (current[f] !== undefined) merged[f] = current[f];
+  }
+  await addExercise(merged);
+}
+
 export async function migrateNewTemplates() {
-  // Always upsert all exercise definitions (safe, idempotent) so the library
-  // stays current for everyone.
-  for (const ex of ALL_EXERCISES) await addExercise(ex);
+  // Always refresh all exercise definitions so the library stays current for everyone.
+  // Merge, never replace — see upsertLibraryExercise.
+  for (const ex of ALL_EXERCISES) await upsertLibraryExercise(ex);
 
   // One-time legs-rework template sync (see comment above).
   if (!(await getSetting(REWORK_SYNC_KEY))) {
@@ -261,6 +297,7 @@ export async function migrateNewTemplates() {
   await ensureLegsAGoblet();
   await ensureLegsANordicCurl();
   await ensureLegsBLegPress();
+  await ensureLegsBDbRdl();
 }
 
 // One-time, targeted, non-destructive patch: turn Arm A's single machine-neutral
@@ -378,4 +415,24 @@ async function ensureLegsBLegPress() {
     }
   }
   await setSetting(LEGSB_LEGPRESS_KEY, true);
+}
+
+// One-time targeted patch: turn Legs B's Smith-machine RDL slot into a CHOICE slot so
+// the dumbbell RDL can be swapped in for the sessions where the Smith bar path is
+// costing range of motion. Smith stays variantIds[0], i.e. still the default every
+// session — the dumbbell version is opt-in per workout, not a replacement.
+// Skips a slot that already carries its own rotation.
+const LEGSB_DB_RDL_KEY = 'tplSync_legsBDbRdl_2026_09';
+async function ensureLegsBDbRdl() {
+  if (await getSetting(LEGSB_DB_RDL_KEY)) return;
+  const legsB = await getTemplate('tpl-legs-b');
+  if (legsB && Array.isArray(legsB.exercises)) {
+    const slot = legsB.exercises.find(e => e.exerciseId === 'ex-rdl' && !e.variantIds);
+    if (slot) {
+      slot.variantIds = ['ex-rdl', 'ex-rdl-db'];
+      slot.variantMode = 'choice';
+      await addTemplate(legsB);
+    }
+  }
+  await setSetting(LEGSB_DB_RDL_KEY, true);
 }
