@@ -9,7 +9,7 @@ vi.mock('../app.js', () => ({ switchTab: () => {} }));
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog, saveGoals } from '../db.js';
-import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises, computeRunPace, computeWalkDistance, formatMinSec, formatClock, blankSetsFor, prefillForNewSet } from '../ui-log.js';
+import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises, computeRunPace, computeWalkDistance, formatMinSec, formatClock, blankSetsFor, prefillForNewSet, computeHomeStats } from '../ui-log.js';
 
 test('parseDuration: whole minutes, mm:ss, and blank/invalid', () => {
   expect(parseDuration('47')).toBe(47);
@@ -497,4 +497,31 @@ test('an in-progress session persists and resumes after a reload', async () => {
   expect(container.querySelector('.log-hero')).toBeFalsy();        // …not the home
   expect(container.querySelectorAll('.exercise-card')).toHaveLength(4);
   overlay.remove();
+});
+
+// ── This Week strip: each bar carries its calendar date, not just a day letter ──
+// (Marco could not tell whether a past workout had been on a Sunday.)
+test('computeHomeStats: bars carry day-of-month and flag today', () => {
+  const pad = n => String(n).padStart(2, '0');
+  const dstr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = new Date();
+  const { bars } = computeHomeStats([{ date: dstr(today), exercises: [] }], [], []);
+
+  expect(bars).toHaveLength(7);
+  expect(bars.map(b => b.day)).toEqual(['M', 'T', 'W', 'T', 'F', 'S', 'S']);
+  // Monday-started week: every bar has a real day-of-month, in ascending order
+  // except where the month rolls over.
+  bars.forEach(b => { expect(b.dom).toBeGreaterThanOrEqual(1); expect(b.dom).toBeLessThanOrEqual(31); });
+  // Exactly one bar is today, and it is the one holding today's date number.
+  const todayBars = bars.filter(b => b.isToday);
+  expect(todayBars).toHaveLength(1);
+  expect(todayBars[0].dom).toBe(today.getDate());
+});
+
+test('computeHomeStats: a week with no activity still returns 7 dated bars', () => {
+  const { bars, weekCount, streak } = computeHomeStats([], [], []);
+  expect(bars).toHaveLength(7);
+  expect(bars.every(b => typeof b.dom === 'number')).toBe(true);
+  expect(weekCount).toBe(0);
+  expect(streak).toBe(0);
 });

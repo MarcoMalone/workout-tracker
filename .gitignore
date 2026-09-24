@@ -2,3 +2,6 @@ node_modules/
 .DS_Store
 *.local
 .superpowers/
+
+# Claude Code hook/worker scratch state — machine-local, never shared
+.claude/

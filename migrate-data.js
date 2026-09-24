@@ -66,6 +66,9 @@ const ALL_EXERCISES = [
   // === CORE EXERCISES ===
   { id: 'ex-cable-crunch', name: 'Cable Crunch', bodyPartGroup: 'core', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Controlled tempo, progressive overload' },
   { id: 'ex-pallof-press', name: 'Pallof Press', bodyPartGroup: 'core', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Standing, anti-rotation' },
+  // Same anti-rotation press, standing on one leg — the balance demand is the point,
+  // so it is loaded lighter and done as a short finisher after the regular Pallof sets.
+  { id: 'ex-pallof-press-single-leg', name: 'Single-Leg Pallof Press', bodyPartGroup: 'core', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Standing on the leg FARTHEST from the cable stack. Anti-rotation plus balance — go lighter than the two-legged version.' },
   { id: 'ex-dead-bug', name: 'Dead Bug', bodyPartGroup: 'core', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: 'Slow and controlled, low back flat against floor' },
   { id: 'ex-side-plank', name: 'Side Plank', bodyPartGroup: 'core', equipment: 'bodyweight', machineId: null, unit: 'seconds', isTimed: true, isUnilateral: true, isBodyweight: true, notes: '' },
   { id: 'ex-bird-dog', name: 'Bird Dog', bodyPartGroup: 'core', equipment: 'bodyweight', machineId: null, unit: 'reps', isTimed: false, isUnilateral: false, isBodyweight: true, notes: 'Anti-extension core stability — 3s hold per rep' },
@@ -122,8 +125,12 @@ const ALL_TEMPLATES = [
       // Core finisher — inserted immediately before Dead Hangs
       { exerciseId: 'ex-cable-crunch', defaultSets: 2, targetReps: 12, defaultWeight: 50, order: 6 },
       { exerciseId: 'ex-pallof-press', defaultSets: 2, targetReps: 10, defaultWeight: 15, order: 7 }, // 2 per side
+      // Single-leg Pallof finisher — one set per side, straight after the regular Pallof.
+      // Its own slot rather than a set inside the Pallof card, so it gets its own history,
+      // its own progress chart and its own PRs instead of being logged as light Pallof.
+      { exerciseId: 'ex-pallof-press-single-leg', defaultSets: 1, targetReps: 10, defaultWeight: 10, order: 8 }, // 1 per side
       // Dead Hangs must remain the final exercise
-      { exerciseId: 'ex-dead-hangs', defaultSets: 3, targetReps: null, defaultSeconds: 30, order: 8 },
+      { exerciseId: 'ex-dead-hangs', defaultSets: 3, targetReps: null, defaultSeconds: 30, order: 9 },
     ]
   },
 
@@ -298,6 +305,7 @@ export async function migrateNewTemplates() {
   await ensureLegsANordicCurl();
   await ensureLegsBLegPress();
   await ensureLegsBDbRdl();
+  await ensureArmASingleLegPallof();
 }
 
 // One-time, targeted, non-destructive patch: turn Arm A's single machine-neutral
@@ -435,4 +443,25 @@ async function ensureLegsBDbRdl() {
     }
   }
   await setSetting(LEGSB_DB_RDL_KEY, true);
+}
+
+// One-time targeted patch: add the Single-Leg Pallof Press finisher to Arm A, directly
+// after the regular Pallof slot (so it stays ahead of Dead Hangs, which must be last).
+// One set per side. Idempotent — skips if the finisher is already there, and no-ops on a
+// device that has no Arm A. Deliberately NOT added to Legs B's Pallof slot; that was not
+// asked for, and Legs B is force-sync territory.
+const ARMA_SL_PALLOF_KEY = 'tplSync_armASingleLegPallof_2026_09';
+async function ensureArmASingleLegPallof() {
+  if (await getSetting(ARMA_SL_PALLOF_KEY)) return;
+  const armA = await getTemplate('tpl-arm-a');
+  if (armA && Array.isArray(armA.exercises)) {
+    const already = armA.exercises.some(e => e.exerciseId === 'ex-pallof-press-single-leg');
+    const idx = armA.exercises.findIndex(e => e.exerciseId === 'ex-pallof-press');
+    if (!already && idx !== -1) {
+      armA.exercises.splice(idx + 1, 0, { exerciseId: 'ex-pallof-press-single-leg', defaultSets: 1, targetReps: 10, defaultWeight: 10 });
+      armA.exercises.forEach((e, i) => { e.order = i; });
+      await addTemplate(armA);
+    }
+  }
+  await setSetting(ARMA_SL_PALLOF_KEY, true);
 }

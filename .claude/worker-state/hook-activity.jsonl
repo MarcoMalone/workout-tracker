@@ -1,2 +1,0 @@
-{"watchdog":"armed","hook":"telemetry-capture","phase":"start","started_at":"2026-09-21T16:54:00.289Z","pid":45704}
-{"hook":"telemetry-capture","phase":"done","started_at":"2026-09-21T16:54:00.289Z","ended_at":"2026-09-21T16:54:01.496Z","duration_ms":1207,"pid":45704}

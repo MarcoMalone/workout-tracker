@@ -93,8 +93,14 @@ button svg, .icon-inline, .set-num svg, span svg, b svg, p svg { vertical-align:
 .week-bar { flex: 1; height: 100%; background: var(--surface-hi); border-radius: 100px; position: relative; }
 .week-bar .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--text-3); border-radius: 100px; min-height: 8px; }
 .week-bar.hot .fill { background: var(--accent); }
-.week-bar .day { position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 700; color: var(--text-3); }
-.week-bars-wrap { padding-bottom: 22px; }
+.week-bar .day { position: absolute; bottom: -34px; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 700; color: var(--text-3); line-height: 1.35; }
+.week-bar .day-num { display: block; font-family: var(--font-mono); font-size: 9px; font-weight: 600; opacity: 0.75; }
+/* Today's bar: label in full-strength text so the strip reads as a calendar. */
+.week-bar.is-today .day { color: var(--text-1); }
+.week-bar.is-today .day-num { opacity: 1; }
+/* The labels are absolutely positioned below the bars, so this padding is the ONLY
+   thing reserving room for them — it must cover both lines (see .day bottom offset). */
+.week-bars-wrap { padding-bottom: 36px; }
 
 /* Readiness check-in */
 .readiness-card { margin-top: 12px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }

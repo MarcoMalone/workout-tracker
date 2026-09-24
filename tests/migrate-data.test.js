@@ -181,3 +181,39 @@ test('legs B RDL: leaves a slot alone if it already carries its own rotation', a
   expect(slot.variantIds).toEqual(['ex-rdl', 'ex-hip-thrusts']);
   expect(slot.variantMode).toBe('auto');
 });
+
+test('arm A: adds the Single-Leg Pallof finisher right after the Pallof slot, before Dead Hangs', async () => {
+  await addTemplate({ id: 'tpl-arm-a', name: 'Arm A', bodyPartGroup: 'arms', exercises: [
+    { exerciseId: 'ex-cable-crunch', defaultSets: 2, targetReps: 12, order: 0 },
+    { exerciseId: 'ex-pallof-press', defaultSets: 2, targetReps: 10, defaultWeight: 15, order: 1 },
+    { exerciseId: 'ex-dead-hangs', defaultSets: 3, defaultSeconds: 30, order: 2 },
+  ] });
+  await migrateNewTemplates();
+  const ids = (await getTemplate('tpl-arm-a')).exercises
+    .slice().sort((a, b) => a.order - b.order).map(e => e.exerciseId);
+  expect(ids).toEqual([
+    'ex-cable-crunch', 'ex-pallof-press', 'ex-pallof-press-single-leg', 'ex-dead-hangs',
+  ]);
+  const sl = (await getTemplate('tpl-arm-a')).exercises.find(e => e.exerciseId === 'ex-pallof-press-single-leg');
+  expect(sl).toMatchObject({ defaultSets: 1, targetReps: 10, defaultWeight: 10, order: 2 });
+  expect(await getSetting('tplSync_armASingleLegPallof_2026_09')).toBe(true);
+});
+
+test('arm A single-leg Pallof: idempotent — never double-inserts', async () => {
+  await addTemplate({ id: 'tpl-arm-a', name: 'Arm A', bodyPartGroup: 'arms', exercises: [
+    { exerciseId: 'ex-pallof-press', defaultSets: 2, targetReps: 10, order: 0 },
+    { exerciseId: 'ex-pallof-press-single-leg', defaultSets: 1, targetReps: 10, order: 1 },
+  ] });
+  await migrateNewTemplates();
+  const slots = (await getTemplate('tpl-arm-a')).exercises.filter(e => e.exerciseId === 'ex-pallof-press-single-leg');
+  expect(slots).toHaveLength(1);
+});
+
+test('single-leg Pallof def: unilateral and lbs, so it generates its own L/R pair', async () => {
+  await migrateNewTemplates();
+  const ex = await getExercise('ex-pallof-press-single-leg');
+  expect(ex.name).toBe('Single-Leg Pallof Press');
+  expect(ex.isUnilateral).toBe(true);
+  expect(ex.unit).toBe('lbs');
+  expect(ex.bodyPartGroup).toBe('core');
+});

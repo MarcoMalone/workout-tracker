@@ -97,7 +97,7 @@ export function prefillForNewSet(sets, exDef, prev) {
 // Strength days scale by volume; cardio-only days show a short bar. Streak
 // counts consecutive days of any activity ending today (or yesterday if today
 // hasn't been trained yet).
-function computeHomeStats(sessions, runs, walks) {
+export function computeHomeStats(sessions, runs, walks) {
   const map = {}; // dateStr -> { vol, strength }
   const bump = (dateStr, vol, strength) => {
     if (!dateStr) return;
@@ -124,14 +124,19 @@ function computeHomeStats(sessions, runs, walks) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     const m = map[localDateStr(d)];
-    week.push({ day: dayLabels[i], vol: m ? m.vol : 0, active: !!m, strength: m ? m.strength : false });
+    // dom = day of month, so a bar reads "W 24" and you can tell which calendar day
+    // (and which week) a past workout actually landed on.
+    week.push({
+      day: dayLabels[i], dom: d.getDate(), isToday: localDateStr(d) === localDateStr(today),
+      vol: m ? m.vol : 0, active: !!m, strength: m ? m.strength : false,
+    });
   }
   const maxVol = Math.max(1, ...week.map(w => w.vol));
   const bars = week.map(w => {
     let h = 0;
     if (w.vol > 0) h = Math.max(24, Math.round((w.vol / maxVol) * 100));
     else if (w.active) h = 22;
-    return { day: w.day, h, hot: w.strength };
+    return { day: w.day, dom: w.dom, isToday: w.isToday, h, hot: w.strength };
   });
   const weekCount = week.filter(w => w.active).length;
 
@@ -239,7 +244,7 @@ export async function renderLogTab(el) {
   const streakPill = streak > 0
     ? `<div class="log-streak">${icon('flame', 15)}&nbsp;<b>${streak}</b>-day streak</div>` : '';
   const barsHtml = bars.map(b =>
-    `<div class="week-bar${b.hot ? ' hot' : ''}">${b.h > 0 ? `<span class="fill" style="height:${b.h}%"></span>` : ''}<span class="day">${b.day}</span></div>`
+    `<div class="week-bar${b.hot ? ' hot' : ''}${b.isToday ? ' is-today' : ''}">${b.h > 0 ? `<span class="fill" style="height:${b.h}%"></span>` : ''}<span class="day">${b.day}<span class="day-num">${b.dom}</span></span></div>`
   ).join('');
   const now = new Date();
   const kicker = `${now.toLocaleDateString('en-US', { weekday: 'long' })} · ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
@@ -1550,9 +1555,12 @@ function formatDate(d) {
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
+// Used only by the "Last performed" chips on the home tab. The weekday is the point:
+// "Legs B · Sep 19" never answered "was that a Sunday?" — "Legs B · Fri, Sep 19" does.
+// Noon-anchored so the date can never slide a day across a DST boundary.
 function shortDate(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 // showToast/toast/confirmSheet/undoToast now come from ui-feedback.js.
