@@ -1,15 +1,22 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.35';
+export const APP_VERSION = '1.7.36';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
   {
+    v: '1.7.36',
+    date: '2026-09-29',
+    items: [
+      'Fixed: the app was showing a blank screen after the last update. A typo in the update notes stopped the whole app from loading. Your workouts and history were never touched.',
+    ],
+  },
+  {
     v: '1.7.35',
     date: '2026-09-24',
     items: [
-      'This Week now shows the date under each day — "W 24" instead of just "W" — and today's bar is highlighted, so you can tell exactly which day a bar belongs to.',
+      'This Week now shows the date under each day — "W 24" instead of just "W" — and today’s bar is highlighted, so you can tell exactly which day a bar belongs to.',
       '"Last performed" now includes the weekday: "Arm A · Fri, Sep 19" instead of "Arm A · Sep 19".',
       'Arm A: added a Single-Leg Pallof Press finisher, one set per side, right after the regular Pallof sets. It tracks its own weight and history, so it shows up on its own in Progress.',
     ],
