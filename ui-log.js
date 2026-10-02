@@ -83,6 +83,46 @@ export function blankSetsFor(existingSets) {
 // fall back to the last set from the previous time this exercise was performed.
 // Returns nulls only when there's genuinely no source anywhere. Weight/reps for
 // normal lifts, seconds for timed holds. Drop sets don't use this (you drop the load).
+// Which side each one-sided exercise starts on this session. Alternates down the
+// workout (1st one-sided exercise L, 2nd R, 3rd L...) so fatigue isn't always paid by
+// the same side, AND flips the whole pattern every session of the template so a given
+// exercise isn't stuck on one side forever (a fixed exercise order would otherwise
+// always start e.g. Bulgarians on the left). Bilateral exercises get null and don't
+// advance the count. isUni: boolean per exercise, in workout order. priorSessions: how
+// many sessions of this template were logged before this one.
+export function alternateStartSides(isUni, priorSessions = 0) {
+  let k = (priorSessions || 0) % 2;
+  return isUni.map(u => {
+    if (!u) return null;
+    const side = k % 2 === 0 ? 'L' : 'R';
+    k++;
+    return side;
+  });
+}
+
+// The set from last session that corresponds to sets[sIdx]. For one-sided work this
+// matches by SIDE (this session's 2nd R set <-> last session's 2nd R set) instead of by
+// row number, because the start side alternates between sessions: row 0 can be L one
+// week and R the next, and matching by row would prefill left numbers onto the right.
+// Falls back to the same row when sides are unknown (old data, bilateral exercises).
+export function matchPrevSet(prevSets, sets, sIdx) {
+  if (!prevSets || !prevSets.length) return undefined;
+  const cur = sets && sets[sIdx];
+  const side = cur && cur.side;
+  if (side === 'L' || side === 'R') {
+    const drop = !!cur.isDropSet;
+    let nth = 0;
+    for (let i = 0; i < sIdx; i++) if (sets[i].side === side && !!sets[i].isDropSet === drop) nth++;
+    let seen = 0;
+    for (const p of prevSets) {
+      if (p && p.side === side && !!p.isDropSet === drop) { if (seen === nth) return p; seen++; }
+    }
+    // Last session was sided but has no counterpart (e.g. you added a set) - no guess.
+    if (prevSets.some(p => p && (p.side === 'L' || p.side === 'R'))) return undefined;
+  }
+  return prevSets[sIdx];
+}
+
 export function prefillForNewSet(sets, exDef, prev) {
   const timed = !!(exDef && exDef.isTimed);
   const has = s => s && (timed ? s.seconds != null : (s.weight != null || s.reps != null));
@@ -623,7 +663,7 @@ function prefillFromLastSession(sessionEx, exDef, prev) {
   sessionEx._prefilled = true;
   if (!prev) return;
   sessionEx.sets.forEach((set, si) => {
-    const ps = prev.sets[si];
+    const ps = matchPrevSet(prev.sets, sessionEx.sets, si);
     if (!ps) return;
     if (exDef.isTimed) {
       if (ps.seconds != null) set.seconds = ps.seconds;
@@ -801,6 +841,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
 function attachExerciseSettings(opts) {
   const { exIdx, exDef, el, setupLine, panelHost, refresh, inSuperset = false } = opts;
   const sessionEx = activeSession.exercises[exIdx];
+  const curStart = (sessionEx.startSide || exDef.startSide) === 'R' ? 'R' : 'L';
   const panel = document.createElement('div');
   panel.className = 'ex-settings-panel hidden';
   const canLink = activeSession.exercises.length > 1;
@@ -815,9 +856,10 @@ function attachExerciseSettings(opts) {
     ${exDef.isUnilateral ? `
     <label class="form-label" style="margin-top:2px">Start side</label>
     <div class="side-toggle">
-      <button type="button" class="side-opt${exDef.startSide === 'R' ? '' : ' on'}" data-side="L">Left first</button>
-      <button type="button" class="side-opt${exDef.startSide === 'R' ? ' on' : ''}" data-side="R">Right first</button>
-    </div>` : ''}
+      <button type="button" class="side-opt${curStart === 'R' ? '' : ' on'}" data-side="L">Left first</button>
+      <button type="button" class="side-opt${curStart === 'R' ? ' on' : ''}" data-side="R">Right first</button>
+    </div>
+    <p class="form-hint" style="margin:4px 0 0">Alternates on its own between exercises and workouts. Changing it here only affects this workout.</p>` : ''}
     <label class="form-label" style="margin-top:10px">Machine setup <span class="form-hint">— shows every time you log this</span></label>
     <textarea class="input ex-setup-input" placeholder="Seat height, pad positions, pin, angle…" rows="2">${esc(exDef.setupNotes || '')}</textarea>
     <button type="button" class="btn btn-primary ex-setup-save" style="margin-top:6px;min-height:36px">Save setup</button>
@@ -837,17 +879,16 @@ function attachExerciseSettings(opts) {
   };
   renderSetupLine();
 
-  // Start side (unilateral): flip which side leads. Persist on the def and reassign
-  // the current sets' L/R by index parity, then re-render the rows.
-  panel.querySelectorAll('.side-opt').forEach(b => b.addEventListener('click', async () => {
+  // Start side (unilateral): override which side leads FOR THIS WORKOUT. Sides alternate
+  // automatically across exercises and sessions (alternateStartSides), so this is not
+  // saved on the exercise. Reassigns the current sets' L/R by row parity and re-renders.
+  panel.querySelectorAll('.side-opt').forEach(b => b.addEventListener('click', () => {
     const side = b.dataset.side === 'R' ? 'R' : 'L';
-    exDef.startSide = side;
-    if (_exDefById[exDef.id]) _exDefById[exDef.id].startSide = side;
+    activeSession.exercises[exIdx].startSide = side;
     panel.querySelectorAll('.side-opt').forEach(o => o.classList.toggle('on', o.dataset.side === side));
     const first = side, second = side === 'L' ? 'R' : 'L';
     activeSession.exercises[exIdx].sets.forEach((s, i) => { s.side = i % 2 === 0 ? first : second; });
     if (refresh) refresh();
-    try { await addExercise(exDef); } catch (e) { toast('Could not save start side', { type: 'error' }); }
   }));
 
   // Persistent machine-setup note — stored on the exercise def, shown every session.
@@ -1247,21 +1288,22 @@ function refreshSets(setsEl, exIdx, exDef, prev) {
 //                (used for group-aware rest: only the group's last exercise rests)
 //   reRender   — called instead of refreshSets() after a set is removed
 function appendSetRow(setsEl, exIdx, sIdx, exDef, prev, isDropSet = false, opts = {}) {
-  const currentSet = activeSession.exercises[exIdx].sets[sIdx];
-  const prevSet = prev?.sets[sIdx];
+  const sessionEx = activeSession.exercises[exIdx];
+  const currentSet = sessionEx.sets[sIdx];
+  // Pre-select side by set index from THIS session's start side (it alternates across
+  // exercises and sessions, see alternateStartSides): even rows -> start side, odd ->
+  // the other. Resolved before the history lookup so that lookup can match by side.
+  const firstSide = (sessionEx.startSide || exDef.startSide) === 'R' ? 'R' : 'L';
+  const autoSide = sIdx % 2 === 0 ? firstSide : (firstSide === 'L' ? 'R' : 'L');
+  const side = currentSet.side ?? autoSide;
+  if (exDef.isUnilateral && !currentSet.side) currentSet.side = side;
+  const prevSet = matchPrevSet(prev?.sets, sessionEx.sets, sIdx);
   const weight = currentSet.weight ?? prevSet?.weight ?? '';
   const reps = currentSet.reps ?? prevSet?.reps ?? '';
   const unit = exDef.unit || 'lbs';
   const setLabel = opts.label ?? `Set ${sIdx + 1}${isDropSet ? ' ↓' : ''}`;
   const row = document.createElement('div');
   row.className = `set-row${isDropSet ? ' drop-set' : ''}`;
-
-  // Pre-select side by set index, honoring the exercise's start-side preference:
-  // even sets → start side, odd → the other (for unilateral).
-  const firstSide = exDef.startSide === 'R' ? 'R' : 'L';
-  const autoSide = sIdx % 2 === 0 ? firstSide : (firstSide === 'L' ? 'R' : 'L');
-  const side = currentSet.side ?? autoSide;
-  if (exDef.isUnilateral && !currentSet.side) activeSession.exercises[exIdx].sets[sIdx].side = side;
 
   const sideSelect = `<select class="set-side"><option value="L"${side === 'L' ? ' selected' : ''}>L</option><option value="R"${side === 'R' ? ' selected' : ''}>R</option></select>`;
 
@@ -1712,6 +1754,7 @@ async function startSession(el, template, answers, sorenessNote = '') {
   const exercises = [];
   // Past sessions of THIS template drive rotation (which grip/variant comes next).
   const templateSessions = (await getAllSessions(200)).filter(s => s.templateId === template.id);
+  const uniFlags = [];
   for (const e of template.exercises) {
     // Rotating slot → resolve which variant to use this session (auto advances,
     // choice stays); a plain slot resolves to its own exerciseId.
@@ -1722,6 +1765,7 @@ async function startSession(el, template, answers, sorenessNote = '') {
     let isUni = false;
     try { const d = await getExercise(resolvedId); isUni = !!(d && d.isUnilateral); } catch (err) {}
     const rows = (e.defaultSets || 1) * (isUni ? 2 : 1);
+    uniFlags.push(isUni);
     exercises.push({
       exerciseId: resolvedId,
       exerciseName: '',
@@ -1739,6 +1783,14 @@ async function startSession(el, template, answers, sorenessNote = '') {
       }))
     });
   }
+  // Alternate which side leads across the one-sided exercises (and flip it each session).
+  const starts = alternateStartSides(uniFlags, templateSessions.length);
+  exercises.forEach((ex, i) => {
+    if (!starts[i]) return;
+    ex.startSide = starts[i];
+    const other = starts[i] === 'L' ? 'R' : 'L';
+    ex.sets.forEach((st, j) => { st.side = j % 2 === 0 ? starts[i] : other; });
+  });
   activeSession = {
     id: crypto.randomUUID(),
     templateId: template.id,

@@ -1,10 +1,19 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.36';
+export const APP_VERSION = '1.7.37';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.37',
+    date: '2026-10-02',
+    items: [
+      'One-sided exercises now take turns on which side goes first: the first one in your workout starts on the left, the next on the right, and so on. Next time you do that workout it flips, so every exercise gets its turn leading with each side.',
+      'Last time’s numbers now follow the side, not the row. If your right side lifted more last week, that weight shows up on your right sets, even when you start on the other side.',
+      'The “Start side” switch in an exercise’s settings still works, but now it only changes this workout.',
+    ],
+  },
   {
     v: '1.7.36',
     date: '2026-09-29',

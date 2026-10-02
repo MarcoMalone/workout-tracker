@@ -9,7 +9,7 @@ vi.mock('../app.js', () => ({ switchTab: () => {} }));
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { initDB, _resetForTest, addTemplate, addExercise, saveSession, addWalkLog, saveGoals } from '../db.js';
-import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises, computeRunPace, computeWalkDistance, formatMinSec, formatClock, blankSetsFor, prefillForNewSet, computeHomeStats } from '../ui-log.js';
+import { renderLogTab, computeAsymmetry, groupExercises, roundSlots, _resetSessionForTest, parseDuration, filterExercises, computeRunPace, computeWalkDistance, formatMinSec, formatClock, blankSetsFor, prefillForNewSet, computeHomeStats, alternateStartSides, matchPrevSet } from '../ui-log.js';
 
 test('parseDuration: whole minutes, mm:ss, and blank/invalid', () => {
   expect(parseDuration('47')).toBe(47);
@@ -524,4 +524,74 @@ test('computeHomeStats: a week with no activity still returns 7 dated bars', () 
   expect(bars.every(b => typeof b.dom === 'number')).toBe(true);
   expect(weekCount).toBe(0);
   expect(streak).toBe(0);
+});
+
+// -- Alternating start side (Marco 2026-09-30: "alternate whether it shows me to start
+// with my right side or left side on all exercises with R and L") --
+test('alternateStartSides: alternates down the workout, skipping bilateral exercises', () => {
+  // uni, bi, uni, uni, bi, uni
+  expect(alternateStartSides([true, false, true, true, false, true], 0))
+    .toEqual(['L', null, 'R', 'L', null, 'R']);
+});
+
+test('alternateStartSides: the whole pattern flips every session of the template', () => {
+  const flags = [true, false, true];
+  expect(alternateStartSides(flags, 0)).toEqual(['L', null, 'R']);
+  expect(alternateStartSides(flags, 1)).toEqual(['R', null, 'L']);
+  expect(alternateStartSides(flags, 2)).toEqual(['L', null, 'R']);
+  // so any single exercise alternates session to session, not just within a workout
+  expect([0, 1, 2, 3].map(n => alternateStartSides(flags, n)[0])).toEqual(['L', 'R', 'L', 'R']);
+});
+
+test('matchPrevSet: one-sided sets match last session by side, not by row', () => {
+  // Last session started on the LEFT with different loads per side...
+  const prev = [
+    { side: 'L', weight: 20, reps: 10 }, { side: 'R', weight: 25, reps: 10 },
+    { side: 'L', weight: 22, reps: 8 },  { side: 'R', weight: 27, reps: 8 },
+  ];
+  // ...this session starts on the RIGHT.
+  const cur = [{ side: 'R' }, { side: 'L' }, { side: 'R' }, { side: 'L' }];
+  expect(matchPrevSet(prev, cur, 0).weight).toBe(25); // 1st R <- last 1st R (row match would give 20)
+  expect(matchPrevSet(prev, cur, 1).weight).toBe(20); // 1st L <- last 1st L
+  expect(matchPrevSet(prev, cur, 2).weight).toBe(27);
+  expect(matchPrevSet(prev, cur, 3).weight).toBe(22);
+});
+
+test('matchPrevSet: no side-matched counterpart -> nothing, rather than the wrong side', () => {
+  const prev = [{ side: 'L', weight: 20 }, { side: 'R', weight: 25 }];
+  const cur = [{ side: 'R' }, { side: 'L' }, { side: 'R' }, { side: 'L' }];
+  expect(matchPrevSet(prev, cur, 2)).toBeUndefined();
+});
+
+test('matchPrevSet: bilateral and old side-less history still match by row', () => {
+  const prev = [{ weight: 100 }, { weight: 110 }];
+  expect(matchPrevSet(prev, [{}, {}], 1).weight).toBe(110);
+  expect(matchPrevSet(prev, [{ side: 'R' }, { side: 'L' }], 0).weight).toBe(100); // old data had no sides
+  expect(matchPrevSet([], [{}], 0)).toBeUndefined();
+  expect(matchPrevSet(undefined, [{}], 0)).toBeUndefined();
+});
+
+test('a workout with two one-sided exercises starts the second on the opposite side', async () => {
+  const uni = (id, name) => ({ id, name, bodyPartGroup: 'legs', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: '' });
+  await addExercise(uni('ex-uni-a', 'Split Squat'));
+  await addExercise({ ...uni('ex-bi', 'Leg Press'), isUnilateral: false });
+  await addExercise(uni('ex-uni-b', 'Single-Leg RDL'));
+  await addTemplate({ id: 'tpl-alt', name: 'Alt Day', bodyPartGroup: 'legs', createdAt: 1, exercises: [
+    { exerciseId: 'ex-uni-a', defaultSets: 2, targetReps: 10, order: 0 },
+    { exerciseId: 'ex-bi', defaultSets: 2, targetReps: 10, order: 1 },
+    { exerciseId: 'ex-uni-b', defaultSets: 2, targetReps: 10, order: 2 },
+  ] });
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-overlay';
+  document.body.appendChild(overlay);
+  window.confirm = () => true;
+  await startTemplate(overlay);
+  await waitFor(() => container.querySelectorAll('.exercise-card').length === 3);
+
+  const cards = [...container.querySelectorAll('.exercise-card')];
+  const sidesOf = card => [...card.querySelectorAll('.set-side')].map(s => s.value);
+  expect(sidesOf(cards[0])).toEqual(['L', 'R', 'L', 'R']); // 1st one-sided: left first
+  expect(sidesOf(cards[1])).toEqual([]);                   // bilateral: no side picker
+  expect(sidesOf(cards[2])).toEqual(['R', 'L', 'R', 'L']); // 2nd one-sided: right first
+  overlay.remove();
 });
