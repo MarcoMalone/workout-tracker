@@ -282,6 +282,7 @@ button svg, .icon-inline, .set-num svg, span svg, b svg, p svg { vertical-align:
 
 /* "Screen stays on" indicator while the wake lock is held */
 .screen-on-chip { display: inline-flex; align-items: center; gap: 4px; margin: -2px 0 10px; font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.3px; }
+.screen-on-chip.off { color: var(--warning, #f5a524); }
 
 /* Set-commit pulse (reduced-motion aware) */
 @keyframes setPulse { 0% { background: transparent; } 25% { background: rgba(198, 241, 53, 0.30); } 100% { background: transparent; } }

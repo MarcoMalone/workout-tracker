@@ -88,6 +88,36 @@ describe('wake lock', () => {
     expect(_isHeld()).toBe(false);
   });
 
+  // iOS rejects a request with no tap behind it (e.g. the auto-update reload restoring
+  // a workout). The next tap must get the lock back, and the UI must hear about it.
+  test('a rejected request is retried on the next tap, and the change is announced', async () => {
+    const sentinel = { release: vi.fn().mockResolvedValue(undefined), addEventListener: vi.fn() };
+    navigator.wakeLock = { request: vi.fn()
+      .mockRejectedValueOnce(Object.assign(new Error('Permission was denied'), { name: 'NotAllowedError' }))
+      .mockResolvedValue(sentinel) };
+    const seen = [];
+    const onChange = e => seen.push(e.detail.held);
+    document.addEventListener('wakelockchange', onChange);
+    await acquire();
+    expect(_isHeld()).toBe(false);
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 0));
+    expect(navigator.wakeLock.request).toHaveBeenCalledTimes(2);
+    expect(_isHeld()).toBe(true);
+    expect(seen).toEqual([false, true]);
+    document.removeEventListener('wakelockchange', onChange);
+  });
+
+  test('taps do nothing once no workout is active', async () => {
+    navigator.wakeLock = { request: vi.fn().mockRejectedValue(new Error('denied')) };
+    await acquire();
+    await release();
+    navigator.wakeLock.request.mockClear();
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 0));
+    expect(navigator.wakeLock.request).not.toHaveBeenCalled();
+  });
+
   test('does not throw when unsupported', async () => {
     delete navigator.wakeLock;
     await expect(acquire()).resolves.not.toThrow?.();

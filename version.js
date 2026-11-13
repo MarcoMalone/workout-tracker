@@ -1,10 +1,18 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.38';
+export const APP_VERSION = '1.7.39';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.39',
+    date: '2026-11-13',
+    items: [
+      'Fixed: Keep Screen On could quietly stop working after the app updated itself mid-workout, or after you came back from another app. iPhone only allows it right after a tap, so the app now grabs it again on your next tap.',
+      'The “Screen stays on” note under your workout now tells the truth. If your phone has turned it off, it says “Screen may sleep — tap anywhere to keep it on” until a tap gets it back.',
+    ],
+  },
   {
     v: '1.7.38',
     date: '2026-11-13',

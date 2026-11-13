@@ -3,7 +3,7 @@ import { readinessScore, goalStreak, painSummary, calcE1RM, getBestE1RM, suggest
 import { showHelpCenter } from './ui-help.js';
 import { switchTab } from './app.js';
 import { haptic } from './haptics.js';
-import { acquire as acquireWakeLock, release as releaseWakeLock, wakeLockEnabled, wakeLockSupported } from './wakelock.js';
+import { acquire as acquireWakeLock, release as releaseWakeLock, wakeLockEnabled, wakeLockSupported, wakeLockHeld } from './wakelock.js';
 import { infoBtnHTML, termSpan, wireInfo } from './help.js';
 import { toast, showToast, confirmSheet, undoToast } from './ui-feedback.js';
 import { groupExercises, roundSlots, leaveSuperset } from './supersets.js';
@@ -550,6 +550,21 @@ async function showReadinessCheckin(el) {
 // instead of a raw pixel offset: remember where it sat on screen, and afterwards put
 // whatever card now occupies that slot (the next exercise after a remove, the restored
 // one after an undo) back in the same spot.
+// The "Screen stays on" chip only claims what's true. iOS can refuse or drop the lock
+// (no tap behind the request, app backgrounded, Low Power Mode); until a tap gets it
+// back, say so instead of promising the screen will stay on.
+function screenChipInner(held) {
+  return held ? `${icon('sun', 14)} Screen stays on` : `${icon('warning', 14)} Screen may sleep — tap anywhere to keep it on`;
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('wakelockchange', e => {
+    const chip = document.getElementById('screen-on-chip');
+    if (!chip) return;
+    chip.innerHTML = screenChipInner(e.detail?.held);
+    chip.classList.toggle('off', !e.detail?.held);
+  });
+}
+
 async function mutateKeepingScroll(el, anchorIdx, mutate) {
   const screenTop = node => node.getBoundingClientRect().top - el.getBoundingClientRect().top;
   const cardAt = () => {
@@ -578,7 +593,7 @@ async function renderActiveSession(el) {
           <button class="btn btn-ghost session-finish-btn" id="finish-btn" style="min-height:36px;font-size:14px">Finish</button>
         </div>
       </div>
-      ${(wakeLockEnabled() && wakeLockSupported()) ? `<div class="screen-on-chip">${icon('sun', 14)} Screen stays on</div>` : ''}
+      ${(wakeLockEnabled() && wakeLockSupported()) ? `<div class="screen-on-chip${wakeLockHeld() ? "" : " off"}" id="screen-on-chip">${screenChipInner(wakeLockHeld())}</div>` : ''}
       <div class="session-time-row">
         <span class="session-time-label">Date</span>
         <input type="date" class="session-time-input" id="session-date" value="${activeSession.date}">
