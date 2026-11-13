@@ -901,16 +901,21 @@ function showReorderEditor(chosen, exById, onDone) {
         ${unlink}
       </div>`;
     }).join('');
+    // Keep the list's scroll position across the post-drop rebuild (else it snaps to the top).
+    const keepScroll = host.querySelector('.reorder-scroll')?.scrollTop || 0;
     host.innerHTML = `
-      <div class="modal-sheet">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <h2 class="modal-title" style="margin-bottom:0">Reorder</h2>
-          <button class="modal-dismiss-btn" id="reorder-dismiss">&times;</button>
+      <div class="modal-sheet reorder-sheet">
+        <div class="reorder-sheet-head">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <h2 class="modal-title" style="margin-bottom:0">Reorder</h2>
+            <button class="modal-dismiss-btn" id="reorder-dismiss">&times;</button>
+          </div>
+          <p class="settings-hint" style="margin-bottom:0">Drag the handle to move an exercise — hold it near the top or bottom edge to keep scrolling. Supersets move as one block — tap "unlink" to split one.</p>
         </div>
-        <p class="settings-hint" style="margin-bottom:12px">Drag the handle to move an exercise. Supersets move as one block — tap "unlink" to split one.</p>
-        <div class="reorder-list">${blocks}</div>
-        <button class="btn btn-primary btn-full" id="reorder-done" style="margin-top:14px">Done</button>
+        <div class="reorder-scroll"><div class="reorder-list">${blocks}</div></div>
+        <div class="reorder-sheet-foot"><button class="btn btn-primary btn-full" id="reorder-done">Done</button></div>
       </div>`;
+    host.querySelector('.reorder-scroll').scrollTop = keepScroll;
     host.querySelector('#reorder-dismiss').addEventListener('click', close);
     host.querySelector('#reorder-done').addEventListener('click', () => {
       chosen.splice(0, chosen.length, ...fromGroups(groups));

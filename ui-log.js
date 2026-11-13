@@ -238,11 +238,25 @@ function toTimeInput(ts) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function fromTimeInput(timeStr) {
+// A time-of-day input is ALWAYS read on the session's own date (the day the workout
+// started), never "today" — sessions are often finished/logged later, sometimes the
+// next day. dateStr is 'YYYY-MM-DD'; omitted → today.
+function fromTimeInput(timeStr, dateStr) {
   const [h, m] = timeStr.split(':').map(Number);
-  const d = new Date();
+  let d = new Date();
+  if (dateStr) { const [y, mo, day] = dateStr.split('-').map(Number); d = new Date(y, mo - 1, day); }
   d.setHours(h, m, 0, 0);
   return d.getTime();
+}
+
+// Start/end timestamps for a finished session, both anchored to the session's start
+// date. An end time earlier than the start means the workout ran past midnight, so
+// the end rolls to the next day — the session's date stays the start day.
+export function sessionTimes(dateStr, startStr, endStr, fallbackStart, now = Date.now()) {
+  const startedAt = startStr ? fromTimeInput(startStr, dateStr) : fallbackStart;
+  let finishedAt = endStr ? fromTimeInput(endStr, dateStr) : now;
+  if (endStr && startedAt && finishedAt < startedAt) finishedAt += 24 * 60 * 60 * 1000;
+  return { startedAt, finishedAt };
 }
 
 export async function renderLogTab(el) {
@@ -530,6 +544,28 @@ async function showReadinessCheckin(el) {
   });
 }
 
+// Change the workout and re-render it without jumping back to the top. The rebuild
+// wipes the page and refills it after async DB reads, so the scroller (#tab-content)
+// collapses and its scroll position clamps to 0. Anchor on the card at anchorIdx
+// instead of a raw pixel offset: remember where it sat on screen, and afterwards put
+// whatever card now occupies that slot (the next exercise after a remove, the restored
+// one after an undo) back in the same spot.
+async function mutateKeepingScroll(el, anchorIdx, mutate) {
+  const screenTop = node => node.getBoundingClientRect().top - el.getBoundingClientRect().top;
+  const cardAt = () => {
+    const cards = [...el.querySelectorAll('[data-ex-idx]')];
+    return cards.find(c => Number(c.dataset.exIdx) >= anchorIdx) || cards[cards.length - 1] || null;
+  };
+  const before = cardAt();
+  const offset = before ? screenTop(before) : null;
+  const top = el.scrollTop;
+  mutate();
+  await renderActiveSession(el);
+  const after = cardAt();
+  if (after && offset !== null) el.scrollTop += screenTop(after) - offset;
+  else el.scrollTop = top;
+}
+
 async function renderActiveSession(el) {
   clearRest();
   acquireWakeLock(); // keep the screen awake for the duration of the workout
@@ -637,12 +673,18 @@ async function renderActiveSession(el) {
     const old = new Date(activeSession.startedAt);
     activeSession.date = e.target.value;
     activeSession.startedAt = new Date(y, mo - 1, d, old.getHours(), old.getMinutes(), 0, 0).getTime();
+    persistActiveSession();
   });
   el.querySelector('#session-start-time').addEventListener('change', e => {
-    if (e.target.value) activeSession.startedAt = fromTimeInput(e.target.value);
+    if (e.target.value) activeSession.startedAt = fromTimeInput(e.target.value, activeSession.date);
+    persistActiveSession();
   });
+  // Save on 'change' immediately — the delegated autosave below fires on input/click,
+  // which can run BEFORE this handler, so without this the end time sat unsaved until
+  // the next tap and was lost if the PWA was closed in between.
   el.querySelector('#session-end-time').addEventListener('change', e => {
     activeSession._endTimeStr = e.target.value;
+    persistActiveSession();
   });
   // One delegated autosave listener on the persistent tab container (bound once)
   // captures every edit; renderActiveSession also persists structural changes.
@@ -757,11 +799,9 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
   card.querySelector('.ex-settings-btn').addEventListener('click', settings.toggle);
   card.querySelector('.ex-remove-btn').addEventListener('click', async () => {
     const removed = activeSession.exercises[exIdx];
-    activeSession.exercises.splice(exIdx, 1);
-    await renderActiveSession(el);
+    await mutateKeepingScroll(el, exIdx, () => activeSession.exercises.splice(exIdx, 1));
     undoToast(`Removed ${displayName}`, async () => {
-      activeSession.exercises.splice(exIdx, 0, removed);
-      await renderActiveSession(el);
+      await mutateKeepingScroll(el, exIdx, () => activeSession.exercises.splice(exIdx, 0, removed));
     });
   });
   card.querySelector('.ex-add-set').addEventListener('click', () => {
@@ -920,11 +960,9 @@ function attachExerciseSettings(opts) {
   panel.querySelector('.ex-member-remove-btn')?.addEventListener('click', async () => {
     const removed = activeSession.exercises[exIdx];
     const name = (exDef.name || removed.exerciseName || '').replace(/_/g, ' ');
-    activeSession.exercises.splice(exIdx, 1);
-    await renderActiveSession(el);
+    await mutateKeepingScroll(el, exIdx, () => activeSession.exercises.splice(exIdx, 1));
     undoToast(`Removed ${name}`, async () => {
-      activeSession.exercises.splice(exIdx, 0, removed);
-      await renderActiveSession(el);
+      await mutateKeepingScroll(el, exIdx, () => activeSession.exercises.splice(exIdx, 0, removed));
     });
   });
 
@@ -1027,16 +1065,21 @@ function showSessionReorder(el) {
         ${unlink}
       </div>`;
     }).join('');
+    // Keep the list's scroll position across the post-drop rebuild (else it snaps to the top).
+    const keepScroll = host.querySelector('.reorder-scroll')?.scrollTop || 0;
     host.innerHTML = `
-      <div class="modal-sheet">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <h2 class="modal-title" style="margin-bottom:0">Reorder exercises</h2>
-          <button class="modal-dismiss-btn" id="sreorder-dismiss">&times;</button>
+      <div class="modal-sheet reorder-sheet">
+        <div class="reorder-sheet-head">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <h2 class="modal-title" style="margin-bottom:0">Reorder exercises</h2>
+            <button class="modal-dismiss-btn" id="sreorder-dismiss">&times;</button>
+          </div>
+          <p class="settings-hint" style="margin-bottom:0">Drag the handle to move an exercise — hold it near the top or bottom edge to keep scrolling. Supersets move as one block — tap "unlink" to split one.</p>
         </div>
-        <p class="settings-hint" style="margin-bottom:12px">Drag the handle to move an exercise. Supersets move as one block — tap "unlink" to split one.</p>
-        <div class="reorder-list">${blocks}</div>
-        <button class="btn btn-primary btn-full" id="sreorder-done" style="margin-top:14px">Done</button>
+        <div class="reorder-scroll"><div class="reorder-list">${blocks}</div></div>
+        <div class="reorder-sheet-foot"><button class="btn btn-primary btn-full" id="sreorder-done">Done</button></div>
       </div>`;
+    host.querySelector('.reorder-scroll').scrollTop = keepScroll;
     host.querySelector('#sreorder-dismiss').addEventListener('click', close);
     host.querySelector('#sreorder-done').addEventListener('click', () => {
       activeSession.exercises.splice(0, activeSession.exercises.length, ...groups.flat());
@@ -1893,8 +1936,7 @@ async function showPostChecklist(el) {
   overlay.querySelector('#save-session-btn').addEventListener('click', async () => {
     const startTimeVal = overlay.querySelector('#start-time').value;
     const endTimeVal = overlay.querySelector('#end-time').value;
-    if (startTimeVal) activeSession.startedAt = fromTimeInput(startTimeVal);
-    activeSession.finishedAt = endTimeVal ? fromTimeInput(endTimeVal) : Date.now();
+    Object.assign(activeSession, sessionTimes(activeSession.date, startTimeVal, endTimeVal, activeSession.startedAt));
     activeSession.postChecklist = answers;
     activeSession.sessionNotes = overlay.querySelector('#session-notes').value;
     activeSession.sessionRating = rating;

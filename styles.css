@@ -519,6 +519,12 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 /* Reorder mode — draggable exercise chips */
 .reorder-list { display: flex; flex-direction: column; gap: 8px; }
+/* Full-screen reorder sheet: header fixed on top, the list scrolls in the middle,
+   Done is pinned to the bottom edge no matter how long the list is. */
+.modal-sheet.reorder-sheet { top: 0; bottom: 0; height: 100%; max-height: none; border-radius: 0; display: flex; flex-direction: column; overflow: hidden; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 0; }
+.reorder-sheet-head { flex: none; padding-bottom: 12px; }
+.reorder-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
+.reorder-sheet-foot { flex: none; padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border); background: var(--surface); }
 /* Reordering is a drag gesture — never let a long-press select the exercise text. */
 .reorder-list, .reorder-group, .reorder-name { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .reorder-group { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface-hi); border: 1px solid var(--border); border-radius: var(--r-md); }

@@ -1,10 +1,20 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.37';
+export const APP_VERSION = '1.7.38';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.38',
+    date: '2026-11-13',
+    items: [
+      'Fixed: the End Time you set during a workout could disappear if the app closed before your next tap. It now saves the moment you set it. Same for the start time and date.',
+      'Start and end times always count on the day the workout started, even if you finish logging it later or the next day.',
+      'Removing an exercise (or undoing it) keeps you where you were in the workout instead of jumping back to the top.',
+      'Reorder now fills the whole screen, with Done pinned to the bottom. Hold an exercise near the top or bottom edge while dragging and the list keeps scrolling, so you can move it from the very top to the very bottom.',
+    ],
+  },
   {
     v: '1.7.37',
     date: '2026-10-02',
