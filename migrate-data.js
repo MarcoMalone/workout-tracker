@@ -154,12 +154,14 @@ const ALL_TEMPLATES = [
       { exerciseId: 'ex-cg-lat-pulldown', variantIds: ['ex-cg-lat-pulldown', 'ex-mn-lat-pulldown', 'ex-wg-lat-pulldown'], variantMode: 'auto', defaultSets: 3, targetReps: 12, order: 1 },
       { exerciseId: 'ex-half-kneeling-cable-row', defaultSets: 3, targetReps: 10, order: 2 }, // per side
       { exerciseId: 'ex-semi-pronated-db-curls', defaultSets: 3, targetReps: 12, order: 3 },
-      { exerciseId: 'ex-rear-delt-fly-machine', defaultSets: 3, targetReps: 12, order: 4 },
-      { exerciseId: 'ex-half-kneeling-cable-lift', defaultSets: 2, targetReps: 8, order: 5 }, // per side
-      { exerciseId: 'ex-pallof-press', defaultSets: 2, targetReps: 10, order: 6 }, // per side
-      { exerciseId: 'ex-pallof-press-single-leg', defaultSets: 1, targetReps: 10, order: 7 }, // per side
-      { exerciseId: 'ex-cable-crunch', defaultSets: 2, targetReps: 12, order: 8 }, // optional
-      { exerciseId: 'ex-dead-hangs', defaultSets: 3, targetReps: null, defaultSeconds: 30, order: 9 },
+      { exerciseId: 'ex-hammer-curls', defaultSets: 2, targetReps: 10, order: 4 }, // optional
+      { exerciseId: 'ex-rear-delt-fly-machine', defaultSets: 3, targetReps: 12, order: 5 },
+      { exerciseId: 'ex-reverse-cable-flys', defaultSets: 2, targetReps: 12, order: 6 }, // optional (lat finisher)
+      { exerciseId: 'ex-half-kneeling-cable-lift', defaultSets: 2, targetReps: 8, order: 7 }, // per side
+      { exerciseId: 'ex-pallof-press', defaultSets: 2, targetReps: 10, order: 8 }, // per side
+      { exerciseId: 'ex-pallof-press-single-leg', defaultSets: 1, targetReps: 10, order: 9 }, // per side
+      { exerciseId: 'ex-cable-crunch', defaultSets: 2, targetReps: 12, order: 10 }, // optional
+      { exerciseId: 'ex-dead-hangs', defaultSets: 3, targetReps: null, defaultSeconds: 30, order: 11 },
     ]
   },
 
@@ -339,6 +341,37 @@ export async function migrateNewTemplates() {
   await ensureArmAThrowerOption();
   await ensureArmBShoulderPressChoice();
   await ensureArmBLateralRaiseSets();
+  await ensureArmAThrowerOptionals();
+}
+
+// One-time: Marco wanted Hammer Curls and Reverse Cable Flys kept in Arm A (Thrower) as
+// OPTIONAL slots (skip them when short on time) instead of dropped. The 1.7.40 copy of the
+// template already landed on his device without them, so insert each right after its
+// partner (hammer after DB Bicep Curls, flys after Rear Delt Fly Machine). Idempotent;
+// skips any that are already there; no-op without the Thrower template.
+const ARMA_THROWER_OPT_KEY = 'tplSync_armAThrowerOptionals_2026_11';
+async function ensureArmAThrowerOptionals() {
+  if (await getSetting(ARMA_THROWER_OPT_KEY)) return;
+  const t = await getTemplate('tpl-arm-a-thrower');
+  if (t && Array.isArray(t.exercises)) {
+    const ex = t.exercises.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    let changed = false;
+    const insertAfter = (afterId, slot) => {
+      if (ex.some(e => e.exerciseId === slot.exerciseId)) return;
+      const i = ex.findIndex(e => e.exerciseId === afterId);
+      if (i === -1) return;
+      ex.splice(i + 1, 0, slot);
+      changed = true;
+    };
+    insertAfter('ex-semi-pronated-db-curls', { exerciseId: 'ex-hammer-curls', defaultSets: 2, targetReps: 10 });
+    insertAfter('ex-rear-delt-fly-machine', { exerciseId: 'ex-reverse-cable-flys', defaultSets: 2, targetReps: 12 });
+    if (changed) {
+      ex.forEach((e, i) => { e.order = i; });
+      t.exercises = ex;
+      await addTemplate(t);
+    }
+  }
+  await setSetting(ARMA_THROWER_OPT_KEY, true);
 }
 
 // One-time, targeted, non-destructive patch: turn Arm A's single machine-neutral

@@ -236,8 +236,9 @@ test('arm A (thrower): added once next to Arm A, Arm A untouched', async () => {
   const ids = t.exercises.slice().sort((a, b) => a.order - b.order).map(e => e.exerciseId);
   expect(ids[0]).toBe('ex-cable-speed-rotation');
   expect(ids.at(-1)).toBe('ex-dead-hangs');
-  expect(ids).not.toContain('ex-reverse-cable-flys');
-  expect(ids).not.toContain('ex-hammer-curls');
+  // Optional slots, each right after its partner.
+  expect(ids[ids.indexOf('ex-semi-pronated-db-curls') + 1]).toBe('ex-hammer-curls');
+  expect(ids[ids.indexOf('ex-rear-delt-fly-machine') + 1]).toBe('ex-reverse-cable-flys');
   for (const id of ids) expect(await getExercise(id)).toBeTruthy(); // every slot resolves
   expect((await getTemplate('tpl-arm-a')).exercises.map(e => e.exerciseId)).toEqual(['ex-reverse-cable-flys', 'ex-dead-hangs']);
   expect(await getSetting('tplSync_armAThrower_2026_11')).toBe(true);
@@ -279,4 +280,22 @@ test('arm B: lateral raises 6/side → 3/side, but an in-app number is left alon
   ] });
   await migrateNewTemplates();
   expect((await getTemplate('tpl-arm-b')).exercises[0].defaultSets).toBe(4);
+});
+
+test('arm A (thrower) optionals: a 1.7.40 copy gets hammer curls + reverse flys inserted once, edits kept', async () => {
+  await setSetting('tplSync_armAThrower_2026_11', true); // already added on the device
+  await addTemplate({ id: 'tpl-arm-a-thrower', name: 'Arm A (Thrower)', bodyPartGroup: 'arms', exercises: [
+    { exerciseId: 'ex-semi-pronated-db-curls', defaultSets: 4, targetReps: 10, order: 0 }, // in-app edit
+    { exerciseId: 'ex-rear-delt-fly-machine', defaultSets: 3, targetReps: 12, order: 1 },
+    { exerciseId: 'ex-dead-hangs', defaultSets: 3, defaultSeconds: 30, order: 2 },
+  ] });
+  await migrateNewTemplates();
+  await migrateNewTemplates(); // second run must not double-insert
+  const t = await getTemplate('tpl-arm-a-thrower');
+  expect(t.exercises.map(e => e.exerciseId)).toEqual([
+    'ex-semi-pronated-db-curls', 'ex-hammer-curls', 'ex-rear-delt-fly-machine', 'ex-reverse-cable-flys', 'ex-dead-hangs',
+  ]);
+  expect(t.exercises.map(e => e.order)).toEqual([0, 1, 2, 3, 4]);
+  expect(t.exercises[0].defaultSets).toBe(4);
+  expect(t.exercises[1]).toMatchObject({ defaultSets: 2, targetReps: 10 });
 });
