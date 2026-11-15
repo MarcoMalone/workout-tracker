@@ -217,3 +217,66 @@ test('single-leg Pallof def: unilateral and lbs, so it generates its own L/R pai
   expect(ex.unit).toBe('lbs');
   expect(ex.bodyPartGroup).toBe('core');
 });
+
+// ── Nov 2026 arm changes ────────────────────────────────────────────────────
+test('curl rename: same id (history carries over), new plain name', async () => {
+  await migrateNewTemplates();
+  expect((await getExercise('ex-semi-pronated-db-curls')).name).toBe('DB Bicep Curls');
+});
+
+test('arm A (thrower): added once next to Arm A, Arm A untouched', async () => {
+  const armA = { id: 'tpl-arm-a', name: 'Arm A', bodyPartGroup: 'arms', exercises: [
+    { exerciseId: 'ex-reverse-cable-flys', defaultSets: 2, targetReps: 12, order: 0 },
+    { exerciseId: 'ex-dead-hangs', defaultSets: 3, defaultSeconds: 30, order: 1 },
+  ] };
+  await addTemplate(JSON.parse(JSON.stringify(armA)));
+  await migrateNewTemplates();
+  const t = await getTemplate('tpl-arm-a-thrower');
+  expect(t.name).toBe('Arm A (Thrower)');
+  const ids = t.exercises.slice().sort((a, b) => a.order - b.order).map(e => e.exerciseId);
+  expect(ids[0]).toBe('ex-cable-speed-rotation');
+  expect(ids.at(-1)).toBe('ex-dead-hangs');
+  expect(ids).not.toContain('ex-reverse-cable-flys');
+  expect(ids).not.toContain('ex-hammer-curls');
+  for (const id of ids) expect(await getExercise(id)).toBeTruthy(); // every slot resolves
+  expect((await getTemplate('tpl-arm-a')).exercises.map(e => e.exerciseId)).toEqual(['ex-reverse-cable-flys', 'ex-dead-hangs']);
+  expect(await getSetting('tplSync_armAThrower_2026_11')).toBe(true);
+});
+
+test('arm A (thrower): not added on a fresh install without Arm A', async () => {
+  await REWORK_DONE();
+  await migrateNewTemplates();
+  expect(await getTemplate('tpl-arm-a-thrower')).toBeFalsy();
+});
+
+test('arm B: machine shoulder press → landmine/cable/machine choice slot, landmine default, no stale 85 lb', async () => {
+  await addTemplate({ id: 'tpl-arm-b', name: 'Arm B', bodyPartGroup: 'arms', exercises: [
+    { exerciseId: 'ex-seated-shoulder-press', defaultSets: 3, targetReps: 12, defaultWeight: 85, order: 0 },
+    { exerciseId: 'ex-db-bench', defaultSets: 3, targetReps: 12, order: 1 },
+  ] });
+  await migrateNewTemplates();
+  const armB = await getTemplate('tpl-arm-b');
+  expect(armB.exercises[0]).toMatchObject({
+    exerciseId: 'ex-half-kneeling-landmine-press',
+    variantIds: ['ex-half-kneeling-landmine-press', 'ex-half-kneeling-cable-press', 'ex-seated-shoulder-press'],
+    variantMode: 'choice', defaultSets: 3, targetReps: 10,
+  });
+  expect(armB.exercises[0].defaultWeight).toBeUndefined();
+  expect(armB.exercises[1].exerciseId).toBe('ex-db-bench');
+  expect((await getExercise('ex-half-kneeling-landmine-press')).isUnilateral).toBe(true);
+});
+
+test('arm B: lateral raises 6/side → 3/side, but an in-app number is left alone', async () => {
+  await addTemplate({ id: 'tpl-arm-b', name: 'Arm B', bodyPartGroup: 'arms', exercises: [
+    { exerciseId: 'ex-single-arm-lateral-raises', defaultSets: 6, targetReps: 12, order: 0 },
+  ] });
+  await migrateNewTemplates();
+  expect((await getTemplate('tpl-arm-b')).exercises[0].defaultSets).toBe(3);
+
+  globalThis.indexedDB = new IDBFactory(); _resetForTest(); await initDB();
+  await addTemplate({ id: 'tpl-arm-b', name: 'Arm B', bodyPartGroup: 'arms', exercises: [
+    { exerciseId: 'ex-single-arm-lateral-raises', defaultSets: 4, targetReps: 12, order: 0 },
+  ] });
+  await migrateNewTemplates();
+  expect((await getTemplate('tpl-arm-b')).exercises[0].defaultSets).toBe(4);
+});

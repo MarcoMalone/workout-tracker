@@ -13,9 +13,16 @@ const ALL_EXERCISES = [
   { id: 'ex-cg-lat-pulldown', name: 'Close-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Narrow/neutral grip — more lat + lower-lat emphasis.', variationGroupId: 'grp-lat-pulldown', variationBase: 'Lat Pulldown', variationLabel: 'Close-Grip' },
   { id: 'ex-wg-lat-pulldown', name: 'Wide-Grip Lat Pulldown', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Wide pronated grip — upper-back / teres emphasis.', variationGroupId: 'grp-lat-pulldown', variationBase: 'Lat Pulldown', variationLabel: 'Wide-Grip' },
   // Shoulder-stability options for an Arm B choice-swap slot.
-  { id: 'ex-half-kneeling-landmine-press', name: 'Half-Kneeling Landmine Press', bodyPartGroup: 'arms', equipment: 'barbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Shoulder stability — controlled press, ribs down.' },
+  { id: 'ex-half-kneeling-landmine-press', name: 'Half-Kneeling Landmine Press', bodyPartGroup: 'arms', equipment: 'barbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Bar end in the landmine. Kneel on the knee on the SAME side as the pressing arm. Bar starts at the front of the shoulder; press up and forward, reach at the top, ribs down, no leaning back. Start with the empty bar; log the plates you add.' },
+  // Thrower / rotational options (Nov 2026). All Planet-Fitness-doable: cable stack only.
+  { id: 'ex-half-kneeling-cable-press', name: 'Half-Kneeling Single-Arm Cable Press', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Landmine stand-in when there is no landmine. Pulley at the bottom, kneel facing AWAY from the stack, same-side knee down. Press up and forward at about 45 degrees, ribs down.' },
+  { id: 'ex-half-kneeling-cable-row', name: 'Half-Kneeling Single-Arm Cable Row', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Pulley at chest height, single handle. Kneel facing the stack. Row to the hip and let the shoulder blade move fully; do not let the torso twist with the pull.' },
+  { id: 'ex-cable-speed-rotation', name: 'Explosive Cable Rotation', bodyPartGroup: 'core', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Do this FIRST, while fresh. Stand side-on to the stack in your hitting/throwing stance, handle at chest height, arms long. Load into the back hip, then turn through as FAST as you can, hips first. Light weight: speed is the point. Slow return. End the set when you slow down.' },
+  { id: 'ex-half-kneeling-cable-lift', name: 'Half-Kneeling Cable Lift', bodyPartGroup: 'core', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Rope on the LOW pulley. Kneel side-on, knee nearest the stack up. Pull from the near hip up and across past the far shoulder, turning through the upper back while hips stay square. Controlled, both directions.' },
   { id: 'ex-bottoms-up-kb-press', name: 'Bottoms-Up KB Press', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: true, isBodyweight: false, notes: 'Shoulder/cuff stability — kettlebell inverted, grip tight.' },
-  { id: 'ex-semi-pronated-db-curls', name: 'Semi-Pronated DB Curls', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
+  // Same id as the old "Semi-Pronated DB Curls" so history/PRs carry over — Marco does
+  // regular supinated curls now (Nov 2026); only the name changed.
+  { id: 'ex-semi-pronated-db-curls', name: 'DB Bicep Curls', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-rear-delt-fly-machine', name: 'Rear Delt Fly Machine', bodyPartGroup: 'arms', equipment: 'machine', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
   { id: 'ex-seated-cable-rows', name: 'Close-Grip Seated Row', bodyPartGroup: 'arms', equipment: 'cable', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: 'Close/neutral grip — mid-back + lat.', variationGroupId: 'grp-seated-row', variationBase: 'Seated Row', variationLabel: 'Close-Grip' },
   { id: 'ex-hammer-curls', name: 'Hammer Curls', bodyPartGroup: 'arms', equipment: 'dumbbell', machineId: null, unit: 'lbs', isTimed: false, isUnilateral: false, isBodyweight: false, notes: '' },
@@ -134,6 +141,28 @@ const ALL_TEMPLATES = [
     ]
   },
 
+  // ── Arm A (Thrower) — OPTIONAL alternative to Arm A (Nov 2026). Arm A itself is left
+  // as Marco has it. Speed rotation first, single-arm/anti-rotation pulling, controlled
+  // rotation, no reverse cable flys / hammer curls. Cable Crunch is optional (skip for time).
+  {
+    id: 'tpl-arm-a-thrower',
+    name: 'Arm A (Thrower)',
+    bodyPartGroup: 'arms',
+    createdAt: 1794700800000,
+    exercises: [
+      { exerciseId: 'ex-cable-speed-rotation', defaultSets: 3, targetReps: 5, order: 0 }, // per side, light + fast
+      { exerciseId: 'ex-cg-lat-pulldown', variantIds: ['ex-cg-lat-pulldown', 'ex-mn-lat-pulldown', 'ex-wg-lat-pulldown'], variantMode: 'auto', defaultSets: 3, targetReps: 12, order: 1 },
+      { exerciseId: 'ex-half-kneeling-cable-row', defaultSets: 3, targetReps: 10, order: 2 }, // per side
+      { exerciseId: 'ex-semi-pronated-db-curls', defaultSets: 3, targetReps: 12, order: 3 },
+      { exerciseId: 'ex-rear-delt-fly-machine', defaultSets: 3, targetReps: 12, order: 4 },
+      { exerciseId: 'ex-half-kneeling-cable-lift', defaultSets: 2, targetReps: 8, order: 5 }, // per side
+      { exerciseId: 'ex-pallof-press', defaultSets: 2, targetReps: 10, order: 6 }, // per side
+      { exerciseId: 'ex-pallof-press-single-leg', defaultSets: 1, targetReps: 10, order: 7 }, // per side
+      { exerciseId: 'ex-cable-crunch', defaultSets: 2, targetReps: 12, order: 8 }, // optional
+      { exerciseId: 'ex-dead-hangs', defaultSets: 3, targetReps: null, defaultSeconds: 30, order: 9 },
+    ]
+  },
+
   // ── Arm B — chest/shoulders/triceps day + core finisher (Bird Dog + Dead Bug) at the end ──
   {
     id: 'tpl-arm-b',
@@ -141,13 +170,14 @@ const ALL_TEMPLATES = [
     bodyPartGroup: 'arms',
     createdAt: 1749772800000,
     exercises: [
-      { exerciseId: 'ex-seated-shoulder-press', defaultSets: 3, targetReps: 12, defaultWeight: 85, order: 0 },
+      // Choice slot: landmine press (default) ⇄ cable press (no landmine) ⇄ the old machine press.
+      { exerciseId: 'ex-half-kneeling-landmine-press', variantIds: ['ex-half-kneeling-landmine-press', 'ex-half-kneeling-cable-press', 'ex-seated-shoulder-press'], variantMode: 'choice', defaultSets: 3, targetReps: 10, order: 0 }, // per side
       { exerciseId: 'ex-db-bench', defaultSets: 3, targetReps: 12, defaultWeight: 65, order: 1 },
       { exerciseId: 'ex-push-ups', defaultSets: 3, targetReps: 10, order: 2 },
       { exerciseId: 'ex-rope-tricep-pushdowns', defaultSets: 3, targetReps: 12, defaultWeight: 35, order: 3 },
       { exerciseId: 'ex-face-pulls', defaultSets: 3, targetReps: 12, defaultWeight: 30, order: 4 },
       { exerciseId: 'ex-pec-flys-machine', defaultSets: 3, targetReps: 12, defaultWeight: 92.5, order: 5 },
-      { exerciseId: 'ex-single-arm-lateral-raises', defaultSets: 6, targetReps: 12, defaultWeight: 10, order: 6 },
+      { exerciseId: 'ex-single-arm-lateral-raises', defaultSets: 3, targetReps: 12, defaultWeight: 10, order: 6 }, // 3 PER SIDE (unilateral doubles to 6 rows)
       { exerciseId: 'ex-forearm-rope-rollups', defaultSets: 3, targetReps: 2, defaultWeight: 5, order: 7 },
       // Core finisher — appended at the end (after current final exercise)
       { exerciseId: 'ex-bird-dog', defaultSets: 2, targetReps: 10, order: 8 },
@@ -306,6 +336,9 @@ export async function migrateNewTemplates() {
   await ensureLegsBLegPress();
   await ensureLegsBDbRdl();
   await ensureArmASingleLegPallof();
+  await ensureArmAThrowerOption();
+  await ensureArmBShoulderPressChoice();
+  await ensureArmBLateralRaiseSets();
 }
 
 // One-time, targeted, non-destructive patch: turn Arm A's single machine-neutral
@@ -464,4 +497,54 @@ async function ensureArmASingleLegPallof() {
     }
   }
   await setSetting(ARMA_SL_PALLOF_KEY, true);
+}
+
+// One-time: add the OPTIONAL "Arm A (Thrower)" template next to Arm A. Only on a device
+// that already has Arm A (Marco's), never on a fresh install, and never over an existing
+// copy (in-app edits to it win). Arm A itself is not touched.
+const ARMA_THROWER_KEY = 'tplSync_armAThrower_2026_11';
+async function ensureArmAThrowerOption() {
+  if (await getSetting(ARMA_THROWER_KEY)) return;
+  if ((await getTemplate('tpl-arm-a')) && !(await getTemplate('tpl-arm-a-thrower'))) {
+    const tpl = ALL_TEMPLATES.find(t => t.id === 'tpl-arm-a-thrower');
+    await addTemplate(JSON.parse(JSON.stringify(tpl)));
+  }
+  await setSetting(ARMA_THROWER_KEY, true);
+}
+
+// One-time: Arm B's machine shoulder press becomes a CHOICE slot defaulting to the
+// half-kneeling landmine press, with a cable-press fallback (no landmine) and the old
+// machine press still one tap away. Unilateral now, so 3 sets = 3 PER SIDE at 10 reps.
+// The slot's default weight is dropped — 85 lb was the machine's number; each variant
+// prefills from its own history instead. Skips a slot that already has a rotation.
+const ARMB_PRESS_KEY = 'tplSync_armBShoulderPressChoice_2026_11';
+async function ensureArmBShoulderPressChoice() {
+  if (await getSetting(ARMB_PRESS_KEY)) return;
+  const armB = await getTemplate('tpl-arm-b');
+  if (armB && Array.isArray(armB.exercises)) {
+    const slot = armB.exercises.find(e => e.exerciseId === 'ex-seated-shoulder-press' && !e.variantIds);
+    if (slot) {
+      slot.exerciseId = 'ex-half-kneeling-landmine-press';
+      slot.variantIds = ['ex-half-kneeling-landmine-press', 'ex-half-kneeling-cable-press', 'ex-seated-shoulder-press'];
+      slot.variantMode = 'choice';
+      slot.targetReps = 10;
+      delete slot.defaultWeight;
+      await addTemplate(armB);
+    }
+  }
+  await setSetting(ARMB_PRESS_KEY, true);
+}
+
+// One-time: Single-Arm Lateral Raises were seeded at defaultSets 6, and unilateral sets are
+// PER SIDE, so the log showed 12 rows. Marco does 3 per side. Only corrects the seeded 6 —
+// any other number was set in-app on purpose and is left alone.
+const ARMB_LATERAL_KEY = 'tplSync_armBLateralRaiseSets_2026_11';
+async function ensureArmBLateralRaiseSets() {
+  if (await getSetting(ARMB_LATERAL_KEY)) return;
+  const armB = await getTemplate('tpl-arm-b');
+  if (armB && Array.isArray(armB.exercises)) {
+    const slot = armB.exercises.find(e => e.exerciseId === 'ex-single-arm-lateral-raises' && e.defaultSets === 6);
+    if (slot) { slot.defaultSets = 3; await addTemplate(armB); }
+  }
+  await setSetting(ARMB_LATERAL_KEY, true);
 }

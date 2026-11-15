@@ -1,10 +1,20 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.39';
+export const APP_VERSION = '1.7.40';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.40',
+    date: '2026-11-14',
+    items: [
+      'New optional workout: Arm A (Thrower). It sits next to your regular Arm A, which hasn’t changed. It starts with fast cable rotations, swaps in a half-kneeling single-arm cable row and a cable lift, and drops reverse cable flys and hammer curls. Cable Crunch is optional, so skip it if you’re short on time.',
+      'Semi-Pronated DB Curls are now just DB Bicep Curls. Your history and PRs carry over.',
+      'Arm B: the machine shoulder press is now a pick-one slot. Half-Kneeling Landmine Press is the default; tap the cable press if there’s no landmine, or the machine press to go back to the old way. Each one tracks its own weights.',
+      'Arm B: Single-Arm Lateral Raises are back to 3 sets per side (they were set to 6 per side).',
+    ],
+  },
   {
     v: '1.7.39',
     date: '2026-11-13',
