@@ -677,6 +677,7 @@ export async function showTemplateEditor(el, existing, onSave) {
     variantIds: Array.isArray(e.variantIds) && e.variantIds.length > 1 ? e.variantIds.slice() : null,
     variantMode: e.variantMode === 'choice' ? 'choice' : (Array.isArray(e.variantIds) && e.variantIds.length > 1 ? 'auto' : null),
     linkedAbove: i > 0 && !!e.supersetId && e.supersetId === sorted[i - 1].supersetId,
+    optional: !!e.optional,
   }));
 
   overlay.innerHTML = `
@@ -719,7 +720,7 @@ export async function showTemplateEditor(el, existing, onSave) {
       const displayName = rotating ? `${(exById[r.variantIds[0]]?.name || name).replace(/_/g, ' ')} +${r.variantIds.length - 1}` : name;
       return `<div class="tpl-ex-row${r.linkedAbove ? ' tpl-linked' : ''}">
         ${i > 0 ? `<button class="tpl-link${r.linkedAbove ? ' on' : ''}" data-i="${i}" title="${r.linkedAbove ? 'Linked as a superset — tap to unlink' : 'Superset with the exercise above'}" aria-label="Superset with above">${icon('chainLink', 15)}</button>` : '<span class="tpl-link-spacer"></span>'}
-        <div class="tpl-ex-main">${r.linkedAbove ? '<span class="tpl-linked-tag">superset with above</span>' : ''}<span class="tpl-ex-name">${esc(displayName)}${uni ? ' <span class="uni-tag">per side</span>' : ''}</span>${rotTag}<div class="tpl-ex-cfg">${cfg}</div></div>
+        <div class="tpl-ex-main">${r.linkedAbove ? '<span class="tpl-linked-tag">superset with above</span>' : ''}<span class="tpl-ex-name">${esc(displayName)}${uni ? ' <span class="uni-tag">per side</span>' : ''}</span>${rotTag}<div class="tpl-ex-cfg">${cfg}<button type="button" class="tpl-opt${r.optional ? ' on' : ''}" data-i="${i}" aria-pressed="${r.optional ? 'true' : 'false'}" title="Optional: skippable, shown with an Optional badge">Optional</button></div></div>
         <div class="tpl-ex-ctrls">
           <button class="tpl-rotate${rotating ? ' on' : ''}" data-i="${i}" title="Rotate through variants" aria-label="Rotate variants">${icon('rotate', 15)}</button>
           <button class="tpl-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">${icon('arrowUp', 15)}</button>
@@ -733,6 +734,7 @@ export async function showTemplateEditor(el, existing, onSave) {
     listEl.querySelectorAll('.tpl-mini').forEach(inp => inp.addEventListener('input', () => {
       chosen[+inp.dataset.i][inp.dataset.f] = inp.value === '' ? null : Number(inp.value);
     }));
+    listEl.querySelectorAll('.tpl-opt').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.i; chosen[i].optional = !chosen[i].optional; renderList(); }));
     listEl.querySelectorAll('.tpl-link').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.i; chosen[i].linkedAbove = !chosen[i].linkedAbove; renderList(); }));
     listEl.querySelectorAll('.tpl-move').forEach(b => b.addEventListener('click', () => {
       const i = +b.dataset.i, j = i + (+b.dataset.d);
@@ -786,6 +788,7 @@ export async function showTemplateEditor(el, existing, onSave) {
         supersetId: ids[i],
       };
       if (rotating) { entry.variantIds = r.variantIds.slice(); entry.variantMode = r.variantMode === 'choice' ? 'choice' : 'auto'; }
+      if (r.optional) entry.optional = true;
       return entry;
     });
     await addTemplate({ id: existing?.id || crypto.randomUUID(), name, bodyPartGroup: overlay.querySelector('#tpl-part').value, exercises: exList, createdAt: existing?.createdAt || Date.now() });

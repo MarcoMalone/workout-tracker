@@ -40,3 +40,15 @@ describe('edgeScrollStep — drag auto-scroll near the list edges', () => {
     expect(edgeScrollStep(900, rect)).toBe(edgeScrollStep(700, rect));
   });
 });
+
+import { dropSkippedOptionals } from '../ui-log.js';
+describe('dropSkippedOptionals — skipped optional exercises are not saved', () => {
+  it('drops an optional exercise with no checked set, keeps a done one and every required one', () => {
+    const out = dropSkippedOptionals([
+      { exerciseId: 'req', sets: [{ weight: 50, reps: 10 }] },
+      { exerciseId: 'opt-skipped', optional: true, sets: [{ weight: 25, reps: 10 }] },
+      { exerciseId: 'opt-done', optional: true, sets: [{ weight: 25, reps: 10, done: true }, { weight: 25, reps: 10 }] },
+    ]);
+    expect(out.map(e => e.exerciseId)).toEqual(['req', 'opt-done']);
+  });
+});

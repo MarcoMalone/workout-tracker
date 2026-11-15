@@ -1,10 +1,20 @@
 // App version + human-readable changelog. Shown in Settings → About, and the
 // newest entry is surfaced once when the version changes (see whatsnew.js).
 // Bump APP_VERSION and prepend an entry when you ship something user-visible.
-export const APP_VERSION = '1.7.41';
+export const APP_VERSION = '1.7.42';
 
 // Newest first. Keep entries short and plain-language — a tester reads these.
 export const CHANGELOG = [
+  {
+    v: '1.7.42',
+    date: '2026-11-14',
+    items: [
+      'Optional exercises are now marked. They get a purple tint, a purple ring and an OPTIONAL tag in the top-right corner.',
+      'Skipped one? If you don’t check off a single set of an optional exercise, it’s left out when you finish, so it never counts as done.',
+      'In Arm A (Thrower), Hammer Curls, Reverse Cable Flys and Cable Crunch are optional.',
+      'Mark any exercise optional yourself: edit a template and tap the “Optional” pill on that exercise.',
+    ],
+  },
   {
     v: '1.7.41',
     date: '2026-11-14',

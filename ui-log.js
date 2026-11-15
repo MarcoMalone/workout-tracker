@@ -733,7 +733,7 @@ function prefillFromLastSession(sessionEx, exDef, prev) {
 
 function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
   const card = document.createElement('div');
-  card.className = 'exercise-card card';
+  card.className = `exercise-card card${sessionEx.optional ? ' optional' : ''}`;
   card.dataset.exIdx = exIdx;
 
   // Rotating-slot variant switcher: chips for each variant, current one highlighted.
@@ -758,6 +758,7 @@ function buildExerciseCard(exIdx, exDef, prev, sessionEx, el, variants = null) {
     : '';
 
   card.innerHTML = `
+    ${sessionEx.optional ? '<span class="optional-badge">Optional</span>' : ''}
     <div class="ex-header">
       <span class="ex-name">${esc(displayName)}${machineLabel}</span>
       <div style="display:flex;gap:4px;align-items:center">
@@ -1603,6 +1604,13 @@ function pulseRow(row) {
 
 // Drop sets with no logged data (no weight/reps/seconds) and renumber, so a
 // half-added or skipped set never persists as "null × null". Applied on finish.
+// Finish-time cleanup for optional exercises: one you never checked a single set on
+// was skipped, so it's left out of the saved workout (its prefilled numbers would
+// otherwise be saved as if you did them). Required exercises are never touched.
+export function dropSkippedOptionals(exercises) {
+  return (exercises || []).filter(ex => !ex.optional || (ex.sets || []).some(s => s.done));
+}
+
 export function stripEmptySets(exercises) {
   return (exercises || []).map(ex => ({
     ...ex,
@@ -1831,6 +1839,7 @@ async function startSession(el, template, answers, sorenessNote = '') {
       targetReps: e.targetReps ?? null, // kept for the progressive-overload hint
       variantIds: rotating ? e.variantIds.slice() : null,   // carried for the in-workout switcher
       variantMode: rotating ? (e.variantMode === 'choice' ? 'choice' : 'auto') : null,
+      optional: !!e.optional, // template marks it skippable — badge on the card, dropped on Finish if untouched
       notes: '',
       sets: Array.from({ length: rows }, (_, i) => ({
         setNumber: i + 1,
@@ -1959,7 +1968,7 @@ async function showPostChecklist(el) {
     activeSession.workoutLabel = labelVal || null;
     const ctxVal = overlay.querySelector('#workout-context').value.trim();
     activeSession.workoutContext = ctxVal || null;
-    activeSession.exercises = stripEmptySets(activeSession.exercises);
+    activeSession.exercises = stripEmptySets(dropSkippedOptionals(activeSession.exercises));
     await saveSession(activeSession);
     activeSession = null;
     clearPersistedSession();

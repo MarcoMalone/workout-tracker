@@ -299,3 +299,18 @@ test('arm A (thrower) optionals: a 1.7.40 copy gets hammer curls + reverse flys 
   expect(t.exercises[0].defaultSets).toBe(4);
   expect(t.exercises[1]).toMatchObject({ defaultSets: 2, targetReps: 10 });
 });
+
+test('arm A (thrower) optional flags: hammer curls, reverse flys, cable crunch marked optional; nothing else changes', async () => {
+  await setSetting('tplSync_armAThrower_2026_11', true);
+  await setSetting('tplSync_armAThrowerOptionals_2026_11', true);
+  await addTemplate({ id: 'tpl-arm-a-thrower', name: 'Arm A (Thrower)', bodyPartGroup: 'arms', exercises: [
+    { exerciseId: 'ex-semi-pronated-db-curls', defaultSets: 3, targetReps: 12, order: 0 },
+    { exerciseId: 'ex-hammer-curls', defaultSets: 2, targetReps: 10, order: 1 },
+    { exerciseId: 'ex-reverse-cable-flys', defaultSets: 2, targetReps: 12, order: 2 },
+    { exerciseId: 'ex-cable-crunch', defaultSets: 3, targetReps: 15, order: 3 },
+  ] });
+  await migrateNewTemplates();
+  const t = await getTemplate('tpl-arm-a-thrower');
+  expect(t.exercises.map(e => !!e.optional)).toEqual([false, true, true, true]);
+  expect(t.exercises[3]).toMatchObject({ defaultSets: 3, targetReps: 15 });
+});
